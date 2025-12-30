@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Amanhencer.Abstractions/Amanhencer.Abstractions.csproj" />
+    <Project Path="src/Amanhencer/Amanhencer.csproj" />
+  </Folder>
+</Solution>

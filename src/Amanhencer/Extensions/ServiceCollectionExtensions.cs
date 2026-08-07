@@ -17,7 +17,7 @@ namespace Amanhencer.Extensions;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers the Amanhencer processor and its default services (factories, pipeline
+    /// Registers the Amanhencer dispatcher and its default services (factories, pipeline
     /// configuration and the default sequential executing strategy).
     /// </summary>
     /// <param name="services">The service collection to register into.</param>
@@ -26,7 +26,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddAmanhencer(this IServiceCollection services,
         Action<AmanhencerConfigurator>? configure = null)
     {
-        services.TryAddTransient<IProcessor, AmanhencerProcessor>();
+        services.TryAddTransient<IDispatcher, AmanhencerDispatcher>();
         services.TryAddTransient<IHandlerFactory, AmanhencerHandlerFactory>();
         services.TryAddTransient<IMiddlewareFactory, AmanhencerMiddlewareFactory>();
         services.TryAddTransient<IPipelineFactory, AmanhencerPipelineFactory>();

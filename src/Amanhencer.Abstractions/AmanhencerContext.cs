@@ -5,7 +5,7 @@ namespace Amanhencer.Abstractions;
 
 /// <summary>
 /// Default <see cref="IContext"/> implementation used when dispatching requests through
-/// <see cref="IProcessor"/>.
+/// <see cref="IDispatcher"/>.
 /// </summary>
 public class AmanhencerContext : IContext
 {

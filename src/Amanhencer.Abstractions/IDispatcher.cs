@@ -8,7 +8,7 @@ namespace Amanhencer.Abstractions;
 /// Use <c>Send</c> for commands with exactly one handler, <c>Publish</c> for events with any
 /// number of handlers, and <c>Query</c> for requests that return a response.
 /// </summary>
-public interface IProcessor
+public interface IDispatcher
 {
     /// <summary>
     /// Sends a request to the single pipeline registered for it, blocking until it completes.

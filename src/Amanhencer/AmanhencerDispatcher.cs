@@ -7,14 +7,14 @@ using Amanhencer.Abstractions.Exceptions;
 namespace Amanhencer;
 
 /// <summary>
-/// The default <see cref="IProcessor"/> implementation. Resolves the pipeline(s) for a request's
+/// The default <see cref="IDispatcher"/> implementation. Resolves the pipeline(s) for a request's
 /// routing key through an <see cref="IPipelineFactory"/> and executes them using the
 /// <see cref="IExecutingStrategy"/> selected for the context.
 /// </summary>
 /// <param name="contextFactory">Creates the <see cref="IPipelineContext"/> for each request.</param>
 /// <param name="factory">Resolves the pipelines configured for a routing key.</param>
-public class AmanhencerProcessor(IPipelineContextFactory contextFactory, IPipelineFactory factory)
-    : IProcessor
+public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipelineFactory factory)
+    : IDispatcher
 {
     /// <summary>
     /// Sends a request synchronously to its single matching pipeline, using a new <see cref="AmanhencerContext"/>.

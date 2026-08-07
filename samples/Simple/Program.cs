@@ -1,4 +1,4 @@
-﻿using Amanhencer.Abstractions;
+using Amanhencer.Abstractions;
 using Amanhencer.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Simple;
@@ -10,13 +10,13 @@ var service = new ServiceCollection()
     .BuildServiceProvider();
 
 await using var scope = service.CreateAsyncScope();
-var process = scope.ServiceProvider.GetRequiredService<IProcessor>();
+var dispatcher = scope.ServiceProvider.GetRequiredService<IDispatcher>();
 
 Console.Write("Your name: ");
 var name = Console.ReadLine() ?? string.Empty;
-process.Send(new Greeting(name));
+dispatcher.Send(new Greeting(name));
 
 Console.Write("Make a Question: ");
 var question = Console.ReadLine() ?? string.Empty;
-var answer = process.Query<Ask, string>(new Ask(question));
+var answer = dispatcher.Query<Ask, string>(new Ask(question));
 Console.WriteLine(answer);

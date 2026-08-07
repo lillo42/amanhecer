@@ -11,6 +11,7 @@
 
     <Authors>Rafael Andrade</Authors>
     <Copyright>Copyright © Rafael Andrade 2026</Copyright>
+    <NeutralLanguage>en-GB</NeutralLanguage>
 
     <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
   </PropertyGroup>

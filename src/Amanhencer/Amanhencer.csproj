@@ -1,7 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   
   <PropertyGroup>
     <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
+    <Description>A lightweight request dispatcher (mediator) for .NET — send commands, publish events and execute queries through middleware pipelines. Inspired by Paramore Brighter.</Description>
+    <PackageTags>mediator;cqrs;messaging;dispatcher;commands;events;queries;middleware;pipeline;brighter</PackageTags>
   </PropertyGroup>
   
   <ItemGroup>

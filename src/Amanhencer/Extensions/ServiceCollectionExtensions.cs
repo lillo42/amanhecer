@@ -11,8 +11,18 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Amanhencer.Extensions;
 
+/// <summary>
+/// Extension methods to register Amanhencer in an <see cref="IServiceCollection"/>.
+/// </summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Registers the Amanhencer processor and its default services (factories, pipeline
+    /// configuration and the default sequential executing strategy).
+    /// </summary>
+    /// <param name="services">The service collection to register into.</param>
+    /// <param name="configure">An optional action to configure handlers, routing keys and the executing strategy.</param>
+    /// <returns>The same service collection, for chaining.</returns>
     public static IServiceCollection AddAmanhencer(this IServiceCollection services,
         Action<AmanhencerConfigurator>? configure = null)
     {

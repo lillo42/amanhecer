@@ -4,8 +4,19 @@ using Amanhencer.Abstractions;
 
 namespace Amanhencer.ExecutingStrategies;
 
+/// <summary>
+/// Executes the pipelines in parallel, each with a deep-cloned <see cref="IPipelineContext"/>.
+/// </summary>
+/// <param name="options">The options that control parallelism and cancellation.</param>
 public class ParallelExecutingStrategy(ParallelOptions options) : IExecutingStrategy
 {
+    /// <summary>
+    /// Executes the given pipelines in parallel. Does nothing when the list is empty and
+    /// runs the pipeline directly when there is only one.
+    /// </summary>
+    /// <param name="context">The pipeline context; deep-cloned per pipeline when running in parallel.</param>
+    /// <param name="pipelines">The pipelines to execute.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when all pipelines have finished.</returns>
     public async ValueTask ExecuteAsync(IPipelineContext context, ImmutableList<IPipeline> pipelines)
     {
         if (pipelines.Count == 0)

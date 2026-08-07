@@ -1,6 +1,9 @@
 #if NETSTANDARD || NETFRAMEWORK
 namespace System;
 
+/// <summary>
+/// Specifies the types of members that are dynamically accessed.
+/// </summary>
 [Flags]
 internal enum DynamicallyAccessedMemberTypes
 {

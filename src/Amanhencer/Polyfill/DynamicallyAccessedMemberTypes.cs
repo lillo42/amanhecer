@@ -1,6 +1,9 @@
 #if NETSTANDARD || NETFRAMEWORK
 namespace System;
 
+/// <summary>
+/// Polyfill specifying the kinds of members that can be accessed dynamically.
+/// </summary>
 [Flags]
 internal enum DynamicallyAccessedMemberTypes
 {

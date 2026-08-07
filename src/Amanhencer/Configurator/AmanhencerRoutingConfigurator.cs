@@ -11,11 +11,23 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Amanhencer.Configurator;
 
+/// <summary>
+/// Configures the pipeline for a single routing key: the middlewares and the terminal handler.
+/// </summary>
+/// <param name="routingKey">The routing key handled by this pipeline.</param>
+/// <param name="services">The service collection where middlewares and handlers are registered.</param>
 public class AmanhencerRoutingConfigurator(string routingKey, IServiceCollection services)
 {
     private Type? _handlerType;
     private readonly List<AmanhencerMiddlewareOptions> _middlewareOption = new();
 
+    /// <summary>
+    /// Adds a middleware to the pipeline.
+    /// </summary>
+    /// <typeparam name="TMiddleware">The middleware type.</typeparam>
+    /// <param name="order">The execution order within the pipeline; lower values run first.</param>
+    /// <param name="metadata">Optional metadata passed to the middleware on initialisation.</param>
+    /// <returns>The current <see cref="AmanhencerRoutingConfigurator"/>, for chaining.</returns>
     public AmanhencerRoutingConfigurator Use<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
         TMiddleware>(int order = 0, object? metadata = null)
@@ -25,6 +37,13 @@ public class AmanhencerRoutingConfigurator(string routingKey, IServiceCollection
         return this;
     }
 
+    /// <summary>
+    /// Adds a middleware to the pipeline.
+    /// </summary>
+    /// <param name="middlewareType">The middleware type.</param>
+    /// <param name="order">The execution order within the pipeline; lower values run first.</param>
+    /// <param name="metadata">Optional metadata passed to the middleware on initialisation.</param>
+    /// <returns>The current <see cref="AmanhencerRoutingConfigurator"/>, for chaining.</returns>
     public AmanhencerRoutingConfigurator Use(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
         Type middlewareType, int order = 0, object? metadata = null)
@@ -34,6 +53,12 @@ public class AmanhencerRoutingConfigurator(string routingKey, IServiceCollection
         return this;
     }
 
+    /// <summary>
+    /// Sets the terminal handler of the pipeline and registers the middlewares declared via
+    /// <see cref="MiddlewareAttribute"/> on the handler class and its HandleAsync method.
+    /// </summary>
+    /// <typeparam name="THandler">The handler type.</typeparam>
+    /// <returns>The current <see cref="AmanhencerRoutingConfigurator"/>, for chaining.</returns>
     public AmanhencerRoutingConfigurator UseHandler<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors |
                                     DynamicallyAccessedMemberTypes.Interfaces |
@@ -44,6 +69,12 @@ public class AmanhencerRoutingConfigurator(string routingKey, IServiceCollection
         return UseHandler(typeof(THandler));
     }
 
+    /// <summary>
+    /// Sets the terminal handler of the pipeline and registers the middlewares declared via
+    /// <see cref="MiddlewareAttribute"/> on the handler class and its HandleAsync method.
+    /// </summary>
+    /// <param name="handlerType">The handler type.</param>
+    /// <returns>The current <see cref="AmanhencerRoutingConfigurator"/>, for chaining.</returns>
     public AmanhencerRoutingConfigurator UseHandler(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors |
                                     DynamicallyAccessedMemberTypes.Interfaces |
@@ -57,6 +88,9 @@ public class AmanhencerRoutingConfigurator(string routingKey, IServiceCollection
         return this;
     }
 
+    /// <summary>
+    /// Registers the middlewares declared with <see cref="MiddlewareAttribute"/> on the handler class.
+    /// </summary>
     private void AddMiddlewareFromClassAttribute(Type handlerType)
     {
         var attributes = handlerType.GetCustomAttributes<MiddlewareAttribute>();
@@ -66,6 +100,10 @@ public class AmanhencerRoutingConfigurator(string routingKey, IServiceCollection
         }
     }
 
+    /// <summary>
+    /// Registers the middlewares declared with <see cref="MiddlewareAttribute"/> on the handler's
+    /// HandleAsync method.
+    /// </summary>
     private void AddMiddlewareFromCMethodAttribute(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces |
                                     DynamicallyAccessedMemberTypes.PublicMethods)]
@@ -114,6 +152,11 @@ public class AmanhencerRoutingConfigurator(string routingKey, IServiceCollection
         }
     }
 
+    /// <summary>
+    /// Builds the routing options for this pipeline, appending the terminal
+    /// <see cref="ExecuteHandlerMiddleware"/> for the configured handler.
+    /// </summary>
+    /// <returns>The routing options for this pipeline.</returns>
     public AmanhencerRoutingOptions ToOptions()
     {
         Use<ExecuteHandlerMiddleware>(int.MaxValue, _handlerType);

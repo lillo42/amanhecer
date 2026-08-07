@@ -7,12 +7,26 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Amanhencer.Configurator;
 
+/// <summary>
+/// Configures Amanhencer: registers handlers, routing keys and the executing strategy
+/// into the service collection.
+/// </summary>
+/// <param name="services">The service collection where handlers and middlewares are registered.</param>
 public class AmanhencerConfigurator(IServiceCollection services)
 {
     private readonly List<AmanhencerRoutingOptions> _routingConfigurators = [];
 
+    /// <summary>
+    /// Gets the routing options built from the configured routing keys.
+    /// </summary>
     public IEnumerable<AmanhencerRoutingOptions> RoutingConfigurators => _routingConfigurators;
 
+    /// <summary>
+    /// Registers a request handler and creates a pipeline for the routing key derived from its request type.
+    /// </summary>
+    /// <typeparam name="TRequestHandler">The request handler type to register.</typeparam>
+    /// <param name="configure">An optional action to configure the pipeline's middlewares.</param>
+    /// <returns>The current <see cref="AmanhencerConfigurator"/>, for chaining.</returns>
     public AmanhencerConfigurator AddRequestHandler<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors |
                                     DynamicallyAccessedMemberTypes.Interfaces |
@@ -28,6 +42,12 @@ public class AmanhencerConfigurator(IServiceCollection services)
         });
     }
 
+    /// <summary>
+    /// Registers a query handler and creates a pipeline for the routing key derived from its query type.
+    /// </summary>
+    /// <typeparam name="TQueryHandler">The query handler type to register.</typeparam>
+    /// <param name="configure">An optional action to configure the pipeline's middlewares.</param>
+    /// <returns>The current <see cref="AmanhencerConfigurator"/>, for chaining.</returns>
     public AmanhencerConfigurator AddQueryHandler<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors |
                                     DynamicallyAccessedMemberTypes.Interfaces |
@@ -43,6 +63,12 @@ public class AmanhencerConfigurator(IServiceCollection services)
         });
     }
 
+    /// <summary>
+    /// Creates a pipeline for an explicit routing key.
+    /// </summary>
+    /// <param name="routingKey">The routing key the pipeline handles.</param>
+    /// <param name="configure">An optional action to configure the pipeline's middlewares and handler.</param>
+    /// <returns>The current <see cref="AmanhencerConfigurator"/>, for chaining.</returns>
     public AmanhencerConfigurator AddRoutingKey(string routingKey,
         Action<AmanhencerRoutingConfigurator>? configure = null)
     {
@@ -53,6 +79,11 @@ public class AmanhencerConfigurator(IServiceCollection services)
         return this;
     }
 
+    /// <summary>
+    /// Registers the default <see cref="IExecutingStrategy"/> used when a context does not specify one.
+    /// </summary>
+    /// <param name="executor">The executing strategy to register as a singleton.</param>
+    /// <returns>The current <see cref="AmanhencerConfigurator"/>, for chaining.</returns>
     public AmanhencerConfigurator SetExecutorStrategy(IExecutingStrategy executor)
     {
         services.AddSingleton(executor);
@@ -60,6 +91,10 @@ public class AmanhencerConfigurator(IServiceCollection services)
     }
     
 
+    /// <summary>
+    /// Resolves the routing key of a handler from the <see cref="RoutingKeyAttribute"/> of its
+    /// request/query generic argument, falling back to the argument type's full name.
+    /// </summary>
     private static string GetRoutingKey(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)]
         Type requestHandlerType)

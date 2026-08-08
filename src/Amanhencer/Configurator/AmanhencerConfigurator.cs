@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Amanhencer.Abstractions;
+using Amanhencer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Amanhencer.Configurator;
@@ -73,6 +74,7 @@ public class AmanhencerConfigurator(IServiceCollection services)
         Action<AmanhencerRoutingConfigurator>? configure = null)
     {
         var cfg = new AmanhencerRoutingConfigurator(routingKey, services);
+        
         configure?.Invoke(cfg);
 
         _routingConfigurators.Add(cfg.ToOptions());

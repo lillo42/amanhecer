@@ -32,6 +32,11 @@ public static class ServiceCollectionExtensions
         services.TryAddTransient<IPipelineFactory, AmanhencerPipelineFactory>();
         services.TryAddSingleton<IPipelineContextFactory, AmanhencerPipelineContextFactory>();
 
+        services.TryAddSingleton<AmanhencerTelemetryMiddleware>();
+        services.TryAddSingleton<AmanhencerLoggerMiddleware>();
+
+        services.TryAddSingleton<IExecutingStrategy>(new SequenceExecutingStrategy());
+
         var cfg = new AmanhencerConfigurator(services);
         configure?.Invoke(cfg);
 
@@ -41,9 +46,8 @@ public static class ServiceCollectionExtensions
                 x => x
                     .Select(y => y.MiddlewareOptions.ToImmutableList())
                     .ToImmutableList());
-        
+
         services.AddSingleton(new AmanhencerPipelineOptions(routing));
-        services.TryAddSingleton<IExecutingStrategy>(new SequenceExecutingStrategy());
         return services;
     }
 }

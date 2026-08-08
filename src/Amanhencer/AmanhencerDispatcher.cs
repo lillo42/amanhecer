@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
@@ -13,7 +14,7 @@ namespace Amanhencer;
 /// </summary>
 /// <param name="contextFactory">Creates the <see cref="IPipelineContext"/> for each request.</param>
 /// <param name="factory">Resolves the pipelines configured for a routing key.</param>
-public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipelineFactory factory)
+public partial class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipelineFactory factory)
     : IDispatcher
 {
     /// <summary>
@@ -77,9 +78,12 @@ public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipel
         {
             throw new ArgumentNullException(nameof(context));
         }
-
+        
         var pipelineContext = contextFactory.Create(request, context, cancellationToken);
         var pipelines = factory.Create(pipelineContext);
+        
+        pipelineContext.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhencer.operation", "send"));
+        
         switch (pipelines.Count)
         {
             case 0:
@@ -155,6 +159,7 @@ public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipel
         var pipelineContext = contextFactory.Create(request, context, cancellationToken);
         var pipelines = factory.Create(pipelineContext);
 
+        pipelineContext.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhencer.operation", "post"));
         await pipelineContext.ExecutingStrategy.ExecuteAsync(pipelineContext, pipelines);
     }
 
@@ -233,6 +238,8 @@ public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipel
 
         var pipelineContext = contextFactory.Create(query, context, cancellationToken);
         var pipelines = factory.Create(pipelineContext);
+        
+        pipelineContext.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhencer.operation", "query"));
         switch (pipelines.Count)
         {
             case 0:

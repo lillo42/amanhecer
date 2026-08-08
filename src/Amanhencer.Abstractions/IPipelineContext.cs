@@ -16,6 +16,12 @@ public interface IPipelineContext
     Activity? Activity { get; }
 
     /// <summary>
+    /// Gets the additional tags to attach to the telemetry (span and metrics) recorded while
+    /// the request flows through the pipeline.
+    /// </summary>
+    List<KeyValuePair<string, object?>> TelemetryTags { get; }
+
+    /// <summary>
     /// Gets the metadata associated with the request being processed.
     /// </summary>
     Dictionary<string, object> Metadata { get; }
@@ -48,6 +54,8 @@ public interface IPipelineContext
     /// <summary>
     /// Creates a deep copy of this context, including a copy of the <see cref="Metadata"/> dictionary.
     /// </summary>
+    /// <param name="parentContext">The activity the copy should carry; when <see langword="null"/>,
+    /// the copy carries no activity.</param>
     /// <returns>A new <see cref="IPipelineContext"/> with the same values as this instance.</returns>
-    IPipelineContext DeepClone();
+    IPipelineContext DeepClone(Activity? parentContext = null);
 }

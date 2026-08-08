@@ -13,7 +13,10 @@ public class AmanhencerContext : IContext
     public Activity? Activity { get; set; }
 
     /// <inheritdoc />
-    public Dictionary<string, object> Metadata { get; set; } = new();
+    public List<KeyValuePair<string, object?>> TelemetryTags { get; set; } = [];
+
+    /// <inheritdoc />
+    public Dictionary<string, object> Metadata { get; set; } = [];
 
     /// <inheritdoc />
     public string? RoutingKey { get; set; }

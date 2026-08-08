@@ -27,6 +27,7 @@ public class AmanhencerPipelineContextFactory(IExecutingStrategy defaultStrategy
     public IPipelineContext Create(object request, IContext context, CancellationToken cancellationToken)
     {
         return new AmanhencerPipelineContext(context.Activity, 
+            context.TelemetryTags,
             context.Metadata,
             GetRoutingKey(context, request), 
             request, 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
@@ -30,7 +31,7 @@ public class ParallelExecutingStrategy(ParallelOptions options) : IExecutingStra
             {
                 await pipeline.ExecuteAsync(context);
             }
-            
+
             return;
         }
 

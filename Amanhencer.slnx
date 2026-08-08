@@ -4,9 +4,11 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Amanhencer.Abstractions/Amanhencer.Abstractions.csproj" />
+    <Project Path="src/Amanhencer.OpenTelemetry/Amanhencer.OpenTelemetry.csproj" />
     <Project Path="src/Amanhencer/Amanhencer.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Amanhencer.IntegrationTests/Amanhencer.IntegrationTests.csproj" />
     <Project Path="tests/Amanhencer.Tests/Amanhencer.Tests.csproj" />
   </Folder>
 </Solution>

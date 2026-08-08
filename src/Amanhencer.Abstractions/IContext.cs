@@ -15,6 +15,12 @@ public interface IContext
     Activity? Activity { get; set; }
 
     /// <summary>
+    /// Gets or sets the additional tags to attach to the telemetry (span and metrics) recorded
+    /// while processing the dispatch.
+    /// </summary>
+    List<KeyValuePair<string, object?>> TelemetryTags { get; set; }
+
+    /// <summary>
     /// Gets or sets the metadata to associate with the dispatch.
     /// </summary>
     Dictionary<string, object> Metadata { get; set; }

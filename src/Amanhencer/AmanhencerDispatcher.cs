@@ -14,7 +14,7 @@ namespace Amanhencer;
 /// </summary>
 /// <param name="contextFactory">Creates the <see cref="IPipelineContext"/> for each request.</param>
 /// <param name="factory">Resolves the pipelines configured for a routing key.</param>
-public partial class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipelineFactory factory)
+public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipelineFactory factory)
     : IDispatcher
 {
     /// <summary>

@@ -11,6 +11,8 @@
     <Project Path="src/Amanhencer/Amanhencer.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/Amanhencer.Extensions.Resilience.Tests/Amanhencer.Extensions.Resilience.Tests.csproj" />
+    <Project Path="tests/Amanhencer.Polly.Tests/Amanhencer.Polly.Tests.csproj" />
     <Project Path="tests/Amanhencer.IntegrationTests/Amanhencer.IntegrationTests.csproj" />
     <Project Path="tests/Amanhencer.Tests/Amanhencer.Tests.csproj" />
   </Folder>

@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
 using Polly;
@@ -39,9 +40,10 @@ public class PollyResiliencePipelineAttribute(string pipelineName, int order) : 
 /// the middleware fluently (for example, <c>Use&lt;PollyResiliencePipelineMiddleware&gt;(order, "myPipeline")</c>),
 /// or via <see cref="PollyResiliencePipelineAttribute"/> on the handler class or method.
 /// If <see cref="IPipelineContext.Metadata"/> contains a Polly <see cref="Polly.ResilienceContext"/>
-/// under the key <see cref="ResilienceContext"/>, that context is passed to the resilience pipeline;
-/// otherwise a default execution is used. The cancellation token provided by Polly replaces the
-/// token carried by the cloned pipeline context passed to the next middleware.
+/// under the key <see cref="ResilienceContext"/>, that context is used; otherwise a context is
+/// rented from the pool, carrying the pipeline context's cancellation token. The cancellation
+/// token provided by Polly replaces the token carried by the cloned pipeline context passed to
+/// the next middleware.
 /// </remarks>
 public class PollyResiliencePipelineMiddleware(ResiliencePipelineProvider<string> provider) : IMiddleware
 {
@@ -96,24 +98,37 @@ public class PollyResiliencePipelineMiddleware(ResiliencePipelineProvider<string
                 "Ensure Initialize was called with the pipeline name before executing the middleware.");
         }
 
+        var pipeline = provider.GetPipeline(_pipelineName!);
+
         if (context.Metadata.TryGetValue(ResilienceContext, out var value) &&
             value is ResilienceContext resilienceContext)
         {
-            await provider.GetPipeline(_pipelineName!)
-                .ExecuteAsync(async (_, token) =>
-                {
-                    context = context.DeepClone(cancellationToken: token);
-                    await next(context);
-                }, resilienceContext);
+            await pipeline.ExecuteAsync(
+                rc => ExecuteNextAsync(context, next, rc.CancellationToken),
+                resilienceContext);
         }
         else
         {
-            await provider.GetPipeline(_pipelineName!)
-                .ExecuteAsync(async token =>
-                {
-                    context = context.DeepClone(cancellationToken: token);
-                    await next(context);
-                });
+            var rentedContext = ResilienceContextPool.Shared.Get(context.CancellationToken);
+            try
+            {
+                await pipeline.ExecuteAsync(
+                    rc => ExecuteNextAsync(context, next, rc.CancellationToken),
+                    rentedContext);
+            }
+            finally
+            {
+                ResilienceContextPool.Shared.Return(rentedContext);
+            }
         }
+    }
+
+    private static async ValueTask ExecuteNextAsync(
+        IPipelineContext context,
+        Func<IPipelineContext, ValueTask> next,
+        CancellationToken cancellationToken)
+    {
+        var clone = context.DeepClone(cancellationToken: cancellationToken);
+        await next(clone);
     }
 }

@@ -7,9 +7,6 @@ using Amanhencer.Extensions;
 using Amanhencer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using TUnit.Assertions;
-using TUnit.Assertions.Extensions;
-using TUnit.Core;
 
 namespace Amanhencer.IntegrationTests;
 

@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Reflection;
 using Amanhencer.Abstractions;
-using Amanhencer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Amanhencer.Configurator;
 
@@ -74,7 +75,7 @@ public class AmanhencerConfigurator(IServiceCollection services)
         Action<AmanhencerRoutingConfigurator>? configure = null)
     {
         var cfg = new AmanhencerRoutingConfigurator(routingKey, services);
-        
+
         configure?.Invoke(cfg);
 
         _routingConfigurators.Add(cfg.ToOptions());
@@ -91,7 +92,35 @@ public class AmanhencerConfigurator(IServiceCollection services)
         services.AddSingleton(executor);
         return this;
     }
-    
+
+    public AmanhencerConfigurator AutoFromAssemblies(params Assembly[] assemblies)
+    {
+        if (assemblies.Length == 0)
+        {
+            assemblies = AppDomain.CurrentDomain.GetAssemblies()
+                .Where(x => !x.FullName.StartsWith("Amanhencer"))
+                .ToArray();
+        }
+
+        foreach (var assembly in assemblies)
+        {
+            var types = assembly.GetTypes();
+            foreach (var type in types)
+            {
+                if (IsMiddleware(type))
+                {
+                    services.TryAddTransient(type);
+                }
+                else if (IsHandler(type))
+                {
+                    AddRoutingKey(GetRoutingKey(type), cfg => cfg.UseHandler(type));
+                }
+            }
+        }
+
+        return this;
+    }
+
 
     /// <summary>
     /// Resolves the routing key of a handler from the <see cref="RoutingKeyAttribute"/> of its
@@ -119,8 +148,9 @@ public class AmanhencerConfigurator(IServiceCollection services)
 
             if (argType != null)
             {
-                // Improve message
-                throw new Exception();
+                throw new NotSupportedException(
+                    $"The handler type '{requestHandlerType.FullName}' implements multiple handler interfaces; " +
+                    "only one of IRequestHandler<TRequest> or IQueryHandler<TQuery, TResponse> is supported.");
             }
 
             argType = @interface.GetGenericArguments()[0];
@@ -128,8 +158,10 @@ public class AmanhencerConfigurator(IServiceCollection services)
 
         if (argType == null)
         {
-            // TODO: improve message
-            throw new ArgumentException("Invalid RequestType", nameof(requestHandlerType));
+            throw new ArgumentException(
+                $"The handler type '{requestHandlerType.FullName}' does not implement " +
+                "IRequestHandler<TRequest> or IQueryHandler<TQuery, TResponse>.",
+                nameof(requestHandlerType));
         }
 
         var attribute = argType.GetCustomAttribute<RoutingKeyAttribute>();
@@ -139,5 +171,25 @@ public class AmanhencerConfigurator(IServiceCollection services)
         }
 
         return argType.FullName ?? argType.Name;
+    }
+
+    private static bool IsMiddleware(Type type)
+    {
+        if (!type.IsClass || type.IsAbstract)
+        {
+            return false;
+        }
+
+        return type.GetInterfaces().Any(x => x == typeof(IMiddleware));
+    }
+
+    private static bool IsHandler(Type type)
+    {
+        if (!type.IsClass || type.IsAbstract)
+        {
+            return false;
+        }
+
+        return type.GetInterfaces().Any(x => x == typeof(IHandler));
     }
 }

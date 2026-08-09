@@ -41,8 +41,9 @@ public class ExecuteHandlerMiddleware(IHandlerFactory factory) : IMiddleware
     {
         if (_handlerType == null)
         {
-            // TODO: add error message
-            throw new NullReferenceException();
+            throw new NullReferenceException(
+                $"The middleware '{nameof(ExecuteHandlerMiddleware)}' was not initialised with a handler type. " +
+                "Ensure Initialize was called with the handler type before executing the middleware.");
         }
 
         var handler = factory.Create(_handlerType, context);

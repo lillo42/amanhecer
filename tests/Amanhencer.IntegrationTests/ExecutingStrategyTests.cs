@@ -3,6 +3,9 @@ using Amanhencer.Abstractions;
 using Amanhencer.ExecutingStrategies;
 using Amanhencer.Extensions;
 using Microsoft.Extensions.DependencyInjection;
+using TUnit.Assertions;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace Amanhencer.IntegrationTests;
 

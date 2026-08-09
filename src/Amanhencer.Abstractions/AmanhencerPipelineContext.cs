@@ -35,13 +35,15 @@ public record AmanhencerPipelineContext(
     /// <param name="activity">The activity the clone should carry; when <see langword="null"/>,
     /// the clone carries no activity.</param>
     /// <returns>A new <see cref="IPipelineContext"/> with the same values as this instance.</returns>
-    public IPipelineContext DeepClone(Activity? activity = null)
+    public IPipelineContext DeepClone(Activity? activity = null, CancellationToken cancellationToken = default)
     {
+        cancellationToken = cancellationToken == CancellationToken.None ? CancellationToken : cancellationToken;
         return this with
         {
             Activity = activity ?? Activity,
             TelemetryTags = [.. TelemetryTags],
-            Metadata = new Dictionary<string, object>(Metadata)
+            Metadata = new Dictionary<string, object>(Metadata),
+            CancellationToken = cancellationToken
         };
     }
 }

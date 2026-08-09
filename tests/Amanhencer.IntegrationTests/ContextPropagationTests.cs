@@ -1,6 +1,9 @@
 using System.Linq;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
+using TUnit.Assertions;
+using TUnit.Assertions.Extensions;
+using TUnit.Core;
 
 namespace Amanhencer.IntegrationTests;
 

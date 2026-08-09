@@ -57,5 +57,5 @@ public interface IPipelineContext
     /// <param name="parentContext">The activity the copy should carry; when <see langword="null"/>,
     /// the copy carries no activity.</param>
     /// <returns>A new <see cref="IPipelineContext"/> with the same values as this instance.</returns>
-    IPipelineContext DeepClone(Activity? parentContext = null);
+    IPipelineContext DeepClone(Activity? parentContext = null, CancellationToken cancellationToken = default);
 }

@@ -2,6 +2,7 @@
   
   <PropertyGroup>
     <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
+    <IsPackable>true</IsPackable>
     <Description>A lightweight request dispatcher (mediator) for .NET — send commands, publish events and execute queries through middleware pipelines. Inspired by Paramore Brighter.</Description>
     <PackageTags>mediator;cqrs;messaging;dispatcher;commands;events;queries;middleware;pipeline;brighter</PackageTags>
   </PropertyGroup>

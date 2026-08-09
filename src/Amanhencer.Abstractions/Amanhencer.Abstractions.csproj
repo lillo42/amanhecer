@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
+    <IsPackable>true</IsPackable>
     <Description>Abstractions for Amanhencer, a lightweight request dispatcher (mediator) for .NET: pipelines, middleware, handlers and dispatch contexts.</Description>
     <PackageTags>mediator;cqrs;messaging;dispatcher;abstractions;middleware;pipeline;brighter</PackageTags>
   </PropertyGroup>

@@ -5,7 +5,9 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Amanhencer.Abstractions/Amanhencer.Abstractions.csproj" />
+    <Project Path="src/Amanhencer.Extensions.Resilience/Amanhencer.Extensions.Resilience.csproj" />
     <Project Path="src/Amanhencer.OpenTelemetry/Amanhencer.OpenTelemetry.csproj" />
+    <Project Path="src/Amanhencer.Polly/Amanhencer.Polly.csproj" />
     <Project Path="src/Amanhencer/Amanhencer.csproj" />
   </Folder>
   <Folder Name="/tests/">

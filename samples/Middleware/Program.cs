@@ -13,7 +13,6 @@ var services = new ServiceCollection();
 services.AddLogging(builder => builder.AddConsole());
 
 services.AddOpenTelemetry()
-    .AddAmanhencerInstrumentation()
     .WithTracing(tracing => tracing.AddConsoleExporter())
     .WithMetrics(metrics => metrics.AddConsoleExporter());
 

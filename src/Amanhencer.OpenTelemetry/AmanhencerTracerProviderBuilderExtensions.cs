@@ -1,3 +1,4 @@
+using System;
 using Amanhencer;
 
 // Resides in OpenTelemetry.Trace so the extension lights up alongside the other

@@ -11,7 +11,7 @@ namespace Amanhencer.Middlewares;
 /// <c>HandleAsync</c> method, adding request logging to that handler's pipeline.
 /// </summary>
 /// <param name="order">The order in which the middleware runs within the pipeline.</param>
-public class LoggerAttribute(int order) : MiddlewareAttribute(order)
+public class RequestLoggingAttribute(int order) : MiddlewareAttribute(order)
 {
     /// <inheritdoc />
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]

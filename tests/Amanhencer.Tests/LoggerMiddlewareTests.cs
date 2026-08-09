@@ -127,7 +127,7 @@ public class LoggerMiddlewareTests
     [Test]
     public async Task Attribute_ReturnsLoggerMiddlewareType_AndKeepsOrder()
     {
-        var attribute = new LoggerAttribute(5);
+        var attribute = new RequestLoggingAttribute(5);
 
         await Assert.That(attribute.GetMiddlewareType()).IsEqualTo(typeof(AmanhencerLoggerMiddleware));
         await Assert.That(attribute.Order).IsEqualTo(5);

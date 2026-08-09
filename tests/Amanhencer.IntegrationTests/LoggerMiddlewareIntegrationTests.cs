@@ -7,13 +7,15 @@ using Amanhencer.Extensions;
 using Amanhencer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using TUnit.Assertions;
+using TUnit.Assertions.Extensions;
 using TUnit.Core;
 
 namespace Amanhencer.IntegrationTests;
 
 public class LoggerMiddlewareIntegrationTests
 {
-    [Logger(1)]
+    [RequestLogging(1)]
     private class LoggedOrderHandler(ExecutionLog log) : RequestHandler<PlaceOrder>
     {
         public override ValueTask HandleAsync(PlaceOrder request, IPipelineContext context, CancellationToken cancellationToken = default)

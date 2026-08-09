@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Amanhencer.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -17,6 +18,7 @@ namespace Amanhencer.Configurator;
 public class AmanhencerConfigurator(IServiceCollection services)
 {
     private readonly List<AmanhencerRoutingOptions> _routingConfigurators = [];
+    private readonly HashSet<Type> _autoRegisteredTypes = [];
 
     /// <summary>
     /// Gets the routing options built from the configured routing keys.
@@ -93,20 +95,37 @@ public class AmanhencerConfigurator(IServiceCollection services)
         return this;
     }
 
+    /// <summary>
+    /// Scans assemblies for concrete middleware and handler types and registers them: middlewares
+    /// as transient services and handlers in a pipeline keyed by their request/query type.
+    /// Open generic types and types that fail to load are skipped, and each type is registered at
+    /// most once, even when the same assembly is scanned multiple times.
+    /// </summary>
+    /// <param name="assemblies">The assemblies to scan. When empty, the calling assembly is scanned.</param>
+    /// <returns>The current <see cref="AmanhencerConfigurator"/>, for chaining.</returns>
+    [RequiresUnreferencedCode(
+        "Assembly scanning requires all handler and middleware types to be preserved; " +
+        "prefer explicit registration in trimmed or AOT-compiled applications.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2072",
+        Justification = "Types returned by Assembly.GetTypes() cannot carry annotations; " +
+                        "callers are warned via RequiresUnreferencedCode.")]
+    [MethodImpl(MethodImplOptions.NoInlining)]
     public AmanhencerConfigurator AutoFromAssemblies(params Assembly[] assemblies)
     {
         if (assemblies.Length == 0)
         {
-            assemblies = AppDomain.CurrentDomain.GetAssemblies()
-                .Where(x => !x.FullName.StartsWith("Amanhencer"))
-                .ToArray();
+            assemblies = [Assembly.GetCallingAssembly()];
         }
 
         foreach (var assembly in assemblies)
         {
-            var types = assembly.GetTypes();
-            foreach (var type in types)
+            foreach (var type in GetLoadableTypes(assembly))
             {
+                if (!_autoRegisteredTypes.Add(type))
+                {
+                    continue;
+                }
+
                 if (IsMiddleware(type))
                 {
                     services.TryAddTransient(type);
@@ -119,6 +138,21 @@ public class AmanhencerConfigurator(IServiceCollection services)
         }
 
         return this;
+    }
+
+    [RequiresUnreferencedCode(
+        "Assembly scanning requires all handler and middleware types to be preserved; " +
+        "prefer explicit registration in trimmed or AOT-compiled applications.")]
+    private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
+    {
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.Where(type => type is not null)!;
+        }
     }
 
 
@@ -173,9 +207,11 @@ public class AmanhencerConfigurator(IServiceCollection services)
         return argType.FullName ?? argType.Name;
     }
 
-    private static bool IsMiddleware(Type type)
+    private static bool IsMiddleware(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)]
+        Type type)
     {
-        if (!type.IsClass || type.IsAbstract)
+        if (!type.IsClass || type.IsAbstract || type.ContainsGenericParameters)
         {
             return false;
         }
@@ -183,9 +219,11 @@ public class AmanhencerConfigurator(IServiceCollection services)
         return type.GetInterfaces().Any(x => x == typeof(IMiddleware));
     }
 
-    private static bool IsHandler(Type type)
+    private static bool IsHandler(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)]
+        Type type)
     {
-        if (!type.IsClass || type.IsAbstract)
+        if (!type.IsClass || type.IsAbstract || type.ContainsGenericParameters)
         {
             return false;
         }

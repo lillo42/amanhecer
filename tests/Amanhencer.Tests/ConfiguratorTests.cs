@@ -6,6 +6,10 @@ using Amanhencer.ExecutingStrategies;
 using Amanhencer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
 
+// AutoFromAssemblies is intentionally trim-unsafe (RequiresUnreferencedCode);
+// these tests exercise it directly, so the trim warning does not apply here.
+#pragma warning disable IL2026
+
 namespace Amanhencer.Tests;
 
 public class ConfiguratorTests
@@ -121,5 +125,67 @@ public class ConfiguratorTests
 
         var provider = services.BuildServiceProvider();
         await Assert.That(provider.GetRequiredService<IExecutingStrategy>() is ParallelExecutingStrategy).IsTrue();
+    }
+
+    [Test]
+    public async Task AutoFromAssemblies_RegistersHandlersWithRoutingKeys()
+    {
+        var configurator = new AmanhencerConfigurator(new ServiceCollection());
+
+        configurator.AutoFromAssemblies(typeof(TestRequestHandler).Assembly);
+
+        var keys = configurator.RoutingConfigurators.Select(r => r.RoutingKey).ToArray();
+        await Assert.That(keys).Contains("routed.request");
+        await Assert.That(keys).Contains(typeof(TestRequest).FullName!);
+        await Assert.That(keys).Contains(typeof(TestQuery).FullName!);
+    }
+
+    [Test]
+    public async Task AutoFromAssemblies_RegistersMiddlewareTypesInServices()
+    {
+        var services = new ServiceCollection();
+        var configurator = new AmanhencerConfigurator(services);
+
+        configurator.AutoFromAssemblies(typeof(TestRequestHandler).Assembly);
+
+        await Assert.That(services.Any(d => d.ServiceType == typeof(FirstMiddleware))).IsTrue();
+        await Assert.That(services.Any(d => d.ServiceType == typeof(PassThroughMiddleware))).IsTrue();
+    }
+
+    [Test]
+    public async Task AutoFromAssemblies_SkipsAbstractAndOpenGenericTypes()
+    {
+        var services = new ServiceCollection();
+        var configurator = new AmanhencerConfigurator(services);
+
+        configurator.AutoFromAssemblies(typeof(TestRequestHandler).Assembly);
+
+        var keys = configurator.RoutingConfigurators.Select(r => r.RoutingKey).ToArray();
+        await Assert.That(keys.Any(k => k == typeof(SkippedRequest).FullName)).IsFalse();
+        await Assert.That(keys.Any(k => k.Contains("GenericRequest"))).IsFalse();
+        await Assert.That(services.Any(d => d.ServiceType == typeof(OpenGenericMiddleware<>))).IsFalse();
+    }
+
+    [Test]
+    public async Task AutoFromAssemblies_ScanningSameAssemblyTwice_RegistersHandlersOnce()
+    {
+        var configurator = new AmanhencerConfigurator(new ServiceCollection());
+
+        configurator.AutoFromAssemblies(typeof(RoutedRequestHandler).Assembly);
+        configurator.AutoFromAssemblies(typeof(RoutedRequestHandler).Assembly);
+
+        var keys = configurator.RoutingConfigurators.Select(r => r.RoutingKey).ToArray();
+        await Assert.That(keys.Count(k => k == "routed.request")).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task AutoFromAssemblies_WithoutAssemblies_ScansCallingAssembly()
+    {
+        var configurator = new AmanhencerConfigurator(new ServiceCollection());
+
+        configurator.AutoFromAssemblies();
+
+        var keys = configurator.RoutingConfigurators.Select(r => r.RoutingKey).ToArray();
+        await Assert.That(keys).Contains("routed.request");
     }
 }

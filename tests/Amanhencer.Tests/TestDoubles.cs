@@ -29,6 +29,29 @@ public record AttributedRequest(string Value);
 
 public record TestQuery(int Number);
 
+public record SkippedRequest(string Value);
+
+public abstract class AbstractSkippedRequestHandler : RequestHandler<SkippedRequest>;
+
+public record GenericRequest<T>(T Value);
+
+public class OpenGenericRequestHandler<T> : RequestHandler<GenericRequest<T>>
+{
+    public override ValueTask HandleAsync(GenericRequest<T> request, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        return ValueTask.CompletedTask;
+    }
+}
+
+public class OpenGenericMiddleware<T> : IMiddleware
+{
+    public void Initialize(object? metadata)
+    {
+    }
+
+    public ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next) => next(context);
+}
+
 public class TestRequestHandler(ExecutionLog log) : RequestHandler<TestRequest>
 {
     public override ValueTask HandleAsync(TestRequest request, IPipelineContext context, CancellationToken cancellationToken = default)

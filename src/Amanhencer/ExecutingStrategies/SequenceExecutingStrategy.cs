@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace Amanhencer.ExecutingStrategies;
 
@@ -10,7 +11,7 @@ namespace Amanhencer.ExecutingStrategies;
 /// Executes the pipelines sequentially, one after another, each with a deep-cloned
 /// <see cref="IPipelineContext"/>.
 /// </summary>
-public class SequenceExecutingStrategy : IExecutingStrategy
+public partial class SequenceExecutingStrategy(ILogger<SequenceExecutingStrategy> logger) : IExecutingStrategy
 {
     /// <summary>
     /// Executes the given pipelines in sequence. Does nothing when the list is empty and
@@ -24,18 +25,19 @@ public class SequenceExecutingStrategy : IExecutingStrategy
     {
         if (pipelines.Count == 0)
         {
+            Logger.NoPipeline(logger, context.RoutingKey);
             return;
         }
 
         if (pipelines.Count == 1)
         {
-            foreach (var pipeline in pipelines)
-            {
-                await pipeline.ExecuteAsync(context);
-            }
-
+            Logger.OnlyOnePipeline(logger, context.RoutingKey);
+            var pipeline = pipelines[0];
+            await pipeline.ExecuteAsync(context);
             return;
         }
+
+        Logger.MultiPipelineFound(logger, context.RoutingKey);
 
         var exceptions = new List<Exception>();
         foreach (var pipeline in pipelines)
@@ -54,7 +56,25 @@ public class SequenceExecutingStrategy : IExecutingStrategy
 
         if (exceptions.Count > 0)
         {
+            Logger.ExceptionsWasThrowOnMultiPipeline(logger, context.RoutingKey, exceptions.Count);
             throw new AggregateException(exceptions);
         }
+    }
+
+    private static partial class Logger
+    {
+        [LoggerMessage(LogLevel.Warning, "No pipeline to be process for '{RoutingKey}'")]
+        public static partial void NoPipeline(ILogger logger, string routingKey);
+
+        [LoggerMessage(LogLevel.Debug, "Only one pipeline to be process for '{RoutingKey}'")]
+        public static partial void OnlyOnePipeline(ILogger logger, string routingKey);
+
+        [LoggerMessage(LogLevel.Debug, "Multi-pipeline to be process for '{RoutingKey}'")]
+        public static partial void MultiPipelineFound(ILogger logger, string routingKey);
+
+        [LoggerMessage(LogLevel.Debug,
+            "An exception ({NumberOfExceptions}) was throw in multi-pipeline to be process for '{RoutingKey}'")]
+        public static partial void ExceptionsWasThrowOnMultiPipeline(ILogger logger, string routingKey,
+            int numberOfExceptions);
     }
 }

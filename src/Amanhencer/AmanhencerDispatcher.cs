@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
 using Amanhencer.Abstractions.Exceptions;
+using Microsoft.Extensions.Logging;
 
 namespace Amanhencer;
 
@@ -14,7 +15,10 @@ namespace Amanhencer;
 /// </summary>
 /// <param name="contextFactory">Creates the <see cref="IPipelineContext"/> for each request.</param>
 /// <param name="factory">Resolves the pipelines configured for a routing key.</param>
-public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipelineFactory factory)
+public partial class AmanhencerDispatcher(
+    IPipelineContextFactory contextFactory,
+    IPipelineFactory factory,
+    ILogger<AmanhencerDispatcher> logger)
     : IDispatcher
 {
     /// <summary>
@@ -69,7 +73,8 @@ public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipel
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> or <paramref name="context"/> is null.</exception>
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the request's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the request's routing key.</exception>
-    public async ValueTask SendAsync<TRequest>(TRequest request, IContext context, CancellationToken cancellationToken = default)
+    public async ValueTask SendAsync<TRequest>(TRequest request, IContext context,
+        CancellationToken cancellationToken = default)
     {
         if (request == null)
         {
@@ -80,15 +85,16 @@ public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipel
         {
             throw new ArgumentNullException(nameof(context));
         }
-        
+
         var pipelineContext = contextFactory.Create(request, context, cancellationToken);
         var pipelines = factory.Create(pipelineContext);
-        
+
         pipelineContext.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhencer.operation", "send"));
-        
+
         switch (pipelines.Count)
         {
             case 0:
+                Logger.NoPipelineFound(logger, pipelineContext.RoutingKey);
                 throw new PipelineNotFoundException(pipelineContext.RoutingKey);
             case > 1:
                 throw new MultiPipelineFoundException(pipelineContext.RoutingKey);
@@ -148,7 +154,8 @@ public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipel
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the pipelines have executed.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> or <paramref name="context"/> is null.</exception>
-    public async ValueTask PublishAsync<TRequest>(TRequest request, IContext context, CancellationToken cancellationToken = default)
+    public async ValueTask PublishAsync<TRequest>(TRequest request, IContext context,
+        CancellationToken cancellationToken = default)
     {
         if (request == null)
         {
@@ -162,6 +169,12 @@ public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipel
 
         var pipelineContext = contextFactory.Create(request, context, cancellationToken);
         var pipelines = factory.Create(pipelineContext);
+
+        if (pipelines.Count == 0)
+        {
+            Logger.NoPipelineFound(logger, pipelineContext.RoutingKey);
+            return;
+        }
 
         pipelineContext.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhencer.operation", "post"));
         await pipelineContext.ExecutingStrategy.ExecuteAsync(pipelineContext, pipelines);
@@ -228,7 +241,8 @@ public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipel
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="query"/> or <paramref name="context"/> is null.</exception>
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the query's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the query's routing key.</exception>
-    public async ValueTask<TResponse> QueryAsync<TQuery, TResponse>(TQuery query, IContext context, CancellationToken cancellationToken = default)
+    public async ValueTask<TResponse> QueryAsync<TQuery, TResponse>(TQuery query, IContext context,
+        CancellationToken cancellationToken = default)
     {
         if (query == null)
         {
@@ -242,11 +256,12 @@ public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipel
 
         var pipelineContext = contextFactory.Create(query, context, cancellationToken);
         var pipelines = factory.Create(pipelineContext);
-        
+
         pipelineContext.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhencer.operation", "query"));
         switch (pipelines.Count)
         {
             case 0:
+                Logger.NoPipelineFound(logger, pipelineContext.RoutingKey);
                 throw new PipelineNotFoundException(pipelineContext.RoutingKey);
             case > 1:
                 throw new MultiPipelineFoundException(pipelineContext.RoutingKey);
@@ -254,5 +269,11 @@ public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipel
                 await pipelineContext.ExecutingStrategy.ExecuteAsync(pipelineContext, pipelines);
                 return (TResponse)pipelineContext.Response!;
         }
+    }
+
+    private static partial class Logger
+    {
+        [LoggerMessage(LogLevel.Warning, "No pipeline found for {RoutingKey}")]
+        public static partial void NoPipelineFound(ILogger logger, string routingKey);
     }
 }

@@ -35,7 +35,7 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<AmanhencerTelemetryMiddleware>();
         services.TryAddSingleton<AmanhencerLoggerMiddleware>();
 
-        services.TryAddSingleton<IExecutingStrategy>(new SequenceExecutingStrategy());
+        services.TryAddSingleton<IExecutingStrategy, SequenceExecutingStrategy>();
 
         var cfg = new AmanhencerConfigurator(services);
         configure?.Invoke(cfg);

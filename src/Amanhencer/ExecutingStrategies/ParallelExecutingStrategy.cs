@@ -1,6 +1,9 @@
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace Amanhencer.ExecutingStrategies;
 
@@ -8,7 +11,8 @@ namespace Amanhencer.ExecutingStrategies;
 /// Executes the pipelines in parallel, each with a deep-cloned <see cref="IPipelineContext"/>.
 /// </summary>
 /// <param name="options">The options that control parallelism and cancellation.</param>
-public class ParallelExecutingStrategy(ParallelOptions options) : IExecutingStrategy
+public partial class ParallelExecutingStrategy(ParallelOptions options, ILogger<ParallelExecutingStrategy> logger)
+    : IExecutingStrategy
 {
     /// <summary>
     /// Executes the given pipelines in parallel. Does nothing when the list is empty and
@@ -21,39 +25,81 @@ public class ParallelExecutingStrategy(ParallelOptions options) : IExecutingStra
     {
         if (pipelines.Count == 0)
         {
+            Logger.NoPipeline(logger, context.RoutingKey);
             return;
         }
 
         if (pipelines.Count == 1)
         {
-            foreach (var pipeline in pipelines)
-            {
-                await pipeline.ExecuteAsync(context);
-            }
+            Logger.OnlyOnePipeline(logger, context.RoutingKey);
+            var pipeline = pipelines[0];
+            await pipeline.ExecuteAsync(context);
 
             return;
         }
 
+
+        Logger.MultiPipelineFound(logger, context.RoutingKey);
+
+        var exceptions = new ConcurrentBag<Exception>();
+
 #if NET8_0_OR_GREATER
-        await Parallel.ForEachAsync(pipelines, options, (pipeline, _) =>
+        await Parallel.ForEachAsync(pipelines, options, async (pipeline, _) =>
         {
-            var newContext = context.DeepClone();
-            return pipeline.ExecuteAsync(newContext);
+            try
+            {
+                var tmpContext = context.DeepClone();
+                await pipeline.ExecuteAsync(tmpContext);
+            }
+            catch (Exception e)
+            {
+                exceptions.Add(e);
+            }
         });
 #else
         Parallel.ForEach(pipelines, options, (pipeline, _) =>
         {
-            var newContext = context.DeepClone();
-            var response = pipeline.ExecuteAsync(newContext);
-            if (response.IsCompleted)
+            try
             {
-                response.GetAwaiter().GetResult();
+                var tmpContext = context.DeepClone();
+                var response = pipeline.ExecuteAsync(tmpContext);
+                if (response.IsCompleted)
+                {
+                    response.GetAwaiter().GetResult();
+                }
+                else
+                {
+                    response.AsTask().GetAwaiter().GetResult();
+                }
             }
-            else
+            catch (Exception e)
             {
-                response.AsTask().GetAwaiter().GetResult();
+                exceptions.Add(e);
             }
         });
 #endif
+
+        if (exceptions.Count > 0)
+        {
+            Logger.ExceptionsWasThrowOnMultiPipeline(logger, context.RoutingKey, exceptions.Count);
+            throw new AggregateException(exceptions);
+        }
+    }
+
+    private static partial class Logger
+    {
+        [LoggerMessage(LogLevel.Warning, "No pipeline to be process for '{RoutingKey}'")]
+        public static partial void NoPipeline(ILogger logger, string routingKey);
+
+        [LoggerMessage(LogLevel.Debug, "Only one pipeline to be process for '{RoutingKey}'")]
+        public static partial void OnlyOnePipeline(ILogger logger, string routingKey);
+
+        [LoggerMessage(LogLevel.Debug, "Multi-pipeline to be process for '{RoutingKey}'")]
+        public static partial void MultiPipelineFound(ILogger logger, string routingKey);
+
+        [LoggerMessage(LogLevel.Debug,
+            "An exception ({NumberOfExceptions}) was throw in multi-pipeline to be process for '{RoutingKey}'")]
+        public static partial void ExceptionsWasThrowOnMultiPipeline(ILogger logger, string routingKey,
+            int numberOfExceptions);
     }
 }

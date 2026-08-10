@@ -119,7 +119,6 @@ public class AmanhencerTelemetryMiddleware : IMiddleware
 
             metadata.Add(new("exception", exception.GetType().FullName ?? exception.GetType().Name));
 
-
             activity?.SetStatus(ActivityStatusCode.Error, exception.Message);
 #if !NET8_0
             activity?.AddException(exception);

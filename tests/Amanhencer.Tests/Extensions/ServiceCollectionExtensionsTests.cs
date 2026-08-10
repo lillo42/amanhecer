@@ -27,8 +27,8 @@ public class ServiceCollectionExtensionsTests
             .IsEqualTo(1);
 
         var provider = services.BuildServiceProvider();
-        await Assert.That(ReferenceEquals(provider.GetRequiredService<IDispatcher>(), dispatcher))
-            .IsTrue();
+        await Assert.That(provider.GetRequiredService<IDispatcher>())
+            .IsSameReferenceAs(dispatcher);
     }
 
     [Test]
@@ -44,8 +44,8 @@ public class ServiceCollectionExtensionsTests
             .IsEqualTo(1);
 
         var provider = services.BuildServiceProvider();
-        await Assert.That(ReferenceEquals(provider.GetRequiredService<IExecutingStrategy>(), strategy))
-            .IsTrue();
+        await Assert.That(provider.GetRequiredService<IExecutingStrategy>())
+            .IsSameReferenceAs(strategy);
     }
 
     [Test]

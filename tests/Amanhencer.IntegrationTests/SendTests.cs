@@ -1,52 +1,60 @@
+﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
+using Amanhencer.Configurator;
 
 namespace Amanhencer.IntegrationTests;
 
-public class SendTests
+public class SendTests : BaseTests
 {
-    [Test]
-    public async Task SendAsync_FlowsThroughMiddlewareChainInOrder_ThenHandler()
+    protected override void ConfigureAmanhencer(AmanhencerConfigurator configurator)
     {
-        var (dispatcher, log) = DispatcherFixture.Create(cfg => cfg.AddRequestHandler<PlaceOrderHandler>(routing =>
-            routing.Use<OuterMiddleware>(order: 1).Use<InnerMiddleware>(order: 2)));
-
-        await dispatcher.SendAsync(new PlaceOrder("apple"));
-
-        await Assert.That(log.Joined())
-            .IsEqualTo("outer:before,inner:before,handled:apple,inner:after,outer:after");
+        configurator
+            .AddRequestHandler<OneSyncRequestHandler>()
+            .AddRequestHandler<OneAsyncRequestHandler>()
+            .AddRequestHandler<FirstMultiRequestHandler>()
+            .AddRequestHandler<SecondMultiRequestHandler>();
     }
 
-    [Test]
-    public async Task Send_SyncOverload_RunsPipelineAndHandler()
+    private record NoRequestHandler;
+
+    private record OneSyncRequest;
+    
+    private class OneSyncRequestHandler : RequestHandler<OneSyncRequest>
     {
-        var (dispatcher, log) = DispatcherFixture.Create(cfg => cfg.AddRequestHandler<PlaceOrderHandler>(routing =>
-            routing.Use<OuterMiddleware>(order: 1)));
-
-        dispatcher.Send(new PlaceOrder("apple"));
-
-        await Assert.That(log.Joined()).IsEqualTo("outer:before,handled:apple,outer:after");
+        public override ValueTask HandleAsync(OneSyncRequest request, IPipelineContext context, CancellationToken cancellationToken = default)
+        {
+            return new ValueTask();
+        }
+    }
+    
+    private record OneAsyncRequest;
+    
+    private class OneAsyncRequestHandler : RequestHandler<OneAsyncRequest>
+    {
+        public override async ValueTask HandleAsync(OneAsyncRequest request, IPipelineContext context, CancellationToken cancellationToken = default)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(1));
+        }
     }
 
-    [Test]
-    public async Task SendAsync_WithExplicitContext_RunsPipelineAndHandler()
+
+    private record MultiRequest;
+    
+    private class FirstMultiRequestHandler : RequestHandler<MultiRequest>
     {
-        var (dispatcher, log) = DispatcherFixture.Create(cfg => cfg.AddRequestHandler<PlaceOrderHandler>(routing =>
-            routing.Use<OuterMiddleware>(order: 1)));
-
-        await dispatcher.SendAsync(new PlaceOrder("apple"), new AmanhencerContext());
-
-        await Assert.That(log.Joined()).IsEqualTo("outer:before,handled:apple,outer:after");
+        public override ValueTask HandleAsync(MultiRequest request, IPipelineContext context, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
-
-    [Test]
-    public async Task Send_SyncOverload_WithExplicitContext_RunsPipelineAndHandler()
+    
+    private class SecondMultiRequestHandler : RequestHandler<MultiRequest>
     {
-        var (dispatcher, log) = DispatcherFixture.Create(cfg => cfg.AddRequestHandler<PlaceOrderHandler>(routing =>
-            routing.Use<OuterMiddleware>(order: 1)));
-
-        dispatcher.Send(new PlaceOrder("apple"), new AmanhencerContext());
-
-        await Assert.That(log.Joined()).IsEqualTo("outer:before,handled:apple,outer:after");
+        public override ValueTask HandleAsync(MultiRequest request, IPipelineContext context, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

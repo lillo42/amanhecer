@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
 using Amanhencer.Middlewares;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using TUnit.Assertions.Enums;
 
 namespace Amanhencer.Tests.Middlewares;
 
@@ -36,18 +38,23 @@ public class AmanhencerLoggerMiddlewareTests
             .ThrowsExactly<OperationCanceledException>();
 
         var entries = _logger.Entries;
-        await Assert.That(entries.Count).IsEqualTo(2);
-        await Assert.That(entries[0].Level).IsEqualTo(LogLevel.Information);
-        await Assert.That(entries[0].Message)
-            .IsEqualTo($"Processing orders request {typeof(SomeRequest).FullName}");
-        await Assert.That(entries[0].Exception).IsNull();
-        await Assert.That(entries[1].Level).IsEqualTo(LogLevel.Information);
-        await Assert.That(entries[1].Message)
-            .IsEqualTo($"Cancelled orders request {typeof(SomeRequest).FullName}");
-        await Assert.That(entries[1].Exception).IsEqualTo(exception);
+        await Assert.That(entries).Count().IsEqualTo(2);
+        await Assert.That(entries[0])
+            .Member(x => x.Level, y => y.IsEqualTo(LogLevel.Information))
+            .And.Member(x => x.Message,
+                y => y.IsEqualTo($"Processing orders request {typeof(SomeRequest).FullName}"))
+            .And.Member(x => x.Exception, y => y.IsNull());
+        await Assert.That(entries[1])
+            .Member(x => x.Level, y => y.IsEqualTo(LogLevel.Information))
+            .And.Member(x => x.Message,
+                y => y.IsEqualTo($"Cancelled orders request {typeof(SomeRequest).FullName}"))
+            .And.Member(x => x.Exception, y => y.IsEqualTo(exception));
     }
 
     [Test]
+    [RequiresUnreferencedCode(
+        "Collection equivalency uses structural comparison for complex objects, " +
+        "which requires reflection and is not compatible with AOT.")]
     public async Task When_ExecuteAsync_Should_BeginScopesForRoutingKeyAndRequestType()
     {
         var context = Substitute.For<IPipelineContext>();
@@ -59,9 +66,9 @@ public class AmanhencerLoggerMiddlewareTests
         await _middleware.ExecuteAsync(context, next);
 
         var scopes = _logger.Scopes;
-        await Assert.That(scopes.Count).IsEqualTo(2);
-        await Assert.That(scopes[0]).IsEqualTo("orders");
-        await Assert.That(scopes[1]).IsEqualTo(typeof(SomeRequest).FullName);
+        await Assert.That(scopes)
+            .IsEquivalentTo(new[] { "orders", typeof(SomeRequest).FullName },
+                CollectionOrdering.Matching);
     }
 
     private sealed record SomeRequest;

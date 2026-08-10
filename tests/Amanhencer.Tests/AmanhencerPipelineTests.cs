@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
 using NSubstitute;
+using TUnit.Assertions.Enums;
 
 namespace Amanhencer.Tests;
 
@@ -84,6 +86,9 @@ public class AmanhencerPipelineTests
     }
 
     [Test]
+    [RequiresUnreferencedCode(
+        "Collection equivalency uses structural comparison for complex objects, " +
+        "which requires reflection and is not compatible with AOT.")]
     public async Task When_ExecuteAsync_Should_CallMiddlewaresInOrder()
     {
         var invocationOrder = new List<int>();
@@ -111,10 +116,8 @@ public class AmanhencerPipelineTests
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
             .ThrowsNothing();
 
-        await Assert.That(invocationOrder.Count).IsEqualTo(3);
-        await Assert.That(invocationOrder[0]).IsEqualTo(0);
-        await Assert.That(invocationOrder[1]).IsEqualTo(1);
-        await Assert.That(invocationOrder[2]).IsEqualTo(2);
+        await Assert.That(invocationOrder)
+            .IsEquivalentTo(new[] { 0, 1, 2 }, CollectionOrdering.Matching);
     }
 
     [Test]

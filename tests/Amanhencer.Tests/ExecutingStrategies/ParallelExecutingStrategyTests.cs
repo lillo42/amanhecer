@@ -144,9 +144,10 @@ public class ParallelExecutingStrategyTests
 
         context.Received(pipelines.Count).DeepClone();
 
-        await Assert.That(usedContexts.Count).IsEqualTo(pipelines.Count);
-        await Assert.That(usedContexts.Distinct().Count()).IsEqualTo(pipelines.Count);
-        await Assert.That(usedContexts.Contains(context)).IsFalse();
+        await Assert.That(usedContexts)
+            .Count().IsEqualTo(pipelines.Count)
+            .And.DoesNotContain(context);
+        await Assert.That(usedContexts.Distinct()).Count().IsEqualTo(pipelines.Count);
 
         foreach (var pipeline in pipelines)
         {

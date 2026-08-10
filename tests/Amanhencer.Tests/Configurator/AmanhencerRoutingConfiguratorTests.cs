@@ -21,9 +21,10 @@ public class AmanhencerRoutingConfiguratorTests
         var options = configurator.ToOptions();
 
         var last = options.MiddlewareOptions.Last();
-        await Assert.That(last.MiddlewareType).IsEqualTo(typeof(ExecuteHandlerMiddleware));
-        await Assert.That(last.Order).IsEqualTo(int.MaxValue);
-        await Assert.That(last.Metadata).IsEqualTo(typeof(SomeRequestHandler));
+        await Assert.That(last)
+            .Member(x => x.MiddlewareType, y => y.IsEqualTo(typeof(ExecuteHandlerMiddleware)))
+            .And.Member(x => x.Order, y => y.IsEqualTo(int.MaxValue))
+            .And.Member(x => x.Metadata, y => y.IsEqualTo(typeof(SomeRequestHandler)));
     }
 
     [Test]
@@ -49,13 +50,16 @@ public class AmanhencerRoutingConfiguratorTests
         var options = configurator.ToOptions();
 
         var middlewares = options.MiddlewareOptions.ToArray();
-        await Assert.That(middlewares.Length).IsEqualTo(3);
-        await Assert.That(middlewares[0].MiddlewareType).IsEqualTo(typeof(SomeMiddleware));
-        await Assert.That(middlewares[0].Order).IsEqualTo(-5);
-        await Assert.That(middlewares[1].MiddlewareType).IsEqualTo(typeof(AnotherMiddleware));
-        await Assert.That(middlewares[1].Order).IsEqualTo(10);
-        await Assert.That(middlewares[2].MiddlewareType).IsEqualTo(typeof(ExecuteHandlerMiddleware));
-        await Assert.That(middlewares[2].Order).IsEqualTo(int.MaxValue);
+        await Assert.That(middlewares).Count().IsEqualTo(3);
+        await Assert.That(middlewares[0])
+            .Member(x => x.MiddlewareType, y => y.IsEqualTo(typeof(SomeMiddleware)))
+            .And.Member(x => x.Order, y => y.IsEqualTo(-5));
+        await Assert.That(middlewares[1])
+            .Member(x => x.MiddlewareType, y => y.IsEqualTo(typeof(AnotherMiddleware)))
+            .And.Member(x => x.Order, y => y.IsEqualTo(10));
+        await Assert.That(middlewares[2])
+            .Member(x => x.MiddlewareType, y => y.IsEqualTo(typeof(ExecuteHandlerMiddleware)))
+            .And.Member(x => x.Order, y => y.IsEqualTo(int.MaxValue));
     }
 
     [Test]
@@ -70,8 +74,9 @@ public class AmanhencerRoutingConfiguratorTests
 
         var middleware = options.MiddlewareOptions
             .Single(x => x.MiddlewareType == typeof(SomeMiddleware));
-        await Assert.That(middleware.Order).IsEqualTo(3);
-        await Assert.That(middleware.Metadata).IsEqualTo("some-metadata");
+        await Assert.That(middleware)
+            .Member(x => x.Order, y => y.IsEqualTo(3))
+            .And.Member(x => x.Metadata, y => y.IsEqualTo("some-metadata"));
     }
 
     [Test]
@@ -82,9 +87,9 @@ public class AmanhencerRoutingConfiguratorTests
 
         configurator.Use(typeof(SomeMiddleware));
 
-        await Assert.That(services.Any(x => x.ServiceType == typeof(SomeMiddleware) &&
-                                            x.Lifetime == ServiceLifetime.Transient))
-            .IsTrue();
+        await Assert.That(services)
+            .Contains(x => x.ServiceType == typeof(SomeMiddleware) &&
+                           x.Lifetime == ServiceLifetime.Transient);
     }
 
     [Test]
@@ -95,9 +100,9 @@ public class AmanhencerRoutingConfiguratorTests
 
         configurator.UseHandler(typeof(SomeRequestHandler));
 
-        await Assert.That(services.Any(x => x.ServiceType == typeof(SomeRequestHandler) &&
-                                            x.Lifetime == ServiceLifetime.Transient))
-            .IsTrue();
+        await Assert.That(services)
+            .Contains(x => x.ServiceType == typeof(SomeRequestHandler) &&
+                           x.Lifetime == ServiceLifetime.Transient);
     }
 
     [Test]
@@ -110,8 +115,9 @@ public class AmanhencerRoutingConfiguratorTests
         var options = configurator.ToOptions();
 
         var last = options.MiddlewareOptions.Last();
-        await Assert.That(last.MiddlewareType).IsEqualTo(typeof(ExecuteHandlerMiddleware));
-        await Assert.That(last.Metadata).IsEqualTo(typeof(SomeRequestHandler));
+        await Assert.That(last)
+            .Member(x => x.MiddlewareType, y => y.IsEqualTo(typeof(ExecuteHandlerMiddleware)))
+            .And.Member(x => x.Metadata, y => y.IsEqualTo(typeof(SomeRequestHandler)));
     }
 
     private class SomeMiddleware : IMiddleware

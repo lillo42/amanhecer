@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
@@ -8,6 +9,7 @@ using Amanhencer.ExecutingStrategies;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using TUnit.Assertions.Enums;
 
 namespace Amanhencer.Tests.ExecutingStrategies;
 
@@ -148,6 +150,9 @@ public class SequenceExecutingStrategyTests
     }
 
     [Test]
+    [RequiresUnreferencedCode(
+        "Collection equivalency uses structural comparison for complex objects, " +
+        "which requires reflection and is not compatible with AOT.")]
     public async Task When_ExecuteAsync_WithMultiplePipelines_Should_ExecuteSequentially()
     {
         var context = Substitute.For<IPipelineContext>();
@@ -173,11 +178,10 @@ public class SequenceExecutingStrategyTests
         await Assert.That(async () => await _strategy.ExecuteAsync(context, pipelines))
             .ThrowsNothing();
 
-        await Assert.That(events.Count).IsEqualTo(4);
-        await Assert.That(events[0]).IsEqualTo("first-started");
-        await Assert.That(events[1]).IsEqualTo("first-completed");
-        await Assert.That(events[2]).IsEqualTo("second-started");
-        await Assert.That(events[3]).IsEqualTo("second-completed");
+        await Assert.That(events)
+            .IsEquivalentTo(
+                new[] { "first-started", "first-completed", "second-started", "second-completed" },
+                CollectionOrdering.Matching);
 
         async Task FirstPipeline()
         {

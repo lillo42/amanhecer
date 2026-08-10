@@ -1043,8 +1043,8 @@ public class AmanhencerDispatcherTests
         await Assert.That(() => _dispatcher.Send(request))
             .ThrowsNothing();
 
-        await Assert.That(tags.Any(tag => tag.Key == "amanhencer.operation" && Equals(tag.Value, "send")))
-            .IsTrue();
+        await Assert.That(tags)
+            .Contains(tag => tag.Key == "amanhencer.operation" && Equals(tag.Value, "send"));
     }
 
     [Test]
@@ -1066,8 +1066,8 @@ public class AmanhencerDispatcherTests
         await Assert.That(() => _dispatcher.Publish(request))
             .ThrowsNothing();
 
-        await Assert.That(tags.Any(tag => tag.Key == "amanhencer.operation" && Equals(tag.Value, "post")))
-            .IsTrue();
+        await Assert.That(tags)
+            .Contains(tag => tag.Key == "amanhencer.operation" && Equals(tag.Value, "post"));
     }
 
     [Test]
@@ -1088,7 +1088,7 @@ public class AmanhencerDispatcherTests
         await Assert.That(() => _dispatcher.Publish(request))
             .ThrowsNothing();
 
-        await Assert.That(tags.Count).IsEqualTo(0);
+        await Assert.That(tags).Count().IsEqualTo(0);
     }
 
     [Test]
@@ -1113,8 +1113,8 @@ public class AmanhencerDispatcherTests
             .ThrowsNothing()
             .And.IsEqualTo(response);
 
-        await Assert.That(tags.Any(tag => tag.Key == "amanhencer.operation" && Equals(tag.Value, "query")))
-            .IsTrue();
+        await Assert.That(tags)
+            .Contains(tag => tag.Key == "amanhencer.operation" && Equals(tag.Value, "query"));
     }
 
     #endregion

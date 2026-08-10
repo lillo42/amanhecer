@@ -35,7 +35,6 @@ public class AmanhencerHandlerFactoryTests
     }
 
     [Test]
-
     public async Task When_CreateWithUnregisteredHandler_Should_ThrowInvalidOperationException()
     {
         var handleType = typeof(CustomHandler);
@@ -45,7 +44,6 @@ public class AmanhencerHandlerFactoryTests
     }
 
     [Test]
-
     public async Task When_CreateWithNonHandlerService_Should_ThrowInvalidCastException()
     {
         var handleType = typeof(CustomHandler);

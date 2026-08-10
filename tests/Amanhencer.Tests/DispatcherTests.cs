@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Immutable;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
@@ -290,5 +291,129 @@ public class DispatcherTests
 
         await Assert.That(async () => await dispatcher.QueryAsync<TestQuery, string>(new TestQuery(42)))
             .ThrowsExactly<MultiPipelineFoundException>();
+    }
+
+    [Test]
+    public async Task SendAsync_AddsOperationTelemetryTag()
+    {
+        var (dispatcher, _, pipelineFactory) = CreateSubstituteDispatcher();
+        IPipelineContext? captured = null;
+        var pipeline = Substitute.For<IPipeline>();
+        pipeline.When(p => p.ExecuteAsync(Arg.Any<IPipelineContext>()))
+            .Do(ci => captured = ci.Arg<IPipelineContext>());
+        pipelineFactory.Create(Arg.Any<IPipelineContext>()).Returns(ImmutableList.Create(pipeline));
+
+        await dispatcher.SendAsync(new TestRequest("hello"));
+
+        await Assert.That(captured).IsNotNull();
+        await Assert.That(captured!.TelemetryTags.Single(t => t.Key == "amanhencer.operation").Value)
+            .IsEqualTo("send");
+    }
+
+    [Test]
+    public async Task PublishAsync_AddsOperationTelemetryTag()
+    {
+        var (dispatcher, _, pipelineFactory) = CreateSubstituteDispatcher();
+        IPipelineContext? captured = null;
+        var pipeline = Substitute.For<IPipeline>();
+        pipeline.When(p => p.ExecuteAsync(Arg.Any<IPipelineContext>()))
+            .Do(ci => captured = ci.Arg<IPipelineContext>());
+        pipelineFactory.Create(Arg.Any<IPipelineContext>()).Returns(ImmutableList.Create(pipeline));
+
+        await dispatcher.PublishAsync(new TestRequest("hello"));
+
+        await Assert.That(captured).IsNotNull();
+        // The publish operation is currently tagged "post".
+        await Assert.That(captured!.TelemetryTags.Single(t => t.Key == "amanhencer.operation").Value)
+            .IsEqualTo("post");
+    }
+
+    [Test]
+    public async Task QueryAsync_AddsOperationTelemetryTag()
+    {
+        var (dispatcher, _, pipelineFactory) = CreateSubstituteDispatcher();
+        IPipelineContext? captured = null;
+        var pipeline = Substitute.For<IPipeline>();
+        pipeline.When(p => p.ExecuteAsync(Arg.Any<IPipelineContext>()))
+            .Do(ci => captured = ci.Arg<IPipelineContext>());
+        pipelineFactory.Create(Arg.Any<IPipelineContext>()).Returns(ImmutableList.Create(pipeline));
+
+        await dispatcher.QueryAsync<TestQuery, string>(new TestQuery(42));
+
+        await Assert.That(captured).IsNotNull();
+        await Assert.That(captured!.TelemetryTags.Single(t => t.Key == "amanhencer.operation").Value)
+            .IsEqualTo("query");
+    }
+
+    [Test]
+    public async Task QueryAsync_HandlerProducesNoResponse_ReturnsNull()
+    {
+        var (dispatcher, _) = CreateDispatcher(cfg => cfg.AddQueryHandler<NullResponseQueryHandler>());
+
+        var response = await dispatcher.QueryAsync<TestQuery, string?>(new TestQuery(42));
+
+        // The dispatcher casts the pipeline context's response without validating it,
+        // so a handler that produces no response yields null rather than throwing.
+        await Assert.That(response).IsNull();
+    }
+
+    [Test]
+    public async Task SendAsync_AttributeMiddleware_ReceivesAttributeInstanceAsMetadata()
+    {
+        var capture = new MetadataCapture();
+        var services = new ServiceCollection();
+        services.AddSingleton(capture);
+        services.AddAmanhencer(cfg => cfg.AddRequestHandler<MetadataAttributedRequestHandler>());
+        var provider = services.BuildServiceProvider();
+        var dispatcher = provider.GetRequiredService<IDispatcher>();
+
+        await dispatcher.SendAsync(new MetadataAttributedRequest("hello"));
+
+        var attribute = capture.Metadata as MetadataCaptureMiddlewareAttribute;
+        await Assert.That(attribute).IsNotNull();
+        await Assert.That(attribute!.Order).IsEqualTo(3);
+    }
+
+    [Test]
+    public async Task Send_GenuinelyAsyncHandler_ExecutesRegisteredHandler()
+    {
+        var (dispatcher, log) = CreateDispatcher(cfg => cfg.AddRequestHandler<AsyncTestRequestHandler>());
+
+        dispatcher.Send(new TestRequest("hello"));
+
+        await Assert.That(log.Entries).Contains("async:hello");
+    }
+
+    [Test]
+    public async Task Publish_GenuinelyAsyncHandler_ExecutesRegisteredHandler()
+    {
+        var (dispatcher, log) = CreateDispatcher(cfg =>
+            cfg.AddRoutingKey(KeyOf<TestRequest>(), c => c.UseHandler<AsyncTestRequestHandler>()));
+
+        dispatcher.Publish(new TestRequest("hello"));
+
+        await Assert.That(log.Entries).Contains("async:hello");
+    }
+
+    [Test]
+    public async Task Query_GenuinelyAsyncHandler_ReturnsHandlerResponse()
+    {
+        var (dispatcher, _) = CreateDispatcher(cfg => cfg.AddQueryHandler<AsyncTestQueryHandler>());
+
+        var response = dispatcher.Query<TestQuery, string>(new TestQuery(42));
+
+        await Assert.That(response).IsEqualTo("async-answer:42");
+    }
+
+    [Test]
+    public async Task Send_ValueTaskSourceBackedHandler_ExecutesRegisteredHandler()
+    {
+        // Locks in the sync-over-async wrappers consuming the returned ValueTask exactly once:
+        // double consumption is undefined behavior for non-Task-backed ValueTasks.
+        var (dispatcher, log) = CreateDispatcher(cfg => cfg.AddRequestHandler<ValueTaskSourceRequestHandler>());
+
+        dispatcher.Send(new TestRequest("hello"));
+
+        await Assert.That(log.Entries).Contains("valuetask-source:hello");
     }
 }

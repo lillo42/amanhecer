@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Amanhencer.Abstractions;
+using Amanhencer.Extensions;
+using Microsoft.Extensions.DependencyInjection;
 using Polly;
 using Polly.Registry;
 using Polly.Retry;
@@ -180,13 +183,13 @@ public class PollyResiliencePipelineMiddlewareTests
     }
 
     [Test]
-    public async Task Execute_UnknownPipelineName_Throws()
+    public async Task Execute_UnknownPipelineName_ThrowsKeyNotFound()
     {
         var middleware = CreateMiddleware(CreateProvider(), "unknown");
 
         await Assert.That(async () => await middleware.ExecuteAsync(
                 TestPipelineContext.Create(), _ => ValueTask.CompletedTask))
-            .Throws<Exception>();
+            .ThrowsExactly<KeyNotFoundException>();
     }
 
     [Test]
@@ -208,6 +211,21 @@ public class PollyResiliencePipelineMiddlewareTests
         });
 
         await Assert.That(calls).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task SendAsync_AttributeOnHandler_RetriesViaNamedPipelineFromDI()
+    {
+        var state = new FlakyRequestState();
+        var services = new ServiceCollection();
+        services.AddSingleton(state);
+        services.AddSingleton<ResiliencePipelineProvider<string>>(CreateProvider());
+        services.AddAmanhencer(configurator => configurator.AddRequestHandler<FlakyRequestHandler>());
+        var provider = services.BuildServiceProvider();
+
+        await provider.GetRequiredService<IDispatcher>().SendAsync(new TestRequest("request"));
+
+        await Assert.That(state.Calls).IsEqualTo(2);
     }
 
     [Test]

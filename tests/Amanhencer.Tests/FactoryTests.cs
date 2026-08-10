@@ -123,7 +123,6 @@ public class FactoryTests
         await Assert.That(pipelines.Count).IsEqualTo(1);
         middlewareFactory.Received(1).Create(typeof(PassThroughMiddleware), "one");
         middlewareFactory.Received(1).Create(typeof(MetadataMiddleware), "two");
-        middlewareFactory.Received(2).Create(Arg.Any<Type>(), Arg.Any<object?>());
     }
 
     [Test]

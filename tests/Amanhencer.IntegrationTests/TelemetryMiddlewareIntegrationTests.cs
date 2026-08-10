@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
+using Amanhencer.ExecutingStrategies;
 using Amanhencer.Extensions;
 using Amanhencer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
@@ -17,6 +18,8 @@ public class TelemetryMiddlewareIntegrationTests
 {
     private const string SuccessInstrument = "amanhencer.request.processing.success";
     private const string FailedInstrument = "amanhencer.request.processing.failed";
+    private const string TimeoutInstrument = "amanhencer.request.processing.timeout";
+    private const string CancelledInstrument = "amanhencer.request.processing.cancelled";
     private const string DurationInstrument = "amanhencer.request.processing.duration";
     private const string RoutingKeyTag = "amanhencer.routing_key";
 
@@ -120,6 +123,106 @@ public class TelemetryMiddlewareIntegrationTests
         var spans = stopped.Where(a => Equals(a.GetTagItem(RoutingKeyTag), routingKey)).ToArray();
         await Assert.That(spans.Length).IsEqualTo(1);
         await Assert.That(spans[0].Status).IsEqualTo(ActivityStatusCode.Ok);
+    }
+
+    [Test]
+    public async Task Query_RecordsOperationResponseTypeAndStrategyTags_ButResponseIsLost()
+    {
+        const string routingKey = "integration.telemetry.query";
+        var (dispatcher, log) = DispatcherFixture.Create(cfg =>
+            cfg.AddRoutingKey(routingKey, routing => routing
+                .Use<AmanhencerTelemetryMiddleware>(order: 1)
+                .UseHandler<GetStockHandler>()));
+        using var capture = new MetricCapture();
+        var stopped = new List<Activity>();
+        using var listener = ListenForSpans(stopped);
+
+        // Pinned, but clearly broken: when an ActivityListener is attached (always the case in an
+        // OpenTelemetry-instrumented app), AmanhencerTelemetryMiddleware deep-clones the context
+        // for the span and the handler's response is stored on the clone — QueryAsync then reads
+        // the original context's null Response and throws NullReferenceException instead of
+        // returning the handler's result. The handler still runs and the success counter is still
+        // recorded (against the clone), including the response-type tag.
+        await Assert.That(async () => await dispatcher.QueryAsync<GetStock, int>(new GetStock("apple"),
+                new AmanhencerContext { RoutingKey = routingKey }))
+            .ThrowsExactly<NullReferenceException>();
+        await Assert.That(log.Entries).Contains("queried:apple");
+
+        var success = capture.For(SuccessInstrument, routingKey);
+        await Assert.That(success.Count).IsEqualTo(1);
+        await Assert.That(Tag(success[0], "amanhencer.operation")).IsEqualTo("query");
+        await Assert.That(Tag(success[0], "amanhencer.response.type")).IsEqualTo(typeof(int).FullName);
+        await Assert.That(Tag(success[0], "amanhencer.executing_strategy"))
+            .IsEqualTo(typeof(SequenceExecutingStrategy).FullName);
+    }
+
+    [Test]
+    public async Task Publish_RecordsOperationAndStrategyTags_EndToEnd()
+    {
+        const string routingKey = "integration.telemetry.publish";
+        var (dispatcher, log) = DispatcherFixture.Create(cfg =>
+            cfg.AddRoutingKey(routingKey, routing => routing
+                .Use<AmanhencerTelemetryMiddleware>(order: 1)
+                .UseHandler<FirstShippedHandler>()));
+        using var capture = new MetricCapture();
+
+        await dispatcher.PublishAsync(new OrderShipped("book"), new AmanhencerContext { RoutingKey = routingKey });
+
+        await Assert.That(log.Entries).Contains("first:book");
+
+        var success = capture.For(SuccessInstrument, routingKey);
+        await Assert.That(success.Count).IsEqualTo(1);
+        // Pinned current value: AmanhencerDispatcher tags publish dispatches with operation
+        // "post" (not "publish").
+        await Assert.That(Tag(success[0], "amanhencer.operation")).IsEqualTo("post");
+        await Assert.That(Tag(success[0], "amanhencer.executing_strategy"))
+            .IsEqualTo(typeof(SequenceExecutingStrategy).FullName);
+    }
+
+    [Test]
+    public async Task Timeout_RecordsTimeoutCounter_EndToEnd()
+    {
+        const string routingKey = "integration.telemetry.timeout";
+        var (dispatcher, _) = DispatcherFixture.Create(cfg =>
+            cfg.AddRoutingKey(routingKey, routing => routing
+                .Use<AmanhencerTelemetryMiddleware>(order: 1)
+                .UseHandler<TimeoutOrderHandler>()));
+        using var capture = new MetricCapture();
+
+        await Assert.That(async () => await dispatcher.SendAsync(
+                new PlaceOrder("apple"), new AmanhencerContext { RoutingKey = routingKey }))
+            .ThrowsExactly<TimeoutException>();
+
+        var timeout = capture.For(TimeoutInstrument, routingKey);
+        await Assert.That(timeout.Count).IsEqualTo(1);
+        await Assert.That(Tag(timeout[0], RoutingKeyTag)).IsEqualTo(routingKey);
+        await Assert.That(Tag(timeout[0], "exception")).IsEqualTo(typeof(TimeoutException).FullName);
+        await Assert.That(capture.For(FailedInstrument, routingKey)).IsEmpty();
+        await Assert.That(capture.For(SuccessInstrument, routingKey)).IsEmpty();
+        await Assert.That(capture.For(DurationInstrument, routingKey).Count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Cancelled_RecordsCancelledCounter_EndToEnd()
+    {
+        const string routingKey = "integration.telemetry.cancelled";
+        var (dispatcher, _) = DispatcherFixture.Create(cfg =>
+            cfg.AddRoutingKey(routingKey, routing => routing
+                .Use<AmanhencerTelemetryMiddleware>(order: 1)
+                .UseHandler<CancelledOrderHandler>()));
+        using var capture = new MetricCapture();
+
+        await Assert.That(async () => await dispatcher.SendAsync(
+                new PlaceOrder("apple"), new AmanhencerContext { RoutingKey = routingKey }))
+            .ThrowsExactly<OperationCanceledException>();
+
+        var cancelled = capture.For(CancelledInstrument, routingKey);
+        await Assert.That(cancelled.Count).IsEqualTo(1);
+        await Assert.That(Tag(cancelled[0], RoutingKeyTag)).IsEqualTo(routingKey);
+        await Assert.That(Tag(cancelled[0], "exception")).IsEqualTo(typeof(OperationCanceledException).FullName);
+        await Assert.That(capture.For(FailedInstrument, routingKey)).IsEmpty();
+        await Assert.That(capture.For(SuccessInstrument, routingKey)).IsEmpty();
+        await Assert.That(capture.For(DurationInstrument, routingKey).Count).IsEqualTo(1);
     }
 
     [Test]

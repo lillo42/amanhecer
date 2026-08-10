@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Tasks.Sources;
 using Amanhencer.Abstractions;
 using Amanhencer.ExecutingStrategies;
 
@@ -149,6 +150,126 @@ public sealed class MetadataMiddleware : IMiddleware
     public void Initialize(object? metadata) => ReceivedMetadata = metadata;
 
     public ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next) => next(context);
+}
+
+public record SecondTestRequest(string Value);
+
+// Abstract so AutoFromAssemblies scanning (IsHandler skips abstract types) ignores these doubles;
+// they only exist to exercise GetRoutingKey error paths via generic type arguments.
+public abstract class MultiInterfaceHandler : IRequestHandler<TestRequest>, IQueryHandler<TestQuery, string>
+{
+    public ValueTask HandleAsync(TestRequest request, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        return ValueTask.CompletedTask;
+    }
+
+    public ValueTask<string> HandleAsync(TestQuery query, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        return ValueTask.FromResult("multi");
+    }
+}
+
+public abstract class TwoRequestTypesHandler : IRequestHandler<TestRequest>, IRequestHandler<SecondTestRequest>
+{
+    public ValueTask HandleAsync(TestRequest request, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        return ValueTask.CompletedTask;
+    }
+
+    public ValueTask HandleAsync(SecondTestRequest request, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        return ValueTask.CompletedTask;
+    }
+
+    public ValueTask HandleAsync(object request, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        return ValueTask.CompletedTask;
+    }
+}
+
+public abstract class MarkerOnlyRequestHandler : IRequestHandler
+{
+    public ValueTask HandleAsync(object request, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        return ValueTask.CompletedTask;
+    }
+}
+
+public class NullResponseQueryHandler : QueryHandler<TestQuery, string?>
+{
+    public override ValueTask<string?> HandleAsync(TestQuery @event, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        return ValueTask.FromResult<string?>(null);
+    }
+}
+
+public class AsyncTestRequestHandler(ExecutionLog log) : RequestHandler<TestRequest>
+{
+    public override async ValueTask HandleAsync(TestRequest request, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        await Task.Delay(1, cancellationToken);
+        log.Add($"async:{request.Value}");
+    }
+}
+
+public class AsyncTestQueryHandler : QueryHandler<TestQuery, string>
+{
+    public override async ValueTask<string> HandleAsync(TestQuery @event, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        await Task.Delay(1, cancellationToken);
+        return $"async-answer:{@event.Number}";
+    }
+}
+
+public sealed class CompletedValueTaskSource : IValueTaskSource
+{
+    public void GetResult(short token)
+    {
+    }
+
+    public ValueTaskSourceStatus GetStatus(short token) => ValueTaskSourceStatus.Succeeded;
+
+    public void OnCompleted(Action<object?> continuation, object? state, short token, ValueTaskSourceOnCompletedFlags flags)
+    {
+    }
+}
+
+public class ValueTaskSourceRequestHandler(ExecutionLog log) : RequestHandler<TestRequest>
+{
+    public override ValueTask HandleAsync(TestRequest request, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        log.Add($"valuetask-source:{request.Value}");
+        return new ValueTask(new CompletedValueTaskSource(), 0);
+    }
+}
+
+public sealed class MetadataCapture
+{
+    public object? Metadata { get; set; }
+}
+
+public record MetadataAttributedRequest(string Value);
+
+[MetadataCaptureMiddleware(3)]
+public class MetadataAttributedRequestHandler : RequestHandler<MetadataAttributedRequest>
+{
+    public override ValueTask HandleAsync(MetadataAttributedRequest request, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        return ValueTask.CompletedTask;
+    }
+}
+
+public sealed class MetadataCapturingMiddleware(MetadataCapture capture) : IMiddleware
+{
+    public void Initialize(object? metadata) => capture.Metadata = metadata;
+
+    public ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next) => next(context);
+}
+
+public sealed class MetadataCaptureMiddlewareAttribute(int order) : MiddlewareAttribute(order)
+{
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+    public override Type GetMiddlewareType() => typeof(MetadataCapturingMiddleware);
 }
 
 public sealed class FirstMiddlewareAttribute(int order) : MiddlewareAttribute(order)

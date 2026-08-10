@@ -40,8 +40,10 @@ public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipel
         {
             response.GetAwaiter().GetResult();
         }
-        
-        response.AsTask().GetAwaiter().GetResult();
+        else
+        {
+            response.AsTask().GetAwaiter().GetResult();
+        }
     }
 
     /// <summary>
@@ -119,8 +121,10 @@ public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipel
         {
             response.GetAwaiter().GetResult();
         }
-        
-        response.AsTask().GetAwaiter().GetResult();
+        else
+        {
+            response.AsTask().GetAwaiter().GetResult();
+        }
     }
 
     /// <summary>
@@ -192,7 +196,7 @@ public class AmanhencerDispatcher(IPipelineContextFactory contextFactory, IPipel
         {
             return response.GetAwaiter().GetResult();
         }
-        
+
         return response.AsTask().GetAwaiter().GetResult();
     }
 

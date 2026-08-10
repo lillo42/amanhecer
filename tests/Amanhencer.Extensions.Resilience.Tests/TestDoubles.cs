@@ -1,11 +1,35 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using Amanhencer.Abstractions;
 using Amanhencer.ExecutingStrategies;
 
 namespace Amanhencer.Extensions.Resilience.Tests;
 
 public record TestRequest(string Value);
+
+public sealed class FlakyRequestState
+{
+    public int Calls;
+}
+
+[ResiliencePipeline("retry", 1)]
+public class FlakyRequestHandler(FlakyRequestState state) : RequestHandler<TestRequest>
+{
+    public override ValueTask HandleAsync(
+        TestRequest request,
+        IPipelineContext context,
+        CancellationToken cancellationToken = default)
+    {
+        if (Interlocked.Increment(ref state.Calls) == 1)
+        {
+            throw new InvalidOperationException("Boom.");
+        }
+
+        return ValueTask.CompletedTask;
+    }
+}
 
 public static class TestPipelineContext
 {

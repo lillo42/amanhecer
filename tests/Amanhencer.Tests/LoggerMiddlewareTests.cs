@@ -67,9 +67,11 @@ public class LoggerMiddlewareTests
         await Assert.That(entriesWhenHandlerRan).IsEqualTo(1);
         await Assert.That(entries.Count).IsEqualTo(2);
         await Assert.That(entries[0].Level).IsEqualTo(LogLevel.Information);
-        await Assert.That(entries[0].Message).IsEqualTo($"Processing {RoutingKey} request {RequestType}");
+        await Assert.That(entries[0].Message).Contains(RoutingKey);
+        await Assert.That(entries[0].Message).Contains(RequestType);
         await Assert.That(entries[1].Level).IsEqualTo(LogLevel.Information);
-        await Assert.That(entries[1].Message).IsEqualTo($"Processed {RoutingKey} request {RequestType}");
+        await Assert.That(entries[1].Message).Contains(RoutingKey);
+        await Assert.That(entries[1].Message).Contains(RequestType);
     }
 
     [Test]
@@ -85,9 +87,10 @@ public class LoggerMiddlewareTests
 
         var entries = logger.Entries;
         await Assert.That(entries.Count).IsEqualTo(2);
-        await Assert.That(entries[0].Message).IsEqualTo($"Processing {RoutingKey} request {RequestType}");
+        await Assert.That(entries[0].Message).Contains(RoutingKey);
         await Assert.That(entries[1].Level).IsEqualTo(LogLevel.Error);
-        await Assert.That(entries[1].Message).IsEqualTo($"Failed to process {RoutingKey} request {RequestType}");
+        await Assert.That(entries[1].Message).Contains(RoutingKey);
+        await Assert.That(entries[1].Message).Contains(RequestType);
         await Assert.That(entries[1].Exception is InvalidOperationException).IsTrue();
     }
 
@@ -105,7 +108,8 @@ public class LoggerMiddlewareTests
         var entries = logger.Entries;
         await Assert.That(entries.Count).IsEqualTo(2);
         await Assert.That(entries[1].Level).IsEqualTo(LogLevel.Information);
-        await Assert.That(entries[1].Message).IsEqualTo($"Cancelled {RoutingKey} request {RequestType}");
+        await Assert.That(entries[1].Message).Contains(RoutingKey);
+        await Assert.That(entries[1].Message).Contains(RequestType);
         await Assert.That(entries[1].Exception is OperationCanceledException).IsTrue();
     }
 

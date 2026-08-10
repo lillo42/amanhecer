@@ -1,5 +1,6 @@
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
+using Amanhencer.Abstractions.Exceptions;
 using Amanhencer.Configurator;
 using Amanhencer.ExecutingStrategies;
 using Amanhencer.Extensions;
@@ -24,12 +25,12 @@ public class ServiceCollectionExtensionsTests
     {
         var provider = new ServiceCollection().AddAmanhencer().BuildServiceProvider();
 
-        await Assert.That(provider.GetRequiredService<IDispatcher>() is AmanhencerDispatcher).IsTrue();
-        await Assert.That(provider.GetRequiredService<IHandlerFactory>() is AmanhencerHandlerFactory).IsTrue();
-        await Assert.That(provider.GetRequiredService<IMiddlewareFactory>() is AmanhencerMiddlewareFactory).IsTrue();
-        await Assert.That(provider.GetRequiredService<IPipelineFactory>() is AmanhencerPipelineFactory).IsTrue();
-        await Assert.That(provider.GetRequiredService<IPipelineContextFactory>() is AmanhencerPipelineContextFactory).IsTrue();
-        await Assert.That(provider.GetRequiredService<IExecutingStrategy>() is SequenceExecutingStrategy).IsTrue();
+        await Assert.That(provider.GetRequiredService<IDispatcher>()).IsTypeOf<AmanhencerDispatcher>();
+        await Assert.That(provider.GetRequiredService<IHandlerFactory>()).IsTypeOf<AmanhencerHandlerFactory>();
+        await Assert.That(provider.GetRequiredService<IMiddlewareFactory>()).IsTypeOf<AmanhencerMiddlewareFactory>();
+        await Assert.That(provider.GetRequiredService<IPipelineFactory>()).IsTypeOf<AmanhencerPipelineFactory>();
+        await Assert.That(provider.GetRequiredService<IPipelineContextFactory>()).IsTypeOf<AmanhencerPipelineContextFactory>();
+        await Assert.That(provider.GetRequiredService<IExecutingStrategy>()).IsTypeOf<SequenceExecutingStrategy>();
     }
 
     [Test]
@@ -52,6 +53,22 @@ public class ServiceCollectionExtensionsTests
             .BuildServiceProvider();
 
         await Assert.That(provider.GetRequiredService<IExecutingStrategy>() is ParallelExecutingStrategy).IsTrue();
+    }
+
+    [Test]
+    public async Task SendAsync_DuplicateRoutingKey_ThrowsMultiPipelineFoundException()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton(new ExecutionLog());
+        services.AddAmanhencer(cfg => cfg
+            .AddRoutingKey("duplicated.key", c => c.UseHandler<TestRequestHandler>())
+            .AddRoutingKey("duplicated.key", c => c.UseHandler<SecondTestRequestHandler>()));
+        var provider = services.BuildServiceProvider();
+        var dispatcher = provider.GetRequiredService<IDispatcher>();
+
+        await Assert.That(async () => await dispatcher.SendAsync(new TestRequest("hello"),
+                new AmanhencerContext { RoutingKey = "duplicated.key" }))
+            .ThrowsExactly<MultiPipelineFoundException>();
     }
 
     [Test]

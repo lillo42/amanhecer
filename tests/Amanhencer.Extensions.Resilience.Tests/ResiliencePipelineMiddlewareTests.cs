@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Amanhencer.Abstractions;
+using Amanhencer.Extensions;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Diagnostics;
 using Polly;
 using Polly.Registry;
@@ -263,13 +266,13 @@ public class ResiliencePipelineMiddlewareTests
     }
 
     [Test]
-    public async Task Execute_UnknownPipelineName_Throws()
+    public async Task Execute_UnknownPipelineName_ThrowsKeyNotFound()
     {
         var middleware = CreateMiddleware(CreateProvider(), "unknown");
 
         await Assert.That(async () => await middleware.ExecuteAsync(
                 TestPipelineContext.Create(), _ => ValueTask.CompletedTask))
-            .Throws<Exception>();
+            .ThrowsExactly<KeyNotFoundException>();
     }
 
     [Test]
@@ -291,6 +294,26 @@ public class ResiliencePipelineMiddlewareTests
         });
 
         await Assert.That(calls).IsEqualTo(2);
+    }
+
+    [Test]
+    public async Task SendAsync_AttributeOnHandler_RetriesViaNamedPipelineFromDI()
+    {
+        var state = new FlakyRequestState();
+        var services = new ServiceCollection();
+        services.AddSingleton(state);
+        services.AddResiliencePipeline(RetryPipeline, builder => builder.AddRetry(new RetryStrategyOptions
+        {
+            ShouldHandle = new PredicateBuilder().Handle<InvalidOperationException>(),
+            MaxRetryAttempts = 2,
+            Delay = TimeSpan.Zero
+        }));
+        services.AddAmanhencer(configurator => configurator.AddRequestHandler<FlakyRequestHandler>());
+        var provider = services.BuildServiceProvider();
+
+        await provider.GetRequiredService<IDispatcher>().SendAsync(new TestRequest("request"));
+
+        await Assert.That(state.Calls).IsEqualTo(2);
     }
 
     [Test]

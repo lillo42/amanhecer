@@ -9,11 +9,14 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+        <PackageReference Include="OpenTelemetry" />
+        <PackageReference Include="OpenTelemetry.Exporter.InMemory" />
         <PackageReference Include="TUnit"/>
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\src\Amanhencer.Abstractions\Amanhencer.Abstractions.csproj" />
+        <ProjectReference Include="..\..\src\Amanhencer.OpenTelemetry\Amanhencer.OpenTelemetry.csproj" />
         <ProjectReference Include="..\..\src\Amanhencer\Amanhencer.csproj" />
-        <ProjectReference Include="..\..\src\Amanhencer.Extensions.Resilience\Amanhencer.Extensions.Resilience.csproj" />
     </ItemGroup>
 </Project>

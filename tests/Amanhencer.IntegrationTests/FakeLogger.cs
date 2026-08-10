@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 
@@ -8,7 +9,7 @@ public sealed record LogEntry(LogLevel Level, string Message, Exception? Excepti
 
 public sealed class FakeLogger<T> : ILogger<T>
 {
-    private readonly List<LogEntry> _entries = [];
+    private readonly ConcurrentQueue<LogEntry> _entries = new();
 
     public IReadOnlyList<LogEntry> Entries => _entries.ToArray();
 
@@ -19,6 +20,6 @@ public sealed class FakeLogger<T> : ILogger<T>
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
         Func<TState, Exception?, string> formatter)
     {
-        _entries.Add(new LogEntry(logLevel, formatter(state, exception), exception));
+        _entries.Enqueue(new LogEntry(logLevel, formatter(state, exception), exception));
     }
 }

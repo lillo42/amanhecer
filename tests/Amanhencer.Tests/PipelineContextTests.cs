@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
 using Amanhencer.Abstractions.Exceptions;
@@ -44,6 +46,43 @@ public class PipelineContextTests
         await Assert.That(ReferenceEquals(original.Metadata, clone.Metadata)).IsFalse();
         await Assert.That(clone.Metadata.ContainsKey("key")).IsTrue();
         await Assert.That(original.Metadata.ContainsKey("other")).IsFalse();
+    }
+
+    [Test]
+    public async Task DeepClone_NoneToken_KeepsOriginalCancellationToken()
+    {
+        using var cts = new CancellationTokenSource();
+        var original = TestPipelineContext.Create(cancellationToken: cts.Token);
+
+        var clone = original.DeepClone(cancellationToken: CancellationToken.None);
+
+        await Assert.That(clone.CancellationToken).IsEqualTo(cts.Token);
+    }
+
+    [Test]
+    public async Task DeepClone_ExplicitToken_ReplacesCancellationToken()
+    {
+        using var originalCts = new CancellationTokenSource();
+        using var overrideCts = new CancellationTokenSource();
+        var original = TestPipelineContext.Create(cancellationToken: originalCts.Token);
+
+        var clone = original.DeepClone(cancellationToken: overrideCts.Token);
+
+        await Assert.That(clone.CancellationToken).IsEqualTo(overrideCts.Token);
+    }
+
+    [Test]
+    public async Task DeepClone_CopiesTelemetryTagsIntoANewList()
+    {
+        var original = TestPipelineContext.Create();
+        original.TelemetryTags.Add(new KeyValuePair<string, object?>("key", "value"));
+
+        var clone = original.DeepClone();
+        clone.TelemetryTags.Add(new KeyValuePair<string, object?>("other", "changed"));
+
+        await Assert.That(ReferenceEquals(original.TelemetryTags, clone.TelemetryTags)).IsFalse();
+        await Assert.That(clone.TelemetryTags.Count).IsEqualTo(2);
+        await Assert.That(original.TelemetryTags.Count).IsEqualTo(1);
     }
 
     [Test]

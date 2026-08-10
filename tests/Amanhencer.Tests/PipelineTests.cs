@@ -51,6 +51,8 @@ public class PipelineTests
     [Test]
     public async Task ExecuteAsync_CancellationRequested_SkipsMiddlewares()
     {
+        // Deliberate contract: a cancelled pipeline is a silent no-op (middlewares are skipped),
+        // not an OperationCanceledException.
         var middleware = Substitute.For<IMiddleware>();
         var pipeline = new AmanhencerPipeline([middleware]);
         using var cts = new CancellationTokenSource();

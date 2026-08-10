@@ -56,6 +56,22 @@ public class ExplodingOrderHandler : RequestHandler<PlaceOrder>
     }
 }
 
+public class TimeoutOrderHandler : RequestHandler<PlaceOrder>
+{
+    public override ValueTask HandleAsync(PlaceOrder request, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        throw new TimeoutException("Handler timed out.");
+    }
+}
+
+public class CancelledOrderHandler : RequestHandler<PlaceOrder>
+{
+    public override ValueTask HandleAsync(PlaceOrder request, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        throw new OperationCanceledException("Handler was cancelled.");
+    }
+}
+
 [RoutingKey("priority.order")]
 public record PriorityOrder(string Product);
 
@@ -96,6 +112,15 @@ public class SecondShippedHandler(ExecutionLog log) : RequestHandler<OrderShippe
     {
         log.Add($"second:{request.Product}");
         return ValueTask.CompletedTask;
+    }
+}
+
+public class ExplodingShippedHandler(ExecutionLog log) : RequestHandler<OrderShipped>
+{
+    public override ValueTask HandleAsync(OrderShipped request, IPipelineContext context, CancellationToken cancellationToken = default)
+    {
+        log.Add($"exploding:{request.Product}");
+        throw new InvalidOperationException("Subscriber exploded.");
     }
 }
 
@@ -198,6 +223,21 @@ public class TenantMiddleware(ExecutionLog log) : IMiddleware
     {
         log.Add($"middleware-tenant:{context.Metadata.GetValueOrDefault("tenant")}");
         await next(context);
+    }
+}
+
+public class CancellingMiddleware(ExecutionLog log, CancellationTokenSource cts) : IMiddleware
+{
+    public void Initialize(object? metadata)
+    {
+    }
+
+    public async ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next)
+    {
+        log.Add("cancelling:before");
+        await cts.CancelAsync();
+        await next(context);
+        log.Add("cancelling:after");
     }
 }
 

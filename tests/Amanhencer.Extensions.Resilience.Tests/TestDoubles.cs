@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
 using Amanhencer.ExecutingStrategies;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Amanhencer.Extensions.Resilience.Tests;
 
@@ -45,7 +46,7 @@ public static class TestPipelineContext
             metadata ?? new Dictionary<string, object>(),
             routingKey,
             request ?? new TestRequest("request"),
-            new SequenceExecutingStrategy(),
+            new SequenceExecutingStrategy(new NullLogger<SequenceExecutingStrategy>()),
             cancellationToken);
     }
 }

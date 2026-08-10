@@ -71,6 +71,32 @@ public class ExecuteHandlerMiddlewareTests
 
         await Assert.That(handler.Executed)
             .IsTrue();
+
+        await next.DidNotReceive().Invoke(context);
+    }
+
+    [Test]
+    public async Task When_ExecuteAsync_Should_ForwardTheCancellationTokenToTheHandler()
+    {
+        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        using var cancellationTokenSource = new CancellationTokenSource();
+
+        var context = Substitute.For<IPipelineContext>();
+        context.Request.Returns(new SomeRequest());
+        context.CancellationToken.Returns(cancellationTokenSource.Token);
+
+        var handler = new SomeRequestHandler();
+        _factory.Create(typeof(SomeRequestHandler), context)
+            .Returns(handler);
+
+        _middleware.Initialize(typeof(SomeRequestHandler));
+        await Assert.That(async () => await _middleware.ExecuteAsync(context, next))
+            .ThrowsNothing();
+
+        await Assert.That(handler.ReceivedCancellationToken)
+            .IsEqualTo(cancellationTokenSource.Token);
+
+        await next.DidNotReceive().Invoke(context);
     }
 
     [Test]
@@ -99,6 +125,8 @@ public class ExecuteHandlerMiddlewareTests
             .IsTrue();
 
         context.Received(1).Response = new SomeQueryResponse(message);
+
+        await next.DidNotReceive().Invoke(context);
     }
 
     [Test]
@@ -127,11 +155,13 @@ public class ExecuteHandlerMiddlewareTests
     private class SomeRequestHandler : RequestHandler<SomeRequest>
     {
         public bool Executed { get; private set; }
+        public CancellationToken ReceivedCancellationToken { get; private set; }
 
         public override ValueTask HandleAsync(SomeRequest request, IPipelineContext context,
             CancellationToken cancellationToken = default)
         {
             Executed = true;
+            ReceivedCancellationToken = cancellationToken;
             return new ValueTask();
         }
     }

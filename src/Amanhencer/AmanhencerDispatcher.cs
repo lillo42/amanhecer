@@ -176,7 +176,7 @@ public partial class AmanhencerDispatcher(
             return;
         }
 
-        pipelineContext.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhencer.operation", "post"));
+        pipelineContext.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhencer.operation", "publish"));
         await pipelineContext.ExecutingStrategy.ExecuteAsync(pipelineContext, pipelines);
     }
 

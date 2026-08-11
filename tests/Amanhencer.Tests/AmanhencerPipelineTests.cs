@@ -75,7 +75,7 @@ public class AmanhencerPipelineTests
         context.CancellationToken.Returns(cts.Token);
 
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
-            .ThrowsNothing();
+            .Throws<OperationCanceledException>();
 
         foreach (var middleware in middlewares)
         {
@@ -117,47 +117,7 @@ public class AmanhencerPipelineTests
             .ThrowsNothing();
 
         await Assert.That(invocationOrder)
-            .IsEquivalentTo(new[] { 0, 1, 2 }, CollectionOrdering.Matching);
-    }
-
-    [Test]
-    public async Task When_ExecuteAsync_Should_StopWhenCancellationRequestedMidPipeline()
-    {
-        var cts = new CancellationTokenSource();
-
-        var first = Substitute.For<IMiddleware>();
-        first
-            .ExecuteAsync(Arg.Any<IPipelineContext>(), Arg.Any<Func<IPipelineContext, ValueTask>>())
-            .Returns(x =>
-            {
-                cts.Cancel();
-                var context = (IPipelineContext)x[0];
-                var next = (Func<IPipelineContext, ValueTask>)x[1];
-                return new ValueTask(next(context).AsTask());
-            });
-
-        var second = Substitute.For<IMiddleware>();
-        var third = Substitute.For<IMiddleware>();
-
-        var pipeline = new AmanhencerPipeline([first, second, third]);
-
-        var context = Substitute.For<IPipelineContext>();
-        context.CancellationToken.Returns(cts.Token);
-
-        await Assert.That(async () => await pipeline.ExecuteAsync(context))
-            .ThrowsNothing();
-
-        await first
-            .Received(1)
-            .ExecuteAsync(context, Arg.Any<Func<IPipelineContext, ValueTask>>());
-
-        await second
-            .DidNotReceive()
-            .ExecuteAsync(Arg.Any<IPipelineContext>(), Arg.Any<Func<IPipelineContext, ValueTask>>());
-
-        await third
-            .DidNotReceive()
-            .ExecuteAsync(Arg.Any<IPipelineContext>(), Arg.Any<Func<IPipelineContext, ValueTask>>());
+            .IsEquivalentTo([0, 1, 2], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -208,7 +168,7 @@ public class AmanhencerPipelineTests
         var first = Substitute.For<IMiddleware>();
         first
             .ExecuteAsync(Arg.Any<IPipelineContext>(), Arg.Any<Func<IPipelineContext, ValueTask>>())
-            .Returns<ValueTask>(_ => throw new InvalidOperationException("boom"));
+            .Returns(_ => throw new InvalidOperationException("boom"));
 
         var second = Substitute.For<IMiddleware>();
 

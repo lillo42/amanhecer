@@ -1044,7 +1044,7 @@ public class AmanhencerDispatcherTests
             .ThrowsNothing();
 
         await Assert.That(tags)
-            .Contains(tag => tag.Key == "amanhencer.operation" && Equals(tag.Value, "send"));
+            .Contains(tag => tag is { Key: "amanhencer.operation", Value: "send" });
     }
 
     [Test]
@@ -1067,7 +1067,7 @@ public class AmanhencerDispatcherTests
             .ThrowsNothing();
 
         await Assert.That(tags)
-            .Contains(tag => tag.Key == "amanhencer.operation" && Equals(tag.Value, "post"));
+            .Contains(tag => tag is { Key: "amanhencer.operation", Value: "publish" });
     }
 
     [Test]
@@ -1114,7 +1114,7 @@ public class AmanhencerDispatcherTests
             .And.IsEqualTo(response);
 
         await Assert.That(tags)
-            .Contains(tag => tag.Key == "amanhencer.operation" && Equals(tag.Value, "query"));
+            .Contains(tag => tag is { Key: "amanhencer.operation", Value: "query" });
     }
 
     #endregion

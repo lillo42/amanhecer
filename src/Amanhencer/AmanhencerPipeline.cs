@@ -1,3 +1,4 @@
+﻿using System;
 using System.Collections.Immutable;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
@@ -8,32 +9,37 @@ namespace Amanhencer;
 /// An <see cref="IPipeline"/> implementation that runs an ordered chain of middlewares,
 /// each middleware invoking the next one in the chain.
 /// </summary>
-/// <param name="middlewares">The ordered middlewares that compose the pipeline.</param>
-public class AmanhencerPipeline(ImmutableList<IMiddleware> middlewares) : IPipeline
+public class AmanhencerPipeline : IPipeline
 {
+    private readonly Func<IPipelineContext, ValueTask> _chain;
+
+    /// <summary>
+    /// An <see cref="IPipeline"/> implementation that runs an ordered chain of middlewares,
+    /// each middleware invoking the next one in the chain.
+    /// </summary>
+    /// <param name="middlewares">The ordered middlewares that compose the pipeline.</param>
+    public AmanhencerPipeline(ImmutableList<IMiddleware> middlewares)
+    {
+        Func<IPipelineContext, ValueTask> next = static _ => new ValueTask();
+
+        for (var i = middlewares.Count - 1; i >= 0; i--)
+        {
+            var middleware = middlewares[i];
+            var continuation = next;
+            next = context => middleware.ExecuteAsync(context, continuation);
+        }
+
+        _chain = next;
+    }
+
     /// <summary>
     /// Executes the pipeline middlewares, in order, for the given context.
     /// </summary>
     /// <param name="context">The pipeline context that flows through the middleware chain.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the pipeline finishes.</returns>
-    public async ValueTask ExecuteAsync(IPipelineContext context) => await ExecuteAsync(context, 0);
-
-    /// <summary>
-    /// Executes the middleware at the given position and chains to the next one,
-    /// stopping early when cancellation is requested.
-    /// </summary>
-    private async ValueTask ExecuteAsync(IPipelineContext context, int position)
+    public async ValueTask ExecuteAsync(IPipelineContext context)
     {
-        if (context.CancellationToken.IsCancellationRequested)
-        {
-            return;
-        }
-
-        if (position == middlewares.Count)
-        {
-            return;
-        }
-
-        await middlewares[position].ExecuteAsync(context, c => ExecuteAsync(c, position + 1));
+        context.CancellationToken.ThrowIfCancellationRequested();
+        await _chain(context);
     }
 }

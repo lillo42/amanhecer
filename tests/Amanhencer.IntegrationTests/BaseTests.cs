@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
 using Amanhencer.Configurator;
 using Amanhencer.Extensions;
@@ -13,7 +13,10 @@ public abstract class BaseTests
     [Before(Test)]
     public void BeforeTests()
     {
-        var services = new ServiceCollection()
+        var services = new ServiceCollection();
+        ConfigureServiceCollection(services);
+        services
+            .AddLogging()
             .AddAmanhencer(ConfigureAmanhencer);
 
         ServiceProvider = services.BuildServiceProvider();

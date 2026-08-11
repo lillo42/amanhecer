@@ -22,6 +22,7 @@ public record AmanhencerPipelineContext(
     string RoutingKey,
     object Request,
     IExecutingStrategy ExecutingStrategy,
+    bool ContinueOnCapturedContext,
     CancellationToken CancellationToken)
     : IPipelineContext
 {

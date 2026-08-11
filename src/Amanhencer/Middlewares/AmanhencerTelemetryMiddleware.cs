@@ -100,7 +100,7 @@ public class AmanhencerTelemetryMiddleware : IMiddleware
 
         try
         {
-            await next(context);
+            await next(context).ConfigureAwait(context.ContinueOnCapturedContext);
 
             duration.Stop();
 

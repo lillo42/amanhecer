@@ -32,6 +32,7 @@ public class AmanhencerPipelineContextFactory(IExecutingStrategy defaultStrategy
             GetRoutingKey(context, request), 
             request, 
             context.ExecutingStrategy ?? defaultStrategy,
+            context.ContinueOnCapturedContext,
             cancellationToken);
     }
 

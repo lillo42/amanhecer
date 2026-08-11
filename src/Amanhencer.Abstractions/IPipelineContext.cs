@@ -50,6 +50,8 @@ public interface IPipelineContext
     /// Gets the strategy used to execute the pipelines resolved for this context.
     /// </summary>
     IExecutingStrategy ExecutingStrategy { get; }
+    
+    bool ContinueOnCapturedContext { get; }
 
     /// <summary>
     /// Creates a deep copy of this context, including a copy of the <see cref="Metadata"/> dictionary.

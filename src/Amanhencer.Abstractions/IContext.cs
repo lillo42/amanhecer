@@ -36,4 +36,6 @@ public interface IContext
     /// <see langword="null"/>, the default strategy is used.
     /// </summary>
     IExecutingStrategy? ExecutingStrategy { get; set; }
+    
+    bool ContinueOnCapturedContext { get; set; }
 }

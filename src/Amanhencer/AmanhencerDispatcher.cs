@@ -99,7 +99,8 @@ public partial class AmanhencerDispatcher(
             case > 1:
                 throw new MultiPipelineFoundException(pipelineContext.RoutingKey);
             default:
-                await pipelineContext.ExecutingStrategy.ExecuteAsync(pipelineContext, pipelines);
+                await pipelineContext.ExecutingStrategy.ExecuteAsync(pipelineContext, pipelines)
+                    .ConfigureAwait(pipelineContext.ContinueOnCapturedContext);
                 break;
         }
     }
@@ -177,7 +178,10 @@ public partial class AmanhencerDispatcher(
         }
 
         pipelineContext.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhencer.operation", "publish"));
-        await pipelineContext.ExecutingStrategy.ExecuteAsync(pipelineContext, pipelines);
+        await pipelineContext
+            .ExecutingStrategy
+            .ExecuteAsync(pipelineContext, pipelines)
+            .ConfigureAwait(pipelineContext.ContinueOnCapturedContext);
     }
 
     /// <summary>
@@ -266,7 +270,10 @@ public partial class AmanhencerDispatcher(
             case > 1:
                 throw new MultiPipelineFoundException(pipelineContext.RoutingKey);
             default:
-                await pipelineContext.ExecutingStrategy.ExecuteAsync(pipelineContext, pipelines);
+                await pipelineContext
+                    .ExecutingStrategy
+                    .ExecuteAsync(pipelineContext, pipelines)
+                    .ConfigureAwait(pipelineContext.ContinueOnCapturedContext);
                 return (TResponse)pipelineContext.Response!;
         }
     }

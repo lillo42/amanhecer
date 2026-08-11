@@ -52,7 +52,7 @@ public partial class AmanhencerLoggerMiddleware(ILogger<AmanhencerLoggerMiddlewa
             {
                 Logger.Processing(logger, context.RoutingKey, requestType);
 
-                await next(context);
+                await next(context).ConfigureAwait(context.ContinueOnCapturedContext);
 
                 Logger.Processed(logger, context.RoutingKey, requestType);
             }

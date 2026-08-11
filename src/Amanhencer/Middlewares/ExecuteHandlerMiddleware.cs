@@ -50,10 +50,10 @@ public class ExecuteHandlerMiddleware(IHandlerFactory factory) : IMiddleware
         switch (handler)
         {
             case IRequestHandler requestHandler:
-                await requestHandler.HandleAsync(context.Request, context, context.CancellationToken);
+                await requestHandler.HandleAsync(context.Request, context, context.CancellationToken).ConfigureAwait(context.ContinueOnCapturedContext);
                 break;
             case IQueryHandler queryHandler:
-                context.Response = await queryHandler.HandleAsync(context.Request, context, context.CancellationToken);
+                context.Response = await queryHandler.HandleAsync(context.Request, context, context.CancellationToken).ConfigureAwait(context.ContinueOnCapturedContext);
                 break;
             default:
                 throw new NotSupportedException($"The type {context.GetType()} is not supported.");

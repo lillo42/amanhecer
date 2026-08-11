@@ -23,4 +23,7 @@ public class AmanhencerContext : IContext
 
     /// <inheritdoc />
     public IExecutingStrategy? ExecutingStrategy { get; set; }
+
+    /// <inheritdoc />
+    public bool ContinueOnCapturedContext { get; set; }
 }

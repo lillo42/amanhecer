@@ -33,7 +33,7 @@ public partial class ParallelExecutingStrategy(ParallelOptions options, ILogger<
         {
             Logger.OnlyOnePipeline(logger, context.RoutingKey);
             var pipeline = pipelines[0];
-            await pipeline.ExecuteAsync(context);
+            await pipeline.ExecuteAsync(context).ConfigureAwait(context.ContinueOnCapturedContext);
 
             return;
         }
@@ -49,7 +49,7 @@ public partial class ParallelExecutingStrategy(ParallelOptions options, ILogger<
             try
             {
                 var tmpContext = context.DeepClone();
-                await pipeline.ExecuteAsync(tmpContext);
+                await pipeline.ExecuteAsync(tmpContext).ConfigureAwait(context.ContinueOnCapturedContext);
             }
             catch (Exception e)
             {

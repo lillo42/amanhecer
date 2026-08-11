@@ -33,7 +33,7 @@ public partial class SequenceExecutingStrategy(ILogger<SequenceExecutingStrategy
         {
             Logger.OnlyOnePipeline(logger, context.RoutingKey);
             var pipeline = pipelines[0];
-            await pipeline.ExecuteAsync(context);
+            await pipeline.ExecuteAsync(context).ConfigureAwait(context.ContinueOnCapturedContext);
             return;
         }
 
@@ -46,7 +46,7 @@ public partial class SequenceExecutingStrategy(ILogger<SequenceExecutingStrategy
 
             try
             {
-                await pipeline.ExecuteAsync(newContext);
+                await pipeline.ExecuteAsync(newContext).ConfigureAwait(context.ContinueOnCapturedContext);
             }
             catch (Exception e)
             {

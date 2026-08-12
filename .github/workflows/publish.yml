@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   build:
@@ -32,6 +33,11 @@ jobs:
       - name: Pack
         run: dotnet pack --configuration Release --no-build --no-restore --include-source --include-symbols --output ./artifacts
 
+      - name: NuGet Login (Trusted Publishing)
+        uses: NuGet/login@v1
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
       - name: Publish
         working-directory: ./artifacts
-        run: dotnet nuget push "*.nupkg" --source https://api.nuget.org/v3/index.json --api-key ${{secrets.NUGET_TOKEN}} --skip-duplicate
+        run: dotnet nuget push "*.nupkg" --source https://api.nuget.org/v3/index.json --skip-duplicate

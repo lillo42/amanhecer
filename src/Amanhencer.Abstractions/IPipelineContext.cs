@@ -51,6 +51,10 @@ public interface IPipelineContext
     /// </summary>
     IExecutingStrategy ExecutingStrategy { get; }
     
+    /// <summary>
+    /// Gets whether continuations should resume on the captured
+    /// <see cref="System.Threading.SynchronizationContext"/> while executing the pipeline.
+    /// </summary>
     bool ContinueOnCapturedContext { get; }
 
     /// <summary>
@@ -58,6 +62,8 @@ public interface IPipelineContext
     /// </summary>
     /// <param name="parentContext">The activity the copy should carry; when <see langword="null"/>,
     /// the copy carries no activity.</param>
+    /// <param name="cancellationToken">The token the copy should carry; when
+    /// <see cref="CancellationToken.None"/>, the copy carries this context's token.</param>
     /// <returns>A new <see cref="IPipelineContext"/> with the same values as this instance.</returns>
     IPipelineContext DeepClone(Activity? parentContext = null, CancellationToken cancellationToken = default);
 }

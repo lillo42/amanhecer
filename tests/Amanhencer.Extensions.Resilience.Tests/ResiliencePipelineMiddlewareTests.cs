@@ -1,11 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
-using Amanhencer.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Diagnostics;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using Polly;
 using Polly.Registry;
 using Polly.Retry;
@@ -47,125 +51,154 @@ public class ResiliencePipelineMiddlewareTests
         return middleware;
     }
 
-    [Test]
-    public async Task Execute_RetriesOnFailure_UntilNextSucceeds()
+    private static IPipelineContext CreateContext(
+        CancellationToken cancellationToken = default,
+        Dictionary<string, object>? metadata = null)
     {
-        var middleware = CreateMiddleware(CreateProvider(), RetryPipeline);
-        var calls = 0;
-
-        await middleware.ExecuteAsync(TestPipelineContext.Create(), _ =>
-        {
-            calls++;
-            if (calls < 3)
+        var context = Substitute.For<IPipelineContext>();
+        context.Metadata.Returns(metadata ?? []);
+        context.CancellationToken.Returns(cancellationToken);
+        context.Request.Returns(new TestRequest("request"));
+        context.DeepClone(Arg.Any<Activity?>(), Arg.Any<CancellationToken>())
+            .Returns(callInfo =>
             {
-                throw new InvalidOperationException("Boom.");
-            }
-
-            return ValueTask.CompletedTask;
-        });
-
-        await Assert.That(calls).IsEqualTo(3);
+                var clone = Substitute.For<IPipelineContext>();
+                clone.CancellationToken.Returns(callInfo.Arg<CancellationToken>());
+                return clone;
+            });
+        return context;
     }
 
     [Test]
-    public async Task Execute_RetryExhausted_RethrowsLastException()
+    public async Task When_ExecuteAsync_WhenNextFails_Should_RetryUntilItSucceeds()
     {
         var middleware = CreateMiddleware(CreateProvider(), RetryPipeline);
-        var calls = 0;
+        var context = CreateContext();
+        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
 
-        await Assert.That(async () => await middleware.ExecuteAsync(TestPipelineContext.Create(), _ =>
+        var calls = 0;
+        next.Invoke(Arg.Any<IPipelineContext>())
+            .Returns(_ =>
             {
                 calls++;
-                throw new InvalidOperationException("Boom.");
-            }))
+                if (calls < 3)
+                {
+                    throw new InvalidOperationException("Boom.");
+                }
+
+                return ValueTask.CompletedTask;
+            });
+
+        await middleware.ExecuteAsync(context, next);
+
+        await next.Received(3).Invoke(Arg.Any<IPipelineContext>());
+    }
+
+    [Test]
+    public async Task When_ExecuteAsync_WhenRetriesAreExhausted_Should_RethrowLastException()
+    {
+        var middleware = CreateMiddleware(CreateProvider(), RetryPipeline);
+        var context = CreateContext();
+        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        next.Invoke(Arg.Any<IPipelineContext>()).Throws(new InvalidOperationException("Boom."));
+
+        await Assert.That(async () => await middleware.ExecuteAsync(context, next))
             .ThrowsExactly<InvalidOperationException>();
 
-        await Assert.That(calls).IsEqualTo(3);
+        await next.Received(3).Invoke(Arg.Any<IPipelineContext>());
     }
 
     [Test]
-    public async Task Execute_NonRetryableException_DoesNotRetry()
+    public async Task When_ExecuteAsync_WhenExceptionIsNotRetryable_Should_NotRetry()
     {
         var middleware = CreateMiddleware(CreateProvider(), RetryPipeline);
-        var calls = 0;
+        var context = CreateContext();
+        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        next.Invoke(Arg.Any<IPipelineContext>()).Throws(new ArgumentException("Not handled."));
 
-        await Assert.That(async () => await middleware.ExecuteAsync(TestPipelineContext.Create(), _ =>
-            {
-                calls++;
-                throw new ArgumentException("Not handled.");
-            }))
+        await Assert.That(async () => await middleware.ExecuteAsync(context, next))
             .ThrowsExactly<ArgumentException>();
 
-        await Assert.That(calls).IsEqualTo(1);
+        await next.Received(1).Invoke(Arg.Any<IPipelineContext>());
     }
 
     [Test]
-    public async Task Execute_TimeoutExceeded_ThrowsTimeoutRejected()
+    public async Task When_ExecuteAsync_WhenExecutionExceedsTimeout_Should_ThrowTimeoutRejected()
     {
         var middleware = CreateMiddleware(CreateProvider(), TimeoutPipeline);
+        var context = CreateContext();
+        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        next.Invoke(Arg.Any<IPipelineContext>())
+            .Returns(callInfo => new ValueTask(
+                Task.Delay(TimeSpan.FromSeconds(10), callInfo.Arg<IPipelineContext>().CancellationToken)));
 
-        await Assert.That(async () => await middleware.ExecuteAsync(TestPipelineContext.Create(), async context =>
-                await Task.Delay(TimeSpan.FromSeconds(10), context.CancellationToken)))
+        await Assert.That(async () => await middleware.ExecuteAsync(context, next))
             .ThrowsExactly<TimeoutRejectedException>();
     }
 
     [Test]
-    public async Task Execute_WithCancelledToken_DoesNotCallNext()
+    public async Task When_ExecuteAsync_WhenTokenIsCancelled_Should_NotCallNext()
     {
         var middleware = CreateMiddleware(CreateProvider(), RetryPipeline);
-        using var cts = new CancellationTokenSource();
-        await cts.CancelAsync();
-        var calls = 0;
+        using var cancellationTokenSource = new CancellationTokenSource();
+        await cancellationTokenSource.CancelAsync();
+        var context = CreateContext(cancellationTokenSource.Token);
+        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
 
-        await Assert.That(async () => await middleware.ExecuteAsync(
-                TestPipelineContext.Create(cancellationToken: cts.Token),
-                _ =>
-                {
-                    calls++;
-                    return ValueTask.CompletedTask;
-                }))
+        await Assert.That(async () => await middleware.ExecuteAsync(context, next))
             .ThrowsExactly<OperationCanceledException>();
 
-        await Assert.That(calls).IsEqualTo(0);
+        await next.DidNotReceive().Invoke(Arg.Any<IPipelineContext>());
     }
 
     [Test]
-    public async Task Execute_PassesCallerCancellationTokenToNext()
+    public async Task When_ExecuteAsync_Should_PassCallerCancellationTokenToNext()
     {
         var middleware = CreateMiddleware(CreateProvider(), PassThroughPipeline);
-        using var cts = new CancellationTokenSource();
-        CancellationToken seenByNext = default;
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var context = CreateContext(cancellationTokenSource.Token);
+        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
 
-        await middleware.ExecuteAsync(TestPipelineContext.Create(cancellationToken: cts.Token), context =>
-        {
-            seenByNext = context.CancellationToken;
-            return ValueTask.CompletedTask;
-        });
-
-        await Assert.That(seenByNext).IsEqualTo(cts.Token);
-    }
-
-    [Test]
-    public async Task Execute_UsesProvidedResilienceContext_FromMetadata()
-    {
-        var middleware = CreateMiddleware(CreateProvider(), PassThroughPipeline);
-        using var cts = new CancellationTokenSource();
-        var providedContext = ResilienceContextPool.Shared.Get(cts.Token);
-        try
-        {
-            var context = TestPipelineContext.Create(metadata: new Dictionary<string, object>
+        IPipelineContext? seenByNext = null;
+        next.Invoke(Arg.Any<IPipelineContext>())
+            .Returns(callInfo =>
             {
-                [ResiliencePipelineMiddleware.ResilienceContextKey] = providedContext
-            });
-            CancellationToken seenByNext = default;
-
-            await middleware.ExecuteAsync(context, pipelineContext =>
-            {
-                seenByNext = pipelineContext.CancellationToken;
+                seenByNext = callInfo.Arg<IPipelineContext>();
                 return ValueTask.CompletedTask;
             });
 
-            await Assert.That(seenByNext).IsEqualTo(cts.Token);
+        await middleware.ExecuteAsync(context, next);
+
+        await Assert.That(seenByNext).IsNotNull();
+        await Assert.That(seenByNext!.CancellationToken).IsEqualTo(cancellationTokenSource.Token);
+    }
+
+    [Test]
+    public async Task When_ExecuteAsync_WhenResilienceContextIsProvidedInMetadata_Should_UseIt()
+    {
+        var middleware = CreateMiddleware(CreateProvider(), PassThroughPipeline);
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var providedContext = ResilienceContextPool.Shared.Get(cancellationTokenSource.Token);
+        try
+        {
+            var context = CreateContext(metadata: new Dictionary<string, object>
+            {
+                [ResiliencePipelineMiddleware.ResilienceContextKey] = providedContext
+            });
+            var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+
+            IPipelineContext? seenByNext = null;
+            next.Invoke(Arg.Any<IPipelineContext>())
+                .Returns(callInfo =>
+                {
+                    seenByNext = callInfo.Arg<IPipelineContext>();
+                    return ValueTask.CompletedTask;
+                });
+
+            await middleware.ExecuteAsync(context, next);
+
+            await Assert.That(seenByNext).IsNotNull();
+            await Assert.That(seenByNext!.CancellationToken).IsEqualTo(cancellationTokenSource.Token);
         }
         finally
         {
@@ -174,7 +207,7 @@ public class ResiliencePipelineMiddlewareTests
     }
 
     [Test]
-    public async Task Execute_EnrichesResilienceContext_WithRequestMetadata()
+    public async Task When_ExecuteAsync_Should_EnrichResilienceContextWithRequestMetadata()
     {
         // The middleware returns the rented ResilienceContext to the pool when execution
         // completes, which clears its properties — so the metadata must be observed during
@@ -193,24 +226,29 @@ public class ResiliencePipelineMiddlewareTests
                 }
             })));
         var middleware = CreateMiddleware(provider, "capturing");
+        var context = CreateContext();
+        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+
         var calls = 0;
-
-        await middleware.ExecuteAsync(TestPipelineContext.Create(), _ =>
-        {
-            calls++;
-            if (calls == 1)
+        next.Invoke(Arg.Any<IPipelineContext>())
+            .Returns(_ =>
             {
-                throw new InvalidOperationException("Boom.");
-            }
+                calls++;
+                if (calls == 1)
+                {
+                    throw new InvalidOperationException("Boom.");
+                }
 
-            return ValueTask.CompletedTask;
-        });
+                return ValueTask.CompletedTask;
+            });
+
+        await middleware.ExecuteAsync(context, next);
 
         await Assert.That(capturedRequestName).IsEqualTo(nameof(TestRequest));
     }
 
     [Test]
-    public async Task Execute_DoesNotOverwriteCallerProvidedRequestMetadata()
+    public async Task When_ExecuteAsync_WhenRequestMetadataIsProvided_Should_NotOverwriteIt()
     {
         ResilienceContext? capturedContext = null;
         var provider = CreateProvider(registry => registry.TryAddBuilder("capturing", (builder, _) =>
@@ -230,13 +268,15 @@ public class ResiliencePipelineMiddlewareTests
         providedContext.SetRequestMetadata(new RequestMetadata { RequestName = "caller.name" });
         try
         {
+            var context = CreateContext(metadata: new Dictionary<string, object>
+            {
+                [ResiliencePipelineMiddleware.ResilienceContextKey] = providedContext
+            });
+            var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+
             var calls = 0;
-            await middleware.ExecuteAsync(
-                TestPipelineContext.Create(metadata: new Dictionary<string, object>
-                {
-                    [ResiliencePipelineMiddleware.ResilienceContextKey] = providedContext
-                }),
-                _ =>
+            next.Invoke(Arg.Any<IPipelineContext>())
+                .Returns(_ =>
                 {
                     calls++;
                     if (calls == 1)
@@ -247,6 +287,8 @@ public class ResiliencePipelineMiddlewareTests
                     return ValueTask.CompletedTask;
                 });
 
+            await middleware.ExecuteAsync(context, next);
+
             await Assert.That(capturedContext?.GetRequestMetadata()?.RequestName).IsEqualTo("caller.name");
         }
         finally
@@ -256,51 +298,59 @@ public class ResiliencePipelineMiddlewareTests
     }
 
     [Test]
-    public async Task Execute_WithoutInitialize_ThrowsInvalidOperation()
+    public async Task When_ExecuteAsync_WhenNotInitialized_Should_ThrowInvalidOperation()
     {
         var middleware = new ResiliencePipelineMiddleware(CreateProvider());
+        var context = CreateContext();
+        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
 
-        await Assert.That(async () => await middleware.ExecuteAsync(
-                TestPipelineContext.Create(), _ => ValueTask.CompletedTask))
+        await Assert.That(async () => await middleware.ExecuteAsync(context, next))
             .ThrowsExactly<InvalidOperationException>();
     }
 
     [Test]
-    public async Task Execute_UnknownPipelineName_ThrowsKeyNotFound()
+    public async Task When_ExecuteAsync_WhenPipelineNameIsUnknown_Should_ThrowKeyNotFound()
     {
         var middleware = CreateMiddleware(CreateProvider(), "unknown");
+        var context = CreateContext();
+        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
 
-        await Assert.That(async () => await middleware.ExecuteAsync(
-                TestPipelineContext.Create(), _ => ValueTask.CompletedTask))
+        await Assert.That(async () => await middleware.ExecuteAsync(context, next))
             .ThrowsExactly<KeyNotFoundException>();
     }
 
     [Test]
-    public async Task Initialize_AttributeMetadata_ExecutesNamedPipeline()
+    public async Task When_Initialize_WhenMetadataIsAttribute_Should_ExecuteNamedPipeline()
     {
         var middleware = new ResiliencePipelineMiddleware(CreateProvider());
         middleware.Initialize(new ResiliencePipelineAttribute(RetryPipeline, 1));
+        var context = CreateContext();
+        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+
         var calls = 0;
-
-        await middleware.ExecuteAsync(TestPipelineContext.Create(), _ =>
-        {
-            calls++;
-            if (calls == 1)
+        next.Invoke(Arg.Any<IPipelineContext>())
+            .Returns(_ =>
             {
-                throw new InvalidOperationException("Boom.");
-            }
+                calls++;
+                if (calls == 1)
+                {
+                    throw new InvalidOperationException("Boom.");
+                }
 
-            return ValueTask.CompletedTask;
-        });
+                return ValueTask.CompletedTask;
+            });
 
-        await Assert.That(calls).IsEqualTo(2);
+        await middleware.ExecuteAsync(context, next);
+
+        await next.Received(2).Invoke(Arg.Any<IPipelineContext>());
     }
 
     [Test]
-    public async Task SendAsync_AttributeOnHandler_RetriesViaNamedPipelineFromDI()
+    public async Task When_SendAsync_WhenHandlerHasAttribute_Should_RetryViaNamedPipelineFromDI()
     {
         var state = new FlakyRequestState();
         var services = new ServiceCollection();
+        services.AddSingleton(typeof(ILogger<>), typeof(NullLogger<>));
         services.AddSingleton(state);
         services.AddResiliencePipeline(RetryPipeline, builder => builder.AddRetry(new RetryStrategyOptions
         {
@@ -317,7 +367,7 @@ public class ResiliencePipelineMiddlewareTests
     }
 
     [Test]
-    public async Task Initialize_InvalidMetadata_ThrowsArgumentException()
+    public async Task When_Initialize_WhenMetadataIsInvalid_Should_ThrowArgumentException()
     {
         var middleware = new ResiliencePipelineMiddleware(CreateProvider());
 
@@ -327,12 +377,36 @@ public class ResiliencePipelineMiddlewareTests
     }
 
     [Test]
-    public async Task Attribute_ReturnsMiddlewareType_AndKeepsOrderAndName()
+    public async Task When_AttributeIsCreated_Should_ReturnMiddlewareTypeAndKeepOrderAndName()
     {
         var attribute = new ResiliencePipelineAttribute(RetryPipeline, 5);
 
         await Assert.That(attribute.GetMiddlewareType()).IsEqualTo(typeof(ResiliencePipelineMiddleware));
         await Assert.That(attribute.Order).IsEqualTo(5);
         await Assert.That(attribute.PipelineName).IsEqualTo(RetryPipeline);
+    }
+
+    public sealed record TestRequest(string Value);
+
+    public sealed class FlakyRequestState
+    {
+        public int Calls;
+    }
+
+    [ResiliencePipeline(RetryPipeline, 1)]
+    public sealed class FlakyRequestHandler(FlakyRequestState state) : RequestHandler<TestRequest>
+    {
+        public override ValueTask HandleAsync(
+            TestRequest request,
+            IPipelineContext context,
+            CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Increment(ref state.Calls) == 1)
+            {
+                throw new InvalidOperationException("Boom.");
+            }
+
+            return ValueTask.CompletedTask;
+        }
     }
 }

@@ -31,6 +31,7 @@ public static class DispatcherFixture
     public static IDispatcher Create(Action<AmanhencerConfigurator> configure)
     {
         var services = new ServiceCollection();
+        services.AddLogging();
         services.AddAmanhencer(configure);
         return services.BuildServiceProvider().GetRequiredService<IDispatcher>();
     }

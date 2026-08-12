@@ -37,5 +37,9 @@ public interface IContext
     /// </summary>
     IExecutingStrategy? ExecutingStrategy { get; set; }
     
+    /// <summary>
+    /// Gets or sets whether continuations should resume on the captured
+    /// <see cref="System.Threading.SynchronizationContext"/> while executing the dispatch.
+    /// </summary>
     bool ContinueOnCapturedContext { get; set; }
 }

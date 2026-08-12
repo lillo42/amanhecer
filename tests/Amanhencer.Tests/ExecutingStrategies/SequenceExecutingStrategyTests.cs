@@ -15,7 +15,9 @@ namespace Amanhencer.Tests.ExecutingStrategies;
 
 public class SequenceExecutingStrategyTests
 {
-    private readonly SequenceExecutingStrategy _strategy = new(new NullLogger<SequenceExecutingStrategy>());
+    private readonly SequenceExecutingStrategy _strategy = new(
+        new AmanhencerPipelineContextAccessor(),
+        new NullLogger<SequenceExecutingStrategy>());
 
     [Test]
     public async Task When_ExecuteAsync_WithEmptyPipelineList_Should_DoNothing()

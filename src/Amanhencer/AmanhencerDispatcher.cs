@@ -15,6 +15,7 @@ namespace Amanhencer;
 /// </summary>
 /// <param name="contextFactory">Creates the <see cref="IPipelineContext"/> for each request.</param>
 /// <param name="factory">Resolves the pipelines configured for a routing key.</param>
+/// <param name="logger">The logger used to record dispatch diagnostics.</param>
 public partial class AmanhencerDispatcher(
     IPipelineContextFactory contextFactory,
     IPipelineFactory factory,
@@ -31,6 +32,10 @@ public partial class AmanhencerDispatcher(
         Send(request, new AmanhencerContext());
     }
 
+    /// <summary>
+    /// Sends a request synchronously to its single matching pipeline, using a new <see cref="AmanhencerContext"/>.
+    /// </summary>
+    /// <param name="request">The request to send.</param>
     public void Send(object request)
     {
         Send(request, new AmanhencerContext());
@@ -44,9 +49,17 @@ public partial class AmanhencerDispatcher(
     /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
     public void Send<TRequest>(TRequest request, IContext context)
     {
-        Send((object)request!, new AmanhencerContext());
+        Send((object)request!, context);
     }
 
+    /// <summary>
+    /// Sends a request synchronously to its single matching pipeline, using the provided context.
+    /// </summary>
+    /// <param name="request">The request to send.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the request's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the request's routing key.</exception>
     public void Send(object request, IContext context)
     {
         var response = SendAsync(request, context, CancellationToken.None);
@@ -72,6 +85,12 @@ public partial class AmanhencerDispatcher(
         await SendAsync(request, new AmanhencerContext(), cancellationToken);
     }
 
+    /// <summary>
+    /// Sends a request asynchronously to its single matching pipeline, using a new <see cref="AmanhencerContext"/>.
+    /// </summary>
+    /// <param name="request">The request to send.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has executed.</returns>
     public async ValueTask SendAsync(object request, CancellationToken cancellationToken = default)
     {
         await SendAsync(request, new AmanhencerContext(), cancellationToken);
@@ -91,9 +110,19 @@ public partial class AmanhencerDispatcher(
     public async ValueTask SendAsync<TRequest>(TRequest request, IContext context,
         CancellationToken cancellationToken = default)
     {
-        await SendAsync((object)request!, new AmanhencerContext(), cancellationToken);
+        await SendAsync((object)request!, context, cancellationToken);
     }
 
+    /// <summary>
+    /// Sends a request asynchronously to its single matching pipeline, using the provided context.
+    /// </summary>
+    /// <param name="request">The request to send.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has executed.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the request's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the request's routing key.</exception>
     public async ValueTask SendAsync(object request, IContext context, CancellationToken cancellationToken = default)
     {
         if (request == null)
@@ -135,6 +164,10 @@ public partial class AmanhencerDispatcher(
         Publish(request, new AmanhencerContext());
     }
 
+    /// <summary>
+    /// Publishes a request synchronously to all matching pipelines, using a new <see cref="AmanhencerContext"/>.
+    /// </summary>
+    /// <param name="request">The request to publish.</param>
     public void Publish(object request)
     {
         Publish(request, new AmanhencerContext());
@@ -148,9 +181,15 @@ public partial class AmanhencerDispatcher(
     /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
     public void Publish<TRequest>(TRequest request, IContext context)
     {
-        Publish((object)request!, new AmanhencerContext());
+        Publish((object)request!, context);
     }
 
+    /// <summary>
+    /// Publishes a request synchronously to all matching pipelines, using the provided context.
+    /// </summary>
+    /// <param name="request">The request to publish.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> or <paramref name="context"/> is null.</exception>
     public void Publish(object request, IContext context)
     {
         var response = PublishAsync(request, context, CancellationToken.None);
@@ -176,6 +215,12 @@ public partial class AmanhencerDispatcher(
         await PublishAsync(request, new AmanhencerContext(), cancellationToken);
     }
 
+    /// <summary>
+    /// Publishes a request asynchronously to all matching pipelines, using a new <see cref="AmanhencerContext"/>.
+    /// </summary>
+    /// <param name="request">The request to publish.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the pipelines have executed.</returns>
     public async ValueTask PublishAsync(object request, CancellationToken cancellationToken = default)
     {
         await PublishAsync(request, new AmanhencerContext(), cancellationToken);
@@ -193,9 +238,17 @@ public partial class AmanhencerDispatcher(
     public async ValueTask PublishAsync<TRequest>(TRequest request, IContext context,
         CancellationToken cancellationToken = default)
     {
-        await PublishAsync((object)request!, new AmanhencerContext(), cancellationToken);
+        await PublishAsync((object)request!, context, cancellationToken);
     }
 
+    /// <summary>
+    /// Publishes a request asynchronously to all pipelines registered for its routing key.
+    /// </summary>
+    /// <param name="request">The request to publish.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the pipelines have executed.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> or <paramref name="context"/> is null.</exception>
     public async ValueTask PublishAsync(object request, IContext context, CancellationToken cancellationToken = default)
     {
         if (request == null)
@@ -237,11 +290,24 @@ public partial class AmanhencerDispatcher(
         return Query<TQuery, TResponse>(query, new AmanhencerContext());
     }
 
+    /// <summary>
+    /// Executes a query synchronously against its single matching pipeline and returns the handler's
+    /// response, using a new <see cref="AmanhencerContext"/>.
+    /// </summary>
+    /// <typeparam name="TResponse">The type of the response.</typeparam>
+    /// <param name="query">The query to execute.</param>
+    /// <returns>The response produced by the query handler.</returns>
     public TResponse Query<TResponse>(object query)
     {
         return Query<TResponse>(query, new AmanhencerContext());
     }
 
+    /// <summary>
+    /// Executes a query synchronously against its single matching pipeline and returns the handler's
+    /// response, using a new <see cref="AmanhencerContext"/>.
+    /// </summary>
+    /// <param name="query">The query to execute.</param>
+    /// <returns>The response produced by the query handler.</returns>
     public object? Query(object query)
     {
         return Query(query, new AmanhencerContext());
@@ -267,6 +333,17 @@ public partial class AmanhencerDispatcher(
         return response.AsTask().GetAwaiter().GetResult();
     }
 
+    /// <summary>
+    /// Executes a query synchronously against its single matching pipeline and returns the handler's
+    /// response, using the provided context.
+    /// </summary>
+    /// <typeparam name="TResponse">The type of the response.</typeparam>
+    /// <param name="query">The query to execute.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <returns>The response produced by the query handler.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="query"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the query's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the query's routing key.</exception>
     public TResponse Query<TResponse>(object query, IContext context)
     {
         var response = QueryAsync<TResponse>(query, context);
@@ -278,6 +355,16 @@ public partial class AmanhencerDispatcher(
         return response.AsTask().GetAwaiter().GetResult();
     }
 
+    /// <summary>
+    /// Executes a query synchronously against its single matching pipeline and returns the handler's
+    /// response, using the provided context.
+    /// </summary>
+    /// <param name="query">The query to execute.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <returns>The response produced by the query handler.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="query"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the query's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the query's routing key.</exception>
     public object? Query(object query, IContext context)
     {
         var response = QueryAsync(query, context);
@@ -304,14 +391,29 @@ public partial class AmanhencerDispatcher(
         return await QueryAsync<TQuery, TResponse>(query, new AmanhencerContext(), cancellationToken);
     }
 
-    public ValueTask<TResponse> QueryAsync<TResponse>(object query, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Executes a query asynchronously against its single matching pipeline and returns the handler's
+    /// response, using a new <see cref="AmanhencerContext"/>.
+    /// </summary>
+    /// <typeparam name="TResponse">The type of the response.</typeparam>
+    /// <param name="query">The query to execute.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The response produced by the query handler.</returns>
+    public async ValueTask<TResponse> QueryAsync<TResponse>(object query, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return await QueryAsync<TResponse>(query, new AmanhencerContext(), cancellationToken);
     }
 
-    public ValueTask<object?> QueryAsync(object query, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Executes a query asynchronously against its single matching pipeline and returns the handler's
+    /// response, using a new <see cref="AmanhencerContext"/>.
+    /// </summary>
+    /// <param name="query">The query to execute.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The response produced by the query handler.</returns>
+    public async ValueTask<object?> QueryAsync(object query, CancellationToken cancellationToken = default)
     {
-        throw new NotImplementedException();
+        return await QueryAsync(query, new AmanhencerContext(), cancellationToken);
     }
 
     /// <summary>
@@ -330,17 +432,50 @@ public partial class AmanhencerDispatcher(
     public async ValueTask<TResponse> QueryAsync<TQuery, TResponse>(TQuery query, IContext context,
         CancellationToken cancellationToken = default)
     {
+       if (context == null)
+       {
+           throw new ArgumentNullException(nameof(context));
+       }
+
        return await QueryAsync<TResponse>(query!, context, cancellationToken)
            .ConfigureAwait(context.ContinueOnCapturedContext);
     }
 
+    /// <summary>
+    /// Executes a query asynchronously against its single matching pipeline and returns the handler's
+    /// response, using the provided context.
+    /// </summary>
+    /// <typeparam name="TResponse">The type of the response.</typeparam>
+    /// <param name="query">The query to execute.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The response produced by the query handler.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="query"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the query's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the query's routing key.</exception>
     public async ValueTask<TResponse> QueryAsync<TResponse>(object query, IContext context,
         CancellationToken cancellationToken = default)
     {
+        if (context == null)
+        {
+            throw new ArgumentNullException(nameof(context));
+        }
+
         return (TResponse)(await QueryAsync(query, context, cancellationToken)
             .ConfigureAwait(context.ContinueOnCapturedContext))!;
     }
 
+    /// <summary>
+    /// Executes a query asynchronously against its single matching pipeline and returns the handler's
+    /// response, using the provided context.
+    /// </summary>
+    /// <param name="query">The query to execute.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The response produced by the query handler.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="query"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the query's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the query's routing key.</exception>
     public async ValueTask<object?> QueryAsync(object query, IContext context, CancellationToken cancellationToken = default)
     {
         if (query == null)

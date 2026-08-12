@@ -11,6 +11,8 @@ namespace Amanhencer.ExecutingStrategies;
 /// Executes the pipelines in parallel, each with a deep-cloned <see cref="IPipelineContext"/>.
 /// </summary>
 /// <param name="options">The options that control parallelism and cancellation.</param>
+/// <param name="accessor">Exposes the <see cref="IPipelineContext"/> of the pipeline currently executing.</param>
+/// <param name="logger">The logger used to record execution diagnostics.</param>
 public partial class ParallelExecutingStrategy(
     ParallelOptions options,
     AmanhencerPipelineContextAccessor accessor,

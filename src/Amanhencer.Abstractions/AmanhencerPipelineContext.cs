@@ -14,6 +14,8 @@ namespace Amanhencer.Abstractions;
 /// <param name="RoutingKey">The routing key used to resolve the pipeline for the request.</param>
 /// <param name="Request">The request being processed by the pipeline.</param>
 /// <param name="ExecutingStrategy">The strategy used to execute the pipelines resolved for this context.</param>
+/// <param name="ContinueOnCapturedContext">Whether continuations should resume on the captured
+/// <see cref="System.Threading.SynchronizationContext"/> while executing the pipeline.</param>
 /// <param name="CancellationToken">The token that signals cancellation of the pipeline execution.</param>
 public record AmanhencerPipelineContext(
     Activity? Activity,
@@ -35,6 +37,8 @@ public record AmanhencerPipelineContext(
     /// </summary>
     /// <param name="activity">The activity the clone should carry; when <see langword="null"/>,
     /// the clone carries no activity.</param>
+    /// <param name="cancellationToken">The token the clone should carry; when
+    /// <see cref="CancellationToken.None"/>, the clone carries this context's token.</param>
     /// <returns>A new <see cref="IPipelineContext"/> with the same values as this instance.</returns>
     public IPipelineContext DeepClone(Activity? activity = null, CancellationToken cancellationToken = default)
     {

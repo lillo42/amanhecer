@@ -17,6 +17,10 @@ public interface IDispatcher
     /// <param name="request">The request to send.</param>
     void Send<TRequest>(TRequest request);
 
+    /// <summary>
+    /// Sends a request to the single pipeline registered for it, blocking until it completes.
+    /// </summary>
+    /// <param name="request">The request to send.</param>
     void Send(object request);
 
     /// <summary>
@@ -27,6 +31,11 @@ public interface IDispatcher
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     void Send<TRequest>(TRequest request, IContext context);
 
+    /// <summary>
+    /// Sends a request to the single pipeline registered for it, blocking until it completes.
+    /// </summary>
+    /// <param name="request">The request to send.</param>
+    /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     void Send(object request, IContext context);
 
     /// <summary>
@@ -38,6 +47,12 @@ public interface IDispatcher
     /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
     ValueTask SendAsync<TRequest>(TRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Sends a request to the single pipeline registered for it.
+    /// </summary>
+    /// <param name="request">The request to send.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
     ValueTask SendAsync(object request, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -50,6 +65,13 @@ public interface IDispatcher
     /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
     ValueTask SendAsync<TRequest>(TRequest request, IContext context, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Sends a request to the single pipeline registered for it.
+    /// </summary>
+    /// <param name="request">The request to send.</param>
+    /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
     ValueTask SendAsync(object request, IContext context, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -59,6 +81,10 @@ public interface IDispatcher
     /// <param name="request">The request to publish.</param>
     void Publish<TRequest>(TRequest request);
 
+    /// <summary>
+    /// Publishes a request to every pipeline registered for it, blocking until all complete.
+    /// </summary>
+    /// <param name="request">The request to publish.</param>
     void Publish(object request);
 
     /// <summary>
@@ -69,6 +95,11 @@ public interface IDispatcher
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     void Publish<TRequest>(TRequest request, IContext context);
 
+    /// <summary>
+    /// Publishes a request to every pipeline registered for it, blocking until all complete.
+    /// </summary>
+    /// <param name="request">The request to publish.</param>
+    /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     void Publish(object request, IContext context);
 
     /// <summary>
@@ -80,6 +111,12 @@ public interface IDispatcher
     /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
     ValueTask PublishAsync<TRequest>(TRequest request, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Publishes a request to every pipeline registered for it.
+    /// </summary>
+    /// <param name="request">The request to publish.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
     ValueTask PublishAsync(object request, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -92,6 +129,13 @@ public interface IDispatcher
     /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
     ValueTask PublishAsync<TRequest>(TRequest request, IContext context, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Publishes a request to every pipeline registered for it.
+    /// </summary>
+    /// <param name="request">The request to publish.</param>
+    /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
     ValueTask PublishAsync(object request, IContext context, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -104,7 +148,21 @@ public interface IDispatcher
     /// <returns>The response produced by the query handler.</returns>
     TResponse Query<TQuery, TResponse>(TQuery query);
 
+    /// <summary>
+    /// Sends a query to the single pipeline registered for it and returns the response,
+    /// blocking until it completes.
+    /// </summary>
+    /// <typeparam name="TResponse">The type of the response expected from the query.</typeparam>
+    /// <param name="query">The query to send.</param>
+    /// <returns>The response produced by the query handler.</returns>
     TResponse Query<TResponse>(object query);
+
+    /// <summary>
+    /// Sends a query to the single pipeline registered for it and returns the response,
+    /// blocking until it completes.
+    /// </summary>
+    /// <param name="query">The query to send.</param>
+    /// <returns>The response produced by the query handler.</returns>
     object? Query(object query);
 
     /// <summary>
@@ -118,7 +176,23 @@ public interface IDispatcher
     /// <returns>The response produced by the query handler.</returns>
     TResponse Query<TQuery, TResponse>(TQuery query, IContext context);
 
+    /// <summary>
+    /// Sends a query to the single pipeline registered for it and returns the response,
+    /// blocking until it completes.
+    /// </summary>
+    /// <typeparam name="TResponse">The type of the response expected from the query.</typeparam>
+    /// <param name="query">The query to send.</param>
+    /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
+    /// <returns>The response produced by the query handler.</returns>
     TResponse Query<TResponse>(object query, IContext context);
+
+    /// <summary>
+    /// Sends a query to the single pipeline registered for it and returns the response,
+    /// blocking until it completes.
+    /// </summary>
+    /// <param name="query">The query to send.</param>
+    /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
+    /// <returns>The response produced by the query handler.</returns>
     object? Query(object query, IContext context);
 
     /// <summary>
@@ -131,7 +205,21 @@ public interface IDispatcher
     /// <returns>The response produced by the query handler.</returns>
     ValueTask<TResponse> QueryAsync<TQuery, TResponse>(TQuery query, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Sends a query to the single pipeline registered for it and returns the response.
+    /// </summary>
+    /// <typeparam name="TResponse">The type of the response expected from the query.</typeparam>
+    /// <param name="query">The query to send.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>The response produced by the query handler.</returns>
     ValueTask<TResponse> QueryAsync<TResponse>(object query, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends a query to the single pipeline registered for it and returns the response.
+    /// </summary>
+    /// <param name="query">The query to send.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>The response produced by the query handler.</returns>
     ValueTask<object?> QueryAsync(object query, CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -146,8 +234,23 @@ public interface IDispatcher
     ValueTask<TResponse> QueryAsync<TQuery, TResponse>(TQuery query, IContext context,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Sends a query to the single pipeline registered for it and returns the response.
+    /// </summary>
+    /// <typeparam name="TResponse">The type of the response expected from the query.</typeparam>
+    /// <param name="query">The query to send.</param>
+    /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>The response produced by the query handler.</returns>
     ValueTask<TResponse> QueryAsync<TResponse>(object query, IContext context,
         CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Sends a query to the single pipeline registered for it and returns the response.
+    /// </summary>
+    /// <param name="query">The query to send.</param>
+    /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>The response produced by the query handler.</returns>
     ValueTask<object?> QueryAsync(object query, IContext context, CancellationToken cancellationToken = default);
 }

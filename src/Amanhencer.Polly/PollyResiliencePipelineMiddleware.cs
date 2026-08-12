@@ -39,7 +39,7 @@ public class PollyResiliencePipelineAttribute(string pipelineName, int order) : 
 /// The pipeline name is supplied via the middleware metadata: either as a string when registering
 /// the middleware fluently (for example, <c>Use&lt;PollyResiliencePipelineMiddleware&gt;(order, "myPipeline")</c>),
 /// or via <see cref="PollyResiliencePipelineAttribute"/> on the handler class or method.
-/// If <see cref="IPipelineContext.Metadata"/> contains a Polly <see cref="Polly.ResilienceContext"/>
+/// If <see cref="IPipelineContext.Metadata"/> contains a Polly <see cref="T:Polly.ResilienceContext"/>
 /// under the key <see cref="ResilienceContext"/>, that context is used; otherwise a context is
 /// rented from the pool, carrying the pipeline context's cancellation token. The cancellation
 /// token provided by Polly replaces the token carried by the cloned pipeline context passed to
@@ -49,7 +49,7 @@ public class PollyResiliencePipelineMiddleware(ResiliencePipelineProvider<string
 {
     /// <summary>
     /// The <see cref="IPipelineContext.Metadata"/> key under which a Polly
-    /// <see cref="Polly.ResilienceContext"/> can be supplied for the pipeline execution.
+    /// <see cref="T:Polly.ResilienceContext"/> can be supplied for the pipeline execution.
     /// </summary>
     public const string ResilienceContext = "Amanhencer.Polly.Resilience";
 

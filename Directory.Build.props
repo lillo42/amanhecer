@@ -14,7 +14,8 @@
     <NeutralLanguage>en-GB</NeutralLanguage>
 
     <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
-    <WarningsAsErrors>true</WarningsAsErrors>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' != 'netstandard2.0' AND '$(TargetFramework)' != 'net462'">

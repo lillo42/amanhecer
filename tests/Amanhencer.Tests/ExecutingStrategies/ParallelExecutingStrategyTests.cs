@@ -16,7 +16,7 @@ public class ParallelExecutingStrategyTests
     private readonly ParallelExecutingStrategy _strategy = new(new ParallelOptions
     {
         MaxDegreeOfParallelism = 3
-    }, new NullLogger<ParallelExecutingStrategy>());
+    }, new AmanhencerPipelineContextAccessor(), new NullLogger<ParallelExecutingStrategy>());
 
     [Test]
     public async Task When_ExecuteAsync_WithEmptyPipelineList_Should_DoNothing()

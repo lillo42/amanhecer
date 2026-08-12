@@ -11,6 +11,8 @@ namespace Amanhencer.ExecutingStrategies;
 /// Executes the pipelines sequentially, one after another, each with a deep-cloned
 /// <see cref="IPipelineContext"/>.
 /// </summary>
+/// <param name="accessor">Exposes the <see cref="IPipelineContext"/> of the pipeline currently executing.</param>
+/// <param name="logger">The logger used to record execution diagnostics.</param>
 public partial class SequenceExecutingStrategy(
     AmanhencerPipelineContextAccessor accessor,
     ILogger<SequenceExecutingStrategy> logger) : IExecutingStrategy

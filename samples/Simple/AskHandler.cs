@@ -1,4 +1,4 @@
-using Amanhencer.Abstractions;
+using Amanhecer.Abstractions;
 
 namespace Simple;
 

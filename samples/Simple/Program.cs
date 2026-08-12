@@ -1,10 +1,10 @@
-using Amanhencer.Abstractions;
-using Amanhencer.Extensions;
+using Amanhecer.Abstractions;
+using Amanhecer.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Simple;
 
 var service = new ServiceCollection()
-    .AddAmanhencer(a => a
+    .AddAmanhecer(a => a
         .AddRequestHandler<GreetingHandler>()
         .AddQueryHandler<AskHandler>())
     .BuildServiceProvider();

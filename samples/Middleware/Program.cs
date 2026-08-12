@@ -1,6 +1,6 @@
-using Amanhencer.Abstractions;
-using Amanhencer.Extensions;
-using Amanhencer.Middlewares;
+using Amanhecer.Abstractions;
+using Amanhecer.Extensions;
+using Amanhecer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Middleware;
@@ -15,10 +15,10 @@ services.AddOpenTelemetry()
     .WithTracing(tracing => tracing.AddConsoleExporter())
     .WithMetrics(metrics => metrics.AddConsoleExporter());
 
-services.AddAmanhencer(a => a
+services.AddAmanhecer(a => a
     .AddRequestHandler<GreetingHandler>(cfg => cfg
         .Use<TimingMiddleware>(order: 1)
-        .Use<AmanhencerTelemetryMiddleware>(order: 2)));
+        .Use<AmanhecerTelemetryMiddleware>(order: 2)));
 
 await using var service = services.BuildServiceProvider();
 

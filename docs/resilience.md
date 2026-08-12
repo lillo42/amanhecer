@@ -2,8 +2,8 @@
 
 Two packages execute the remainder of a pipeline inside a named Polly resilience pipeline (retry, circuit breaker, timeout, fallback, hedging):
 
-- **`Amanhencer.Polly`** — a thin integration on top of `Polly.Core`.
-- **`Amanhencer.Extensions.Resilience`** — built on `Microsoft.Extensions.Resilience`, additionally enriching Polly telemetry with request metadata.
+- **`Amanhecer.Polly`** — a thin integration on top of `Polly.Core`.
+- **`Amanhecer.Extensions.Resilience`** — built on `Microsoft.Extensions.Resilience`, additionally enriching Polly telemetry with request metadata.
 
 Both expose the same shape: a middleware resolved by pipeline name, registered fluently or via attribute.
 
@@ -26,15 +26,15 @@ services.AddResiliencePipeline("order-processing", builder => builder
 Pass the pipeline name as the middleware metadata:
 
 ```csharp
-services.AddAmanhencer(a => a
+services.AddAmanhecer(a => a
     .AddRequestHandler<PlaceOrderHandler>(cfg => cfg
         .Use<PollyResiliencePipelineMiddleware>(order: 1, metadata: "order-processing")));
 ```
 
-or, with the `Amanhencer.Extensions.Resilience` package:
+or, with the `Amanhecer.Extensions.Resilience` package:
 
 ```csharp
-services.AddAmanhencer(a => a
+services.AddAmanhecer(a => a
     .AddRequestHandler<PlaceOrderHandler>(cfg => cfg
         .Use<ResiliencePipelineMiddleware>(order: 1, metadata: "order-processing")));
 ```
@@ -58,7 +58,7 @@ public class PlaceOrderHandler : RequestHandler<PlaceOrder> { ... }
 
 ## Telemetry enrichment
 
-With `Amanhencer.Extensions.Resilience`, the middleware enriches the execution with `RequestMetadata` carrying the request type name. Register the resilience enricher to include it (and exception summaries) in Polly's logs and metrics:
+With `Amanhecer.Extensions.Resilience`, the middleware enriches the execution with `RequestMetadata` carrying the request type name. Register the resilience enricher to include it (and exception summaries) in Polly's logs and metrics:
 
 ```csharp
 services.AddResilienceEnricher();

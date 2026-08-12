@@ -10,8 +10,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Amanhencer\Amanhencer.csproj" />
-    <ProjectReference Include="..\..\src\Amanhencer.OpenTelemetry\Amanhencer.OpenTelemetry.csproj" />
+    <ProjectReference Include="..\..\src\Amanhecer\Amanhecer.csproj" />
+    <ProjectReference Include="..\..\src\Amanhecer.OpenTelemetry\Amanhecer.OpenTelemetry.csproj" />
   </ItemGroup>
 
   <ItemGroup>

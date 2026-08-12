@@ -20,7 +20,7 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore
-        run: dotnet restore Amanhencer.slnx
+        run: dotnet restore Amanhecer.slnx
 
       - name: Build and test
-        run: dotnet test --solution Amanhencer.slnx --configuration Release
+        run: dotnet test --solution Amanhecer.slnx --configuration Release

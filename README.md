@@ -1,4 +1,4 @@
-# Amanhencer
+# Amanhecer
 
 A lightweight request dispatcher (mediator) for .NET, inspired by [Paramore Brighter](https://github.com/BrighterCommand/Brighter). Send commands, publish events and execute queries through configurable middleware pipelines — with no external broker required.
 
@@ -16,7 +16,7 @@ A lightweight request dispatcher (mediator) for .NET, inspired by [Paramore Brig
 Define a request and its handler:
 
 ```csharp
-using Amanhencer.Abstractions;
+using Amanhecer.Abstractions;
 
 public record Greeting(string Name);
 
@@ -31,15 +31,15 @@ public class GreetingHandler : RequestHandler<Greeting>
 }
 ```
 
-Register Amanhencer and dispatch:
+Register Amanhecer and dispatch:
 
 ```csharp
-using Amanhencer.Abstractions;
-using Amanhencer.Extensions;
+using Amanhecer.Abstractions;
+using Amanhecer.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 
 var services = new ServiceCollection()
-    .AddAmanhencer(a => a
+    .AddAmanhecer(a => a
         .AddRequestHandler<GreetingHandler>()
         .AddQueryHandler<AskHandler>())
     .BuildServiceProvider();
@@ -71,7 +71,7 @@ public class LoggingMiddleware : IMiddleware
     }
 }
 
-services.AddAmanhencer(a => a
+services.AddAmanhecer(a => a
     .AddRequestHandler<GreetingHandler>(cfg => cfg.Use<LoggingMiddleware>(order: 1)));
 ```
 
@@ -101,7 +101,7 @@ public record PlaceOrder(int Id);
 or per dispatch via the context:
 
 ```csharp
-dispatcher.Send(request, new AmanhencerContext { RoutingKey = "priority.order" });
+dispatcher.Send(request, new AmanhecerContext { RoutingKey = "priority.order" });
 ```
 
 `Send` and `Query` require exactly one matching pipeline (`PipelineNotFoundException` / `MultiPipelineFoundException` otherwise); `Publish` tolerates any number.
@@ -111,30 +111,41 @@ dispatcher.Send(request, new AmanhencerContext { RoutingKey = "priority.order" }
 When `Publish` fans out to multiple pipelines, the default `SequenceExecutingStrategy` runs them in registration order. Switch to parallel execution globally:
 
 ```csharp
-services.AddAmanhencer(a => a
+services.AddAmanhecer(a => a
     .SetExecutorStrategy(new ParallelExecutingStrategy(new ParallelOptions()))
     .AddRequestHandler<GreetingHandler>());
 ```
 
 ## Project layout
 
-- `src/Amanhencer.Abstractions` — interfaces, base classes, attributes and contexts.
-- `src/Amanhencer` — the dispatcher, pipeline, factories, configurators and DI extensions.
+- `src/Amanhecer.Abstractions` — interfaces, base classes, attributes and contexts.
+- `src/Amanhecer` — the dispatcher, pipeline, factories, configurators and DI extensions.
+- `src/Amanhecer.Polly` — middleware that wraps handlers in [Polly](https://www.pollydocs.org/) resilience pipelines.
+- `src/Amanhecer.Extensions.Resilience` — the same resilience middleware built on `Microsoft.Extensions.Resilience`.
+- `src/Amanhecer.OpenTelemetry` — OpenTelemetry tracing and metrics instrumentation for pipelines.
 - `samples/Simple` — a minimal console example.
-- `tests/Amanhencer.Tests` — unit tests (TUnit + NSubstitute).
-- `tests/Amanhencer.IntegrationTests` — end-to-end tests through the real DI container and pipelines.
+- `samples/Middleware` — a console example showing middleware in a pipeline.
+- `tests/Amanhecer.Tests` — unit tests (TUnit + NSubstitute).
+- `tests/Amanhecer.IntegrationTests` — end-to-end tests through the real DI container and pipelines.
+- `tests/Amanhecer.Polly.Tests`, `tests/Amanhecer.Extensions.Resilience.Tests`, `tests/Amanhecer.OpenTelemetry.Tests` — tests for the extension packages.
 
 ## Building and testing
 
 ```bash
-dotnet build Amanhencer.slnx
+dotnet build Amanhecer.slnx
 ```
 
-The test projects use TUnit with Microsoft.Testing.Platform; run them directly (the classic `dotnet test` VSTest target is not supported here):
+The test projects use TUnit with Microsoft.Testing.Platform, which `dotnet test` supports natively on the .NET 10 SDK:
 
 ```bash
-dotnet run --project tests/Amanhencer.Tests -f net10.0
-dotnet run --project tests/Amanhencer.IntegrationTests -f net10.0
+dotnet test --solution Amanhecer.slnx
+```
+
+You can also run a single test project directly:
+
+```bash
+dotnet run --project tests/Amanhecer.Tests -f net10.0
+dotnet run --project tests/Amanhecer.IntegrationTests -f net10.0
 ```
 
 ## Licence

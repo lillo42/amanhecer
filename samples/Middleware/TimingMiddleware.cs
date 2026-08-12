@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Amanhencer.Abstractions;
+using Amanhecer.Abstractions;
 
 namespace Middleware;
 

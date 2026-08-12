@@ -3,7 +3,7 @@
 Define a request and its handler:
 
 ```csharp
-using Amanhencer.Abstractions;
+using Amanhecer.Abstractions;
 
 public record Greeting(string Name);
 
@@ -35,15 +35,15 @@ public class AskHandler : QueryHandler<Ask, string>
 
 ## Registering handlers
 
-Register Amanhencer and your handlers with the container:
+Register Amanhecer and your handlers with the container:
 
 ```csharp
-using Amanhencer.Abstractions;
-using Amanhencer.Extensions;
+using Amanhecer.Abstractions;
+using Amanhecer.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 
 var services = new ServiceCollection()
-    .AddAmanhencer(a => a
+    .AddAmanhecer(a => a
         .AddRequestHandler<GreetingHandler>()
         .AddQueryHandler<AskHandler>())
     .BuildServiceProvider();
@@ -71,7 +71,7 @@ All three operations have `async` overloads (`SendAsync`, `PublishAsync`, `Query
 - a per-dispatch executing strategy (see [Executing strategies](executing-strategies.md)).
 
 ```csharp
-await dispatcher.SendAsync(request, new AmanhencerContext
+await dispatcher.SendAsync(request, new AmanhecerContext
 {
     Metadata = { ["tenant"] = "acme" }
 }, cancellationToken);

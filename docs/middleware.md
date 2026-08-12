@@ -5,7 +5,7 @@ Middleware wraps the handler in a Russian-doll pipeline: each middleware can run
 Implement `IMiddleware`:
 
 ```csharp
-using Amanhencer.Abstractions;
+using Amanhecer.Abstractions;
 
 public class LoggingMiddleware : IMiddleware
 {
@@ -28,7 +28,7 @@ public class LoggingMiddleware : IMiddleware
 Add middleware to a handler's pipeline when registering it:
 
 ```csharp
-services.AddAmanhencer(a => a
+services.AddAmanhecer(a => a
     .AddRequestHandler<GreetingHandler>(cfg => cfg
         .Use<LoggingMiddleware>(order: 1)
         .Use<TimingMiddleware>(order: 2, metadata: "slow")));
@@ -56,9 +56,9 @@ Lower `Order` values run earlier; the handler always runs last. Fluent and attri
 
 ## Built-in middleware
 
-The `Amanhencer` package ships with:
+The `Amanhecer` package ships with:
 
-- `AmanhencerLoggerMiddleware` (+ `[RequestLogging]`) — structured, source-generated logs for processing/processed/cancelled/failed, scoped with the routing key and request type.
-- `AmanhencerTelemetryMiddleware` (+ `[AmanhencerTelemetry]`) — spans and metrics; see [Observability](observability.md).
+- `AmanhecerLoggerMiddleware` (+ `[RequestLogging]`) — structured, source-generated logs for processing/processed/cancelled/failed, scoped with the routing key and request type.
+- `AmanhecerTelemetryMiddleware` (+ `[AmanhecerTelemetry]`) — spans and metrics; see [Observability](observability.md).
 
-The `Amanhencer.Polly` and `Amanhencer.Extensions.Resilience` packages add resilience middleware — see [Resilience](resilience.md).
+The `Amanhecer.Polly` and `Amanhecer.Extensions.Resilience` packages add resilience middleware — see [Resilience](resilience.md).

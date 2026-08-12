@@ -11,7 +11,7 @@ When `Publish` fans out to multiple pipelines, an executing strategy controls ho
 `ParallelExecutingStrategy` runs the pipelines concurrently (via `Parallel.ForEachAsync` on modern targets):
 
 ```csharp
-services.AddAmanhencer(a => a
+services.AddAmanhecer(a => a
     .SetExecutorStrategy(new ParallelExecutingStrategy(new ParallelOptions
     {
         MaxDegreeOfParallelism = 4
@@ -24,7 +24,7 @@ services.AddAmanhencer(a => a
 Pass a strategy on the dispatch context to override the global one for a single call:
 
 ```csharp
-await dispatcher.PublishAsync(@event, new AmanhencerContext
+await dispatcher.PublishAsync(@event, new AmanhecerContext
 {
     ExecutingStrategy = new ParallelExecutingStrategy(new ParallelOptions())
 });

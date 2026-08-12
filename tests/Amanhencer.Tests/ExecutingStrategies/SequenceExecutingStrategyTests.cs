@@ -180,7 +180,7 @@ public class SequenceExecutingStrategyTests
 
         await Assert.That(events)
             .IsEquivalentTo(
-                new[] { "first-started", "first-completed", "second-started", "second-completed" },
+                ["first-started", "first-completed", "second-started", "second-completed"],
                 CollectionOrdering.Matching);
 
         async Task FirstPipeline()

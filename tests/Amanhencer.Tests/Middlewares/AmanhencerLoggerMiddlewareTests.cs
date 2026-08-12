@@ -67,7 +67,7 @@ public class AmanhencerLoggerMiddlewareTests
 
         var scopes = _logger.Scopes;
         await Assert.That(scopes)
-            .IsEquivalentTo(new[] { "orders", typeof(SomeRequest).FullName },
+            .IsEquivalentTo(["orders", typeof(SomeRequest).FullName],
                 CollectionOrdering.Matching);
     }
 
@@ -80,9 +80,9 @@ public class AmanhencerLoggerMiddlewareTests
         private readonly ConcurrentQueue<LogEntry> _entries = new();
         private readonly ConcurrentQueue<string> _scopes = new();
 
-        public IReadOnlyList<LogEntry> Entries => _entries.ToArray();
+        public IReadOnlyList<LogEntry> Entries => [.. _entries];
 
-        public IReadOnlyList<string> Scopes => _scopes.ToArray();
+        public IReadOnlyList<string> Scopes => [.. _scopes];
 
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull
         {

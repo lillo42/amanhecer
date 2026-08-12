@@ -5,6 +5,12 @@
         <IsPackable>true</IsPackable>
         <Description>Microsoft.Extensions.Resilience integration for Amanhencer: execute request pipelines inside named resilience pipelines with request-metadata telemetry enrichment.</Description>
         <PackageTags>mediator;cqrs;messaging;dispatcher;resilience;retry;circuit-breaker;timeout;telemetry;middleware;pipeline;brighter</PackageTags>
+
+        <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(TargetFramework)' == 'net462'">
+        <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     </PropertyGroup>
 
     <ItemGroup>

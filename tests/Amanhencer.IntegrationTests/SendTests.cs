@@ -103,7 +103,7 @@ public class SendTests : BaseTests
     {
         private readonly ConcurrentQueue<string> _requests = new();
 
-        public IReadOnlyCollection<string> Requests => _requests.ToArray();
+        public IReadOnlyCollection<string> Requests => [.. _requests];
 
         public void Add(string request) => _requests.Enqueue(request);
     }

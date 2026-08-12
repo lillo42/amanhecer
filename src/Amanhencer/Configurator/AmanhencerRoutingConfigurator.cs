@@ -19,7 +19,7 @@ namespace Amanhencer.Configurator;
 public class AmanhencerRoutingConfigurator(string routingKey, IServiceCollection services)
 {
     private Type? _handlerType;
-    private readonly List<AmanhencerMiddlewareOptions> _middlewareOption = new();
+    private readonly List<AmanhencerMiddlewareOptions> _middlewareOption = [];
 
     /// <summary>
     /// Adds a middleware to the pipeline.

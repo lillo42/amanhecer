@@ -14,6 +14,7 @@
     <NeutralLanguage>en-GB</NeutralLanguage>
 
     <PackageLicenseExpression>LGPL-3.0-or-later</PackageLicenseExpression>
+    <WarningsAsErrors>true</WarningsAsErrors>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(TargetFramework)' != 'netstandard2.0' AND '$(TargetFramework)' != 'net462'">

@@ -6,9 +6,6 @@ using Amanhencer.Extensions;
 using Amanhencer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
-using TUnit.Assertions;
-using TUnit.Assertions.Extensions;
-using TUnit.Core;
 
 namespace Amanhencer.Tests.Extensions;
 

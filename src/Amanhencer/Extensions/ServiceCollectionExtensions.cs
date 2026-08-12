@@ -36,6 +36,9 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<AmanhencerLoggerMiddleware>();
 
         services.TryAddSingleton<IExecutingStrategy, SequenceExecutingStrategy>();
+        
+        services.TryAddSingleton<AmanhencerPipelineContextAccessor>();
+        services.TryAddSingleton<IPipelineContextAccessor>(provider => provider.GetRequiredService<AmanhencerPipelineContextAccessor>());
 
         var cfg = new AmanhencerConfigurator(services);
         configure?.Invoke(cfg);

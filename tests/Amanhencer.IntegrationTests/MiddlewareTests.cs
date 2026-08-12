@@ -49,12 +49,11 @@ public class MiddlewareTests : BaseTests
         var log = ServiceProvider.GetRequiredService<ExecutionLog>();
         await Assert.That(log.Entries)
             .IsEquivalentTo(
-                new[]
-                {
+                [
                     "outer:before", "middle:before", "inner:before",
                     "handled:ordered",
                     "inner:after", "middle:after", "outer:after"
-                },
+                ],
                 CollectionOrdering.Matching);
     }
 
@@ -71,7 +70,7 @@ public class MiddlewareTests : BaseTests
         var log = ServiceProvider.GetRequiredService<ExecutionLog>();
         await Assert.That(log.Entries)
             .IsEquivalentTo(
-                new[] { "custom-name:before", "handled:metadata", "custom-name:after" },
+                ["custom-name:before", "handled:metadata", "custom-name:after"],
                 CollectionOrdering.Matching);
     }
 
@@ -87,7 +86,7 @@ public class MiddlewareTests : BaseTests
 
         var log = ServiceProvider.GetRequiredService<ExecutionLog>();
         await Assert.That(log.Entries)
-            .IsEquivalentTo(new[] { "short-circuit" }, CollectionOrdering.Matching);
+            .IsEquivalentTo(["short-circuit"], CollectionOrdering.Matching);
     }
 
     [Test]
@@ -103,12 +102,11 @@ public class MiddlewareTests : BaseTests
         var log = ServiceProvider.GetRequiredService<ExecutionLog>();
         await Assert.That(log.Entries)
             .IsEquivalentTo(
-                new[]
-                {
+                [
                     "beta:before", "alpha:before",
                     "handled:attributed",
                     "alpha:after", "beta:after"
-                },
+                ],
                 CollectionOrdering.Matching);
     }
 
@@ -125,12 +123,11 @@ public class MiddlewareTests : BaseTests
         var log = ServiceProvider.GetRequiredService<ExecutionLog>();
         await Assert.That(log.Entries)
             .IsEquivalentTo(
-                new[]
-                {
+                [
                     "fluent:before", "alpha:before", "beta:before",
                     "handled:merged",
                     "beta:after", "alpha:after", "fluent:after"
-                },
+                ],
                 CollectionOrdering.Matching);
     }
 
@@ -147,7 +144,7 @@ public class MiddlewareTests : BaseTests
         var log = ServiceProvider.GetRequiredService<ExecutionLog>();
         await Assert.That(log.Entries)
             .IsEquivalentTo(
-                new[] { "alpha:before", "handled:method-attributed", "alpha:after" },
+                ["alpha:before", "handled:method-attributed", "alpha:after"],
                 CollectionOrdering.Matching);
     }
 
@@ -155,7 +152,7 @@ public class MiddlewareTests : BaseTests
     {
         private readonly ConcurrentQueue<string> _entries = new();
 
-        public IReadOnlyCollection<string> Entries => _entries.ToArray();
+        public IReadOnlyCollection<string> Entries => [.. _entries];
 
         public void Add(string entry) => _entries.Enqueue(entry);
     }
@@ -200,6 +197,7 @@ public class MiddlewareTests : BaseTests
     {
         public string Name { get; } = name;
 
+        [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
         public override Type GetMiddlewareType() => typeof(RecordingMiddleware);
     }
 

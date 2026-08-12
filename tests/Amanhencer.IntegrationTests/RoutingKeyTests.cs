@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
@@ -95,7 +94,7 @@ public class RoutingKeyTests : BaseTests
     {
         private readonly ConcurrentQueue<string> _requests = new();
 
-        public IReadOnlyCollection<string> Requests => _requests.ToArray();
+        public IReadOnlyCollection<string> Requests => [.. _requests];
 
         public void Add(string handler) => _requests.Enqueue(handler);
     }

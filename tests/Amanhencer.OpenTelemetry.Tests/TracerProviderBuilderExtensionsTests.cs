@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
-using Amanhencer;
 using Amanhencer.Abstractions;
 using Amanhencer.Middlewares;
 using global::OpenTelemetry;

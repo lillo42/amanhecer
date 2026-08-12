@@ -3,9 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Amanhencer.Abstractions;
 using NSubstitute;
-using TUnit.Assertions;
-using TUnit.Assertions.Extensions;
-using TUnit.Core;
 
 namespace Amanhencer.Tests;
 

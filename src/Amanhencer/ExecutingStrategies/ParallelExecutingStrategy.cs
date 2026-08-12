@@ -11,7 +11,10 @@ namespace Amanhencer.ExecutingStrategies;
 /// Executes the pipelines in parallel, each with a deep-cloned <see cref="IPipelineContext"/>.
 /// </summary>
 /// <param name="options">The options that control parallelism and cancellation.</param>
-public partial class ParallelExecutingStrategy(ParallelOptions options, ILogger<ParallelExecutingStrategy> logger)
+public partial class ParallelExecutingStrategy(
+    ParallelOptions options,
+    AmanhencerPipelineContextAccessor accessor,
+    ILogger<ParallelExecutingStrategy> logger)
     : IExecutingStrategy
 {
     /// <summary>
@@ -32,8 +35,18 @@ public partial class ParallelExecutingStrategy(ParallelOptions options, ILogger<
         if (pipelines.Count == 1)
         {
             Logger.OnlyOnePipeline(logger, context.RoutingKey);
-            var pipeline = pipelines[0];
-            await pipeline.ExecuteAsync(context).ConfigureAwait(context.ContinueOnCapturedContext);
+
+            accessor.PipelineContext = context;
+
+            try
+            {
+                var pipeline = pipelines[0];
+                await pipeline.ExecuteAsync(context).ConfigureAwait(context.ContinueOnCapturedContext);
+            }
+            finally
+            {
+                accessor.PipelineContext = null;
+            }
 
             return;
         }
@@ -49,11 +62,17 @@ public partial class ParallelExecutingStrategy(ParallelOptions options, ILogger<
             try
             {
                 var tmpContext = context.DeepClone();
+                accessor.PipelineContext = tmpContext;
+                
                 await pipeline.ExecuteAsync(tmpContext).ConfigureAwait(context.ContinueOnCapturedContext);
             }
             catch (Exception e)
             {
                 exceptions.Add(e);
+            }
+            finally
+            {
+                accessor.PipelineContext = null;
             }
         });
 #else
@@ -62,6 +81,8 @@ public partial class ParallelExecutingStrategy(ParallelOptions options, ILogger<
             try
             {
                 var tmpContext = context.DeepClone();
+                accessor.PipelineContext = tmpContext;
+
                 var response = pipeline.ExecuteAsync(tmpContext);
                 if (response.IsCompleted)
                 {
@@ -75,6 +96,10 @@ public partial class ParallelExecutingStrategy(ParallelOptions options, ILogger<
             catch (Exception e)
             {
                 exceptions.Add(e);
+            }
+            finally
+            {
+                accessor.PipelineContext = null;
             }
         });
 #endif

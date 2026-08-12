@@ -11,7 +11,9 @@ namespace Amanhencer.ExecutingStrategies;
 /// Executes the pipelines sequentially, one after another, each with a deep-cloned
 /// <see cref="IPipelineContext"/>.
 /// </summary>
-public partial class SequenceExecutingStrategy(ILogger<SequenceExecutingStrategy> logger) : IExecutingStrategy
+public partial class SequenceExecutingStrategy(
+    AmanhencerPipelineContextAccessor accessor,
+    ILogger<SequenceExecutingStrategy> logger) : IExecutingStrategy
 {
     /// <summary>
     /// Executes the given pipelines in sequence. Does nothing when the list is empty and
@@ -32,8 +34,17 @@ public partial class SequenceExecutingStrategy(ILogger<SequenceExecutingStrategy
         if (pipelines.Count == 1)
         {
             Logger.OnlyOnePipeline(logger, context.RoutingKey);
-            var pipeline = pipelines[0];
-            await pipeline.ExecuteAsync(context).ConfigureAwait(context.ContinueOnCapturedContext);
+            accessor.PipelineContext = context;
+            try
+            {
+                var pipeline = pipelines[0];
+                await pipeline.ExecuteAsync(context).ConfigureAwait(context.ContinueOnCapturedContext);
+            }
+            finally
+            {
+                accessor.PipelineContext = null;
+            }
+
             return;
         }
 
@@ -43,6 +54,7 @@ public partial class SequenceExecutingStrategy(ILogger<SequenceExecutingStrategy
         foreach (var pipeline in pipelines)
         {
             var newContext = context.DeepClone();
+            accessor.PipelineContext = newContext;
 
             try
             {
@@ -51,6 +63,10 @@ public partial class SequenceExecutingStrategy(ILogger<SequenceExecutingStrategy
             catch (Exception e)
             {
                 exceptions.Add(e);
+            }
+            finally
+            {
+                accessor.PipelineContext = null;
             }
         }
 

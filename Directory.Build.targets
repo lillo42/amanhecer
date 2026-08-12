@@ -1,0 +1,14 @@
+<Project>
+
+  <!-- Pack a project-local README.md into the NuGet package. This lives in .targets (not
+       .props) because the SDK's default None glob only runs after Directory.Build.props
+       is imported, so Update on default items must happen here. In cross-targeting builds
+       the default globs are disabled in the outer build — where pack collects its files —
+       so the item must be created explicitly there. -->
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)/README.md')">
+    <None Update="$(MSBuildProjectDirectory)/README.md" Pack="true" PackagePath="\" Visible="false" />
+    <None Include="$(MSBuildProjectDirectory)/README.md" Pack="true" PackagePath="\" Visible="false"
+          Condition="'$(IsCrossTargetingBuild)' == 'true'" />
+  </ItemGroup>
+
+</Project>

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -18,12 +19,15 @@ namespace Amanhecer.Configurator;
 public class AmanhecerConfigurator(IServiceCollection services)
 {
     private readonly List<AmanhecerRoutingOptions> _routingConfigurators = [];
+    private readonly List<IGateway> _gateways;
     private readonly HashSet<Type> _autoRegisteredTypes = [];
 
     /// <summary>
     /// Gets the routing options built from the configured routing keys.
     /// </summary>
     public IEnumerable<AmanhecerRoutingOptions> RoutingConfigurators => _routingConfigurators;
+    
+    public IEnumerable<IGateway> Gateways => _gateways;
 
     /// <summary>
     /// Registers a request handler and creates a pipeline for the routing key derived from its request type.
@@ -92,6 +96,13 @@ public class AmanhecerConfigurator(IServiceCollection services)
     public AmanhecerConfigurator SetExecutorStrategy(IExecutingStrategy executor)
     {
         services.AddSingleton(executor);
+        return this;
+    }
+
+    public AmanhecerConfigurator UsingMessagingGateway(Action<AmanhecerMessagingConfigurator> configure)
+    {
+        var cfg = new AmanhecerMessagingConfigurator(services);
+        configure.Invoke(cfg);
         return this;
     }
 

@@ -22,6 +22,8 @@ public record AmanhecerPipelineContext(
     List<KeyValuePair<string, object?>> TelemetryTags,
     Dictionary<string, object> Metadata,
     string RoutingKey,
+    string RequestId,
+    string CorrelationId,
     object Request,
     IExecutingStrategy ExecutingStrategy,
     bool ContinueOnCapturedContext,

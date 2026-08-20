@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
+        <IsPackable>true</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="RabbitMQ.Client" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Amanhecer.Abstractions\Amanhecer.Abstractions.csproj" />
+      <ProjectReference Include="..\Amanhecer\Amanhecer.csproj" />
+    </ItemGroup>
+    
+</Project>

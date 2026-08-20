@@ -24,3 +24,18 @@ public abstract class MiddlewareAttribute(int order) : Attribute
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     public abstract Type GetMiddlewareType();
 }
+
+public abstract class MiddlewareAttribute<
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+    TMiddleware>(int order)
+    : MiddlewareAttribute(order)
+    where TMiddleware : IMiddleware
+{
+    
+    /// <inheritdoc />
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+    public override Type GetMiddlewareType()
+    {
+        return typeof(TMiddleware);
+    }
+}

@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Microsoft.Extensions.Logging;
@@ -11,15 +10,7 @@ namespace Amanhecer.Middlewares;
 /// <c>HandleAsync</c> method, adding request logging to that handler's pipeline.
 /// </summary>
 /// <param name="order">The order in which the middleware runs within the pipeline.</param>
-public class RequestLoggingAttribute(int order) : MiddlewareAttribute(order)
-{
-    /// <inheritdoc />
-    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
-    public override Type GetMiddlewareType()
-    {
-        return typeof(AmanhecerLoggerMiddleware);
-    }
-}
+public class RequestLoggingAttribute(int order) : MiddlewareAttribute<AmanhecerLoggerMiddleware>(order);
 
 /// <summary>
 /// Middleware that logs the processing of each request flowing through the pipeline: an entry

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
@@ -14,15 +13,7 @@ namespace Amanhecer.Middlewares;
 /// <c>HandleAsync</c> method, adding request telemetry to that handler's pipeline.
 /// </summary>
 /// <param name="order">The order in which the middleware runs within the pipeline.</param>
-public class AmanhecerTelemetryAttribute(int order) : MiddlewareAttribute(order)
-{
-    /// <inheritdoc />
-    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
-    public override Type GetMiddlewareType()
-    {
-        return typeof(AmanhecerTelemetryMiddleware);
-    }
-}
+public class AmanhecerTelemetryAttribute(int order) : MiddlewareAttribute<AmanhecerTelemetryMiddleware>(order);
 
 /// <summary>
 /// Middleware that records telemetry for each request flowing through the pipeline: a span from

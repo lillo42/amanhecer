@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
@@ -16,19 +15,12 @@ namespace Amanhecer.Extensions.Resilience;
 /// <param name="pipelineName">The name of the resilience pipeline to execute, as registered in
 /// the <see cref="ResiliencePipelineProvider{TKey}"/>.</param>
 /// <param name="order">The order in which the middleware runs within the pipeline.</param>
-public class ResiliencePipelineAttribute(string pipelineName, int order) : MiddlewareAttribute(order)
+public class ResiliencePipelineAttribute(string pipelineName, int order) : MiddlewareAttribute<ResiliencePipelineMiddleware>(order)
 {
     /// <summary>
     /// Gets the name of the resilience pipeline to execute.
     /// </summary>
     public string PipelineName { get; } = pipelineName;
-
-    /// <inheritdoc />
-    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
-    public override Type GetMiddlewareType()
-    {
-        return typeof(ResiliencePipelineMiddleware);
-    }
 }
 
 /// <summary>

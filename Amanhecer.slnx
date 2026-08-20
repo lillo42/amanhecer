@@ -8,7 +8,9 @@
     <Project Path="src/Amanhecer.Extensions.Resilience/Amanhecer.Extensions.Resilience.csproj" />
     <Project Path="src/Amanhecer.OpenTelemetry/Amanhecer.OpenTelemetry.csproj" />
     <Project Path="src/Amanhecer.Polly/Amanhecer.Polly.csproj" />
+    <Project Path="src/Amanhecer.RabbitMq/Amanhecer.RabbitMq.csproj" />
     <Project Path="src/Amanhecer/Amanhecer.csproj" />
+    <Project Path="src/Amanhencer.Extensions.Hosting/Amanhencer.Extensions.Hosting.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Amanhecer.Extensions.Resilience.Tests/Amanhecer.Extensions.Resilience.Tests.csproj" />

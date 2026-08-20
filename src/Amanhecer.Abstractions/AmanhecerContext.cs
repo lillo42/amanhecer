@@ -22,6 +22,12 @@ public class AmanhecerContext : IContext
     public string? RoutingKey { get; set; }
 
     /// <inheritdoc />
+    public string? RequestId { get; set; }
+
+    /// <inheritdoc />
+    public string? CorrelationId { get; set; }
+
+    /// <inheritdoc />
     public IExecutingStrategy? ExecutingStrategy { get; set; }
 
     /// <inheritdoc />

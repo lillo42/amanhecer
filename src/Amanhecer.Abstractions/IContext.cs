@@ -30,6 +30,10 @@ public interface IContext
     /// a routing key is derived from the request.
     /// </summary>
     string? RoutingKey { get; set; }
+    
+    string? RequestId { get; set; }
+    
+    string? CorrelationId { get; set; }
 
     /// <summary>
     /// Gets or sets the strategy used to execute the resolved pipelines. When

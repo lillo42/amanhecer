@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Reflection;
 using System.Threading;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Messaging;
 
 namespace Amanhecer;
 
@@ -30,6 +31,8 @@ public class AmanhecerPipelineContextFactory(IExecutingStrategy defaultStrategy)
             context.TelemetryTags,
             context.Metadata,
             GetRoutingKey(context, request), 
+            context.RequestId ??  Uuid.NewGuid().ToString(),
+            context.CorrelationId ?? Uuid.NewGuid().ToString(),
             request, 
             context.ExecutingStrategy ?? defaultStrategy,
             context.ContinueOnCapturedContext,
@@ -52,5 +55,20 @@ public class AmanhecerPipelineContextFactory(IExecutingStrategy defaultStrategy)
             var attribute = type.GetCustomAttribute<RoutingKeyAttribute>();
             return attribute == null ? (type.FullName ?? type.Name) : attribute.RoutingKey;
         });
+    }
+
+    private static string GetOrCreateRequestId(object request, IContext context)
+    {
+        if (!string.IsNullOrEmpty(context.RequestId))
+        {
+            return context.RequestId;
+        }
+
+        if (request is IMessageId messageId)
+        {
+            return messageId.Id;
+        }
+        
+        return Uuid.NewGuid().ToString();
     }
 }

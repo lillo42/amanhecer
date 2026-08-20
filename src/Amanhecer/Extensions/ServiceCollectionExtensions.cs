@@ -3,8 +3,10 @@ using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Linq;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Messaging;
 using Amanhecer.Configurator;
 using Amanhecer.ExecutingStrategies;
+using Amanhecer.Messaging;
 using Amanhecer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -36,9 +38,14 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<AmanhecerLoggerMiddleware>();
 
         services.TryAddSingleton<IExecutingStrategy, SequenceExecutingStrategy>();
-        
+
         services.TryAddSingleton<AmanhecerPipelineContextAccessor>();
-        services.TryAddSingleton<IPipelineContextAccessor>(provider => provider.GetRequiredService<AmanhecerPipelineContextAccessor>());
+        services.TryAddSingleton<IPipelineContextAccessor>(provider =>
+            provider.GetRequiredService<AmanhecerPipelineContextAccessor>());
+
+        services.TryAddTransient<ITransformerPipelineFactory, AmanhencerTransformerPipelineFactory>();
+        services.TryAddTransient<ITransformerFactory, AmanhecerTransformerFactory>();
+        services.TryAddTransient<IMessageMapperFactory, AmanhecerMessageMapperFactory>();
 
         var cfg = new AmanhecerConfigurator(services);
         configure?.Invoke(cfg);
@@ -51,6 +58,21 @@ public static class ServiceCollectionExtensions
                     .ToImmutableList());
 
         services.AddSingleton(new AmanhecerPipelineOptions(routing));
+
+
+        services.TryAddSingleton<IProducerFinder>(new AmanhecerProducerFinder(
+            cfg
+                .Gateways
+                .SelectMany(x => x.CreateProducers())
+                .ToFrozenDictionary(x => x.Key, x => x.Value)));
+
+        services.TryAddSingleton<IPublicationFinder>(new AmanhecerPublicationFinder(
+            cfg
+                .Gateways
+                .SelectMany(x => x.Publications)
+                .ToFrozenDictionary(x => x.RoutingKey, x => x)
+        ));
+
         return services;
     }
 }

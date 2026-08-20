@@ -35,6 +35,10 @@ public interface IPipelineContext
     /// Gets the routing key used to resolve the pipeline for the request.
     /// </summary>
     string RoutingKey { get; }
+    
+    string CorrelationId { get; }
+    
+    string RequestId { get; }
 
     /// <summary>
     /// Gets the request being processed by the pipeline.

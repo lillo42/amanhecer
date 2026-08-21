@@ -53,4 +53,7 @@ public abstract class Publication : IPublication
 
     /// <inheritdoc cref="IPublication.CloudEventType"/>
     public CloudEventType CloudEventType { get; set; } = CloudEventType.Binary;
+
+    /// <inheritdoc cref="IPublication.Transformers"/>
+    public IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; set; } = [];
 }

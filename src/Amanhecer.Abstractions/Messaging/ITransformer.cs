@@ -4,10 +4,9 @@ using System.Threading.Tasks;
 namespace Amanhecer.Abstractions.Messaging;
 
 /// <summary>
-/// A component of a transformer pipeline, able to transform a message as it is encoded
-/// (published) or decoded (consumed) by wrapping the call to the next transformer.
+/// A component of an encode transformer pipeline, transforming a message on its way out.
 /// </summary>
-public interface ITransformer
+public interface IEncodeTransformer
 {
     /// <summary>
     /// Initialises the transformer with the metadata supplied when the pipeline was built.
@@ -26,6 +25,18 @@ public interface ITransformer
     ValueTask EncodeAsync(Message message,
         IPipelineContext context,
         Func<Message, IPipelineContext, ValueTask> next);
+}
+
+/// <summary>
+/// A component of a decode transformer pipeline, transforming a message on its way in.
+/// </summary>
+public interface IDecodeTransformer
+{
+    /// <summary>
+    /// Initialises the transformer with the metadata supplied when the pipeline was built.
+    /// </summary>
+    /// <param name="metadata">Optional metadata used to configure the transformer instance.</param>
+    void Initialize(object? metadata);
 
     /// <summary>
     /// Transforms a message on its way in. Invoke <paramref name="next"/> to continue
@@ -39,3 +50,9 @@ public interface ITransformer
         IPipelineContext context,
         Func<Message, IPipelineContext, ValueTask> next);
 }
+
+/// <summary>
+/// A transformer that applies in both directions. Implement this for symmetric transforms
+/// (compression, encryption, ...) so the pair is registered and ordered together.
+/// </summary>
+public interface ITransformer : IEncodeTransformer, IDecodeTransformer;

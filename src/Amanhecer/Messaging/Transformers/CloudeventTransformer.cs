@@ -19,7 +19,7 @@ public class CloudeventAttribute(int order) : TransformeAttribute<CloudeventTran
     public string? Type { get; set; }
 }
 
-public partial class CloudeventTransformer(ILogger<CloudeventTransformer> logger) : ITransformer
+public partial class CloudeventTransformer(ILogger<CloudeventTransformer> logger) : IEncodeTransformer
 {
     private CloudeventAttribute? _attribute;
 
@@ -120,12 +120,6 @@ public partial class CloudeventTransformer(ILogger<CloudeventTransformer> logger
         }
     }
 
-
-    public ValueTask DecodeAsync(Message message, IPipelineContext context,
-        Func<Message, IPipelineContext, ValueTask> next)
-    {
-        return next(message, context);
-    }
 
     private static partial class Logger
     {

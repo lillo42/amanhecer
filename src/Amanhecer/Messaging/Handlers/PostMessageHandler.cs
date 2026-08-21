@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Messaging;
 
 namespace Amanhecer.Handlers;
 
@@ -10,7 +11,7 @@ public class PostMessageHandler(
     IPublicationFinder publicationFinder,
     IProducerFinder producerFinder,
     IMessageMapperFactory messageMapperFactory,
-    ITransformerPipelineFactory transformerPipelineFactory) : IRequestHandler
+    IEncodeTransformerPipelineFactory transformerPipelineFactory) : IRequestHandler
 {
     public async ValueTask HandleAsync(object request, IPipelineContext context,
         CancellationToken cancellationToken = default)
@@ -60,7 +61,7 @@ public class PostMessageHandler(
         var message = await messageMapper.ToMessageAsync(request, context)
             .ConfigureAwait(context.ContinueOnCapturedContext);
 
-        var transformerPipelineName = $"Amanhecer.Messaging.Transformer.Encode.{publication.Name}";
+        var transformerPipelineName = TransformerPipelineNames.Encode(publication.Name);
         var pipeline = transformerPipelineFactory.Create(transformerPipelineName, context);
         await pipeline.EncodeAsync(message, context)
             .ConfigureAwait(context.ContinueOnCapturedContext);

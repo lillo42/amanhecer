@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Mime;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
@@ -114,6 +115,43 @@ public class RabbitMqPublicationConfigurator
     public RabbitMqPublicationConfigurator MessageMapper<TMapper>() where TMapper : IMessageMapper
     {
         _messageMapperType = typeof(TMapper);
+        return this;
+    }
+
+    private readonly List<AmanhecerTransformerOptions> _transformers = [];
+
+    /// <summary>
+    /// Adds a transformer to the encode pipeline messages published through this publication
+    /// go through, on top of any globally registered transformers.
+    /// </summary>
+    /// <typeparam name="TTransformer">The transformer implementation type.</typeparam>
+    /// <param name="order">The position of the transformer in the pipeline; lower values run first.</param>
+    /// <param name="metadata">Optional metadata passed to the transformer on initialisation.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqPublicationConfigurator Transformer<TTransformer>(int order = 0, object? metadata = null)
+        where TTransformer : IEncodeTransformer
+    {
+        return Transformer(typeof(TTransformer), order, metadata);
+    }
+
+    /// <summary>
+    /// Adds a transformer to the encode pipeline messages published through this publication
+    /// go through, on top of any globally registered transformers.
+    /// </summary>
+    /// <param name="transformerType">The transformer implementation type.</param>
+    /// <param name="order">The position of the transformer in the pipeline; lower values run first.</param>
+    /// <param name="metadata">Optional metadata passed to the transformer on initialisation.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqPublicationConfigurator Transformer(Type transformerType, int order = 0, object? metadata = null)
+    {
+        if (!typeof(IEncodeTransformer).IsAssignableFrom(transformerType))
+        {
+            throw new ArgumentException(
+                $"The type '{transformerType.FullName}' does not implement IEncodeTransformer.",
+                nameof(transformerType));
+        }
+
+        _transformers.Add(new AmanhecerTransformerOptions(transformerType, order, metadata));
         return this;
     }
 
@@ -365,6 +403,7 @@ public class RabbitMqPublicationConfigurator
             RabbitMqRoutingKey = _rabbitMqRoutingKey!,
             Exchange = _exchange,
             MessageMapperType = _messageMapperType,
+            Transformers = [.. _transformers.OrderBy(x => x.Order)],
             Mandatory = _mandatory,
             Persistent = _persistent,
             ContentEncoding = _contentEncoding,

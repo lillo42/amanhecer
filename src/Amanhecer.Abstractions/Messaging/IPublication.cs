@@ -90,4 +90,10 @@ public interface IPublication
     /// this publication.
     /// </summary>
     CloudEventType CloudEventType { get; set; }
+
+    /// <summary>
+    /// Gets the encode transformers applied to messages published through this publication,
+    /// on top of any globally registered transformers.
+    /// </summary>
+    IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; }
 }

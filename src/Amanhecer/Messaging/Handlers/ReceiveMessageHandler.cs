@@ -4,13 +4,14 @@ using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Messaging;
 
 namespace Amanhecer.Handlers;
 
 public class ReceiveMessageHandler(
     IDispatcher dispatcher,
     IMessageMapperFactory messageMapperFactory,
-    ITransformerPipelineFactory transformerPipelineFactory
+    IDecodeTransformerPipelineFactory transformerPipelineFactory
 ) : QueryHandler<Message, object?>
 {
     public override async ValueTask<object?> HandleAsync(Message query, IPipelineContext context,
@@ -53,7 +54,7 @@ public class ReceiveMessageHandler(
         ISubscription subscription,
         IPipelineContext context)
     {
-        var transformerPipelineName = $"Amanhecer.Messaging.Transformer.Decode.{subscription.Name}";
+        var transformerPipelineName = TransformerPipelineNames.Decode(subscription.Name);
 
         var pipeline = transformerPipelineFactory.Create(transformerPipelineName, context);
         await pipeline.DecodeAsync(message, context)

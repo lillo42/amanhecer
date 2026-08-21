@@ -3,6 +3,7 @@
 * [Introduction](README.md)
 * [Getting started](getting-started.md)
 * [Middleware](middleware.md)
+* [Transformers](transformers.md)
 * [Routing keys](routing.md)
 * [Executing strategies](executing-strategies.md)
 * [Observability](observability.md)

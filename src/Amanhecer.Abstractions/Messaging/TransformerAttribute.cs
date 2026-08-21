@@ -29,13 +29,13 @@ public abstract class TransformerAttribute(int order) : Attribute
 /// method or class the attribute is placed on.
 /// </summary>
 /// <typeparam name="TTransformer">The type of the transformer this attribute adds to the
-/// pipeline.</typeparam>
+/// pipeline. Must implement <see cref="IEncodeTransformer"/>, <see cref="IDecodeTransformer"/>
+/// or both.</typeparam>
 /// <param name="order">The position of the transformer in the pipeline.</param>
 public abstract class TransformeAttribute<
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     TTransformer>(int order)
     : TransformerAttribute(order)
-    where TTransformer : ITransformer
 {
     /// <inheritdoc cref="TransformerAttribute.GetTransformerType"/>
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]

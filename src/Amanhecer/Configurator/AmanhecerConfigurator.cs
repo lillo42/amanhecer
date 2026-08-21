@@ -32,6 +32,11 @@ public class AmanhecerConfigurator(IServiceCollection services)
     public Dictionary<string, IReadOnlyList<AmanhecerTransformerOptions>> TransformerPipelineConfiguration { get; } =
         [];
 
+    /// <summary>
+    /// Gets the transformers applied to every encode and decode transformer pipeline.
+    /// </summary>
+    public List<AmanhecerTransformerOptions> GlobalTransformers { get; } = [];
+
 
     /// <summary>
     /// Registers a request handler and creates a pipeline for the routing key derived from its request type.
@@ -120,9 +125,11 @@ public class AmanhecerConfigurator(IServiceCollection services)
             {
                 throw new NotImplementedException();
             }
-            
+
             TransformerPipelineConfiguration[keyPairValue.Key] = keyPairValue.Value;
         }
+
+        GlobalTransformers.AddRange(cfg.GlobalTransformers);
 
         return this;
 
@@ -286,7 +293,7 @@ public class AmanhecerConfigurator(IServiceCollection services)
             return false;
         }
 
-        return type.GetInterfaces().Any(x => x == typeof(ITransformer));
+        return type.GetInterfaces().Any(x => x == typeof(IEncodeTransformer) || x == typeof(IDecodeTransformer));
     }
 
     private static bool IsMessageMapper(

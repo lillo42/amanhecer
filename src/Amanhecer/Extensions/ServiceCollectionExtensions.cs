@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Frozen;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Reflection;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
 using Amanhecer.Configurator;
@@ -43,8 +45,10 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IPipelineContextAccessor>(provider =>
             provider.GetRequiredService<AmanhecerPipelineContextAccessor>());
 
-        services.TryAddTransient<ITransformerPipelineFactory, AmanhencerTransformerPipelineFactory>();
-        services.TryAddTransient<ITransformerFactory, AmanhecerTransformerFactory>();
+        services.TryAddTransient<IEncodeTransformerPipelineFactory, AmanhecerEncodeTransformerPipelineFactory>();
+        services.TryAddTransient<IDecodeTransformerPipelineFactory, AmanhecerDecodeTransformerPipelineFactory>();
+        services.TryAddTransient<IEncodeTransformerFactory, AmanhecerEncodeTransformerFactory>();
+        services.TryAddTransient<IDecodeTransformerFactory, AmanhecerDecodeTransformerFactory>();
         services.TryAddTransient<IMessageMapperFactory, AmanhecerMessageMapperFactory>();
 
         var cfg = new AmanhecerConfigurator(services);
@@ -72,12 +76,82 @@ public static class ServiceCollectionExtensions
                 .ToFrozenDictionary(x => x.RoutingKey, x => x)
         ));
 
-        services.TryAddSingleton(
-            new AmanhecerTransformerPipelineOptions(cfg
-                .TransformerPipelineConfiguration
-                .ToFrozenDictionary())
-            );
+        var transformerPipelines =
+            new Dictionary<string, IReadOnlyList<AmanhecerTransformerOptions>>(cfg.TransformerPipelineConfiguration);
+
+        var globalTransformers = cfg.GlobalTransformers.OrderBy(x => x.Order).ToList();
+        var mergedPipelines = new HashSet<string>();
+
+        foreach (var publication in cfg.Gateways.SelectMany(x => x.Publications))
+        {
+            MergeTransformers(
+                TransformerPipelineNames.Encode(publication.Name),
+                publication.MessageMapperType,
+                publication.Transformers);
+        }
+
+        foreach (var subscription in cfg.Gateways.SelectMany(x => x.Subscriptions))
+        {
+            MergeTransformers(
+                TransformerPipelineNames.Decode(subscription.Name),
+                subscription.MessageMapperType,
+                []);
+        }
+
+        // Explicitly named pipelines that belong to no publication or subscription still
+        // get the global transformers.
+        if (globalTransformers.Count > 0)
+        {
+            foreach (var pipelineName in transformerPipelines.Keys)
+            {
+                if (mergedPipelines.Add(pipelineName))
+                {
+                    transformerPipelines[pipelineName] =
+                        [.. globalTransformers.Concat(transformerPipelines[pipelineName]).OrderBy(x => x.Order)];
+                }
+            }
+        }
+
+        services.TryAddSingleton(new AmanhecerTransformerPipelineOptions(
+            transformerPipelines.ToFrozenDictionary()));
 
         return services;
+
+        void MergeTransformers(
+            string pipelineName,
+            Type? messageMapperType,
+            IReadOnlyList<AmanhecerTransformerOptions> configured)
+        {
+            mergedPipelines.Add(pipelineName);
+
+            var discovered = messageMapperType?
+                .GetCustomAttributes<TransformerAttribute>()
+                .Select(x => new AmanhecerTransformerOptions(x.GetTransformerType(), x.Order, x))
+                ?? [];
+
+            var transformers = globalTransformers.Concat(discovered).Concat(configured).ToList();
+            if (transformers.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var transformer in transformers)
+            {
+                var transformerType = transformer.TransformerType;
+                if (!typeof(IEncodeTransformer).IsAssignableFrom(transformerType) &&
+                    !typeof(IDecodeTransformer).IsAssignableFrom(transformerType))
+                {
+                    throw new InvalidOperationException(
+                        $"The transformer type '{transformerType.FullName}' implements neither " +
+                        "IEncodeTransformer nor IDecodeTransformer.");
+                }
+
+                services.TryAddTransient(transformerType);
+            }
+
+            transformerPipelines[pipelineName] = transformerPipelines.TryGetValue(pipelineName, out var existing)
+                ? [.. existing.Concat(transformers).OrderBy(x => x.Order)]
+                : [.. transformers.OrderBy(x => x.Order)];
+        }
     }
 }

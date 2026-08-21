@@ -10,12 +10,15 @@ public interface IPublication
     ContentType DefaultContentType { get; set; }
     Uri? DefaultDataSchema { get; set; }
     Dictionary<string, object> DefaultHeaders { get; set; }
-    string RoutingKey { get; set; }
     string? DefaultReplyTo { get; set; }
     string? DefaultSubject { get; set; }
     Uri DefaultSource { get; set; }
     string DefaultSpecVersion { get; set; }
     string? DefaultType { get; set; }
-    IMessageMapper MessageMapper { get; set; }
+    Type MessageMapperType { get; set; }
+    
+    
+    string Name { get; set; }
+    string RoutingKey { get; set; }
     IPublicationProvisioner? Provisioner { get; set; }
 }

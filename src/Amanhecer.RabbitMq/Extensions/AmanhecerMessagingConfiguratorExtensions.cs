@@ -11,8 +11,6 @@ public static class AmanhecerMessagingConfiguratorExtensions
         var cfg = new RabbitMqConfigurator();
         configure.Invoke(cfg);
 
-        configurator.AddGateway(cfg.CreateGateway());
-
-        return configurator;
+        return configurator.AddGateway(cfg.CreateGateway());
     }
 }

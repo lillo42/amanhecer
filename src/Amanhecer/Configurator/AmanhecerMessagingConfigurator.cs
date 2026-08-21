@@ -1,5 +1,8 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Amanhecer.Configurator;
@@ -7,7 +10,25 @@ namespace Amanhecer.Configurator;
 public class AmanhecerMessagingConfigurator(IServiceCollection services)
 {
     public IServiceCollection Services { get; } = services;
-    internal List<IGateway> Gateways { get; } = [];
+    public List<IGateway> Gateways { get; } = [];
+    public Dictionary<string, IReadOnlyList<AmanhecerTransformerOptions>> TransformerPipeline { get; } = [];
+
+    public AmanhecerMessagingConfigurator AddTransformerPipeline(
+        string pipelineName,
+        IReadOnlyList<AmanhecerTransformerOptions> options)
+    {
+        if (TransformerPipeline.ContainsKey(pipelineName))
+        {
+            throw new NotImplementedException();
+        }
+
+        TransformerPipeline[pipelineName] =
+        [
+            .. options
+                .OrderBy(x => x.Order)
+        ];
+        return this;
+    }
 
     public AmanhecerMessagingConfigurator AddGateway(IGateway gateway)
     {

@@ -7,7 +7,7 @@ public interface ITransformer
 {
     void Initialize(object? metadata);
     
-    ValueTask EncodingAsync(Message message,
+    ValueTask EncodeAsync(Message message,
         IPipelineContext context,
         Func<Message, IPipelineContext, ValueTask> next);
 

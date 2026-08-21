@@ -66,9 +66,9 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
     }
 
 
-    public override IEnumerable<IProducer> CreateProducers()
+    public override IReadOnlyDictionary<string, IProducer> CreateProducers()
     {
-        var producers = new List<IProducer>();
+        var producers = new Dictionary<string, IProducer>();
         var connection = GetOrCreateAsync().GetAwaiter().GetResult();
         
         foreach (var publication in Publications)
@@ -79,7 +79,7 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
             var channel = connection.CreateChannelAsync().GetAwaiter().GetResult();
 #endif
 
-            producers.Add(new RabbitMqProducer(channel));
+            producers.Add(publication.RoutingKey, new RabbitMqProducer(channel));
         }
 
         return producers;

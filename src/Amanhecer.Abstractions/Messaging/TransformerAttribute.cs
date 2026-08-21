@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 namespace Amanhecer.Abstractions.Messaging;
 
 [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
-public abstract class TransformeAttribute(int order) : Attribute
+public abstract class TransformerAttribute(int order) : Attribute
 {
     public int Order { get; set; } = order;
 
@@ -15,7 +15,7 @@ public abstract class TransformeAttribute(int order) : Attribute
 public abstract class TransformeAttribute<
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     TTransformer>(int order)
-    : TransformeAttribute(order)
+    : TransformerAttribute(order)
     where TTransformer : ITransformer
 {
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]

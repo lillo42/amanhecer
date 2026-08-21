@@ -8,9 +8,9 @@ public class AmanhencerTransformerPipelineFactory(
     AmanhecerTransformerPipelineOptions options,
     ITransformerFactory transformerFactory) : ITransformerPipelineFactory
 {
-    public ITransformerPipeline Create(IPipelineContext context)
+    public ITransformerPipeline Create(string transformerPipelineName, IPipelineContext context)
     {
-        if (options.Configuration.TryGetValue(context.RoutingKey, out var transformers))
+        if (options.Configuration.TryGetValue(transformerPipelineName, out var transformers))
         {
             return new AmanhecerTransformerPipeline([
                 .. transformers

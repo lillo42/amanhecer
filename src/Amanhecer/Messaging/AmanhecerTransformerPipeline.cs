@@ -6,27 +6,35 @@ using Amanhecer.Abstractions.Messaging;
 
 namespace Amanhecer.Messaging;
 
-public class AmanhecerTransformerPipeline : ITransformerPipeline
+public class AmanhecerTransformerPipeline(IReadOnlyList<ITransformer> transformers) : ITransformerPipeline
 {
-    private readonly Func<Message, IPipelineContext, ValueTask> _decodeChain;
+    private readonly IReadOnlyList<ITransformer> _transformers;
 
-    public AmanhecerTransformerPipeline(IReadOnlyList<ITransformer> transformers)
+    public async ValueTask DecodeAsync(Message message, IPipelineContext context)
     {
-        Func<Message, IPipelineContext, ValueTask> next = static (_, _) => new ValueTask();
-
+        Func<Message, IPipelineContext, ValueTask> next = static  (_, _) => new ValueTask();
         for (var i = transformers.Count; i >= 0; i--)
         {
             var transformer = transformers[i];
             var continuation = next;
-            next = (message, context) => transformer.DecodeAsync(message, context, continuation);
+            next = (m, c) => transformer.DecodeAsync(m, c, continuation);
         }
 
-        _decodeChain = next;
-    }
-    
-    public async ValueTask DecodeAsync(Message message, IPipelineContext context)
-    {
         context.CancellationToken.ThrowIfCancellationRequested();
-        await _decodeChain(message, context);
+        await next(message, context);
+    }
+
+    public async ValueTask EncodeAsync(Message message, IPipelineContext context)
+    {
+        Func<Message, IPipelineContext, ValueTask> next = static  (_, _) => new ValueTask();
+        for (var i = transformers.Count; i >= 0; i--)
+        {
+            var transformer = transformers[i];
+            var continuation = next;
+            next = (m, c) => transformer.EncodeAsync(m, c, continuation);
+        }
+        
+        context.CancellationToken.ThrowIfCancellationRequested();
+        await next(message, context);
     }
 }

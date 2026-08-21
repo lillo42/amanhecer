@@ -57,8 +57,7 @@ public static class ServiceCollectionExtensions
                     .Select(y => y.MiddlewareOptions.ToImmutableList())
                     .ToImmutableList());
 
-        services.AddSingleton(new AmanhecerPipelineOptions(routing));
-
+        services.TryAddSingleton(new AmanhecerPipelineOptions(routing));
 
         services.TryAddSingleton<IProducerFinder>(new AmanhecerProducerFinder(
             cfg
@@ -72,6 +71,12 @@ public static class ServiceCollectionExtensions
                 .SelectMany(x => x.Publications)
                 .ToFrozenDictionary(x => x.RoutingKey, x => x)
         ));
+
+        services.TryAddSingleton(
+            new AmanhecerTransformerPipelineOptions(cfg
+                .TransformerPipelineConfiguration
+                .ToFrozenDictionary())
+            );
 
         return services;
     }

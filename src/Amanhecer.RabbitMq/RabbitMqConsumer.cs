@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Net.Mime;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,6 +21,24 @@ public class RabbitMqConsumer(
 #endif
 ) : AsyncDefaultBasicConsumer(channel), IConsumer
 {
+    private static readonly Counter<int> SuccessCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
+        "amanhecer.request.processing.success",
+        unit: "{request}",
+        description: "Number of requests processed successfully.");
+
+    /// <summary>Counts requests whose processing failed with an exception.</summary>
+    private static readonly Counter<int> FailedCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
+        "amanhecer.request.processing.failed",
+        unit: "{request}",
+        description: "Number of requests that failed during processing.");
+
+    /// <summary>Records how long request processing took, in seconds.</summary>
+    private static readonly Histogram<double> ProducerDuration =
+        AmanhecerDiagnostics.Meter.CreateHistogram<double>(
+            "amanhecer.request.processing.duration",
+            unit: "s",
+            description: "Duration of request processing, in seconds.");
+
     private IServiceProvider? _serviceProvider;
     private string? _consumerTag;
 
@@ -49,17 +69,30 @@ public class RabbitMqConsumer(
 #if NETFRAMEWORK
         var cancellationToken = CancellationToken.None;
 #endif
+        var metadata = new List<KeyValuePair<string, object?>>
+        {
+            new("amanhecer.consumer.message_gateway", "rabbitmq"),
+        }.ToArray();
+
+        var activity = AmanhecerDiagnostics.ActivitySource.StartActivity(
+            ActivityKind.Consumer,
+            name: "Consumer",
+            tags: metadata);
+
+        var duration = Stopwatch.StartNew();
+
         try
         {
+            var message = ToMessage(consumerTag, deliveryTag, redelivered, exchange, routingKey, body, properties);
             var resp = await dispatcher.QueryAsync(
-                ToMessage(consumerTag, deliveryTag, redelivered, exchange, routingKey, body, properties),
+                message,
                 new AmanhecerContext
                 {
                     RoutingKey = "Amanhecer.External.Message",
                     Metadata = new Dictionary<string, object>
                     {
-                        [Amanhecer.Abstractions.MetadataName.RoutingTo] = subscription.RoutingKey,
                         [Amanhecer.Abstractions.MetadataName.MessagingGateway] = "RabbitMQ",
+                        [Amanhecer.Abstractions.MetadataName.Subscription] = subscription,
                     }
                 },
                 cancellationToken);
@@ -80,6 +113,11 @@ public class RabbitMqConsumer(
                 await Channel.BasicNackAsync(deliveryTag, false, nack.Requeue, cancellationToken);
 #endif
             }
+
+            duration.Stop();
+
+            SuccessCounter.Add(1, metadata);
+            activity?.SetStatus(ActivityStatusCode.Ok);
         }
         catch (NackException ex)
         {
@@ -88,6 +126,26 @@ public class RabbitMqConsumer(
 #else
             await Channel.BasicNackAsync(deliveryTag, false, ex.Requeue, cancellationToken);
 #endif
+
+            duration.Stop();
+
+            SuccessCounter.Add(1, metadata);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+        }
+        catch (Exception ex)
+        {
+            duration.Stop();
+            FailedCounter.Add(1, metadata);
+            
+#if !NET8_0
+            activity?.AddException(ex);
+#endif
+            activity?.SetStatus(ActivityStatusCode.Error);
+        }
+        finally
+        {
+            ProducerDuration.Record(duration.Elapsed.TotalSeconds, metadata);
+            activity?.Stop();
         }
     }
 

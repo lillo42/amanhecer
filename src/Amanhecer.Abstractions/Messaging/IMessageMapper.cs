@@ -14,7 +14,6 @@ public interface IMessageMapper<TRequest> : IMessageMapper
 
     async ValueTask<object> IMessageMapper.ToRequestAsync(Message message, IPipelineContext context)
         => (await ToRequestAsync(message, context))!;
-
 #endif
 }
 

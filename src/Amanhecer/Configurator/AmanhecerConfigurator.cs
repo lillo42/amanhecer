@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -18,16 +20,18 @@ namespace Amanhecer.Configurator;
 /// <param name="services">The service collection where handlers and middlewares are registered.</param>
 public class AmanhecerConfigurator(IServiceCollection services)
 {
-    private readonly List<AmanhecerRoutingOptions> _routingConfigurators = [];
-    private readonly List<IGateway> _gateways;
     private readonly HashSet<Type> _autoRegisteredTypes = [];
 
     /// <summary>
     /// Gets the routing options built from the configured routing keys.
     /// </summary>
-    public IEnumerable<AmanhecerRoutingOptions> RoutingConfigurators => _routingConfigurators;
-    
-    public IEnumerable<IGateway> Gateways => _gateways;
+    public List<AmanhecerRoutingOptions> RoutingConfigurators { get; } = [];
+
+    public List<IGateway> Gateways { get; set; } = [];
+
+    public Dictionary<string, IReadOnlyList<AmanhecerTransformerOptions>> TransformerPipelineConfiguration { get; } =
+        [];
+
 
     /// <summary>
     /// Registers a request handler and creates a pipeline for the routing key derived from its request type.
@@ -84,7 +88,7 @@ public class AmanhecerConfigurator(IServiceCollection services)
 
         configure?.Invoke(cfg);
 
-        _routingConfigurators.Add(cfg.ToOptions());
+        RoutingConfigurators.Add(cfg.ToOptions());
         return this;
     }
 
@@ -103,7 +107,38 @@ public class AmanhecerConfigurator(IServiceCollection services)
     {
         var cfg = new AmanhecerMessagingConfigurator(services);
         configure.Invoke(cfg);
+        Gateways.AddRange(cfg.Gateways);
+
+        if (HasDuplicated(Gateways))
+        {
+            throw new NotImplementedException();
+        }
+
+        foreach (var keyPairValue in cfg.TransformerPipeline)
+        {
+            if (TransformerPipelineConfiguration.ContainsKey(keyPairValue.Key))
+            {
+                throw new NotImplementedException();
+            }
+            
+            TransformerPipelineConfiguration[keyPairValue.Key] = keyPairValue.Value;
+        }
+
         return this;
+
+        static bool HasDuplicated(List<IGateway> gateways)
+        {
+            var hash = new HashSet<string>();
+            foreach (var gateway in gateways)
+            {
+                if (!hash.Add(gateway.Name))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 
     /// <summary>
@@ -137,7 +172,7 @@ public class AmanhecerConfigurator(IServiceCollection services)
                     continue;
                 }
 
-                if (IsMiddleware(type))
+                if (IsMiddleware(type) || IsTransformer(type) || IsMessageMapper(type))
                 {
                     services.TryAddTransient(type);
                 }
@@ -240,5 +275,29 @@ public class AmanhecerConfigurator(IServiceCollection services)
         }
 
         return type.GetInterfaces().Any(x => x == typeof(IHandler));
+    }
+
+    private static bool IsTransformer(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)]
+        Type type)
+    {
+        if (!type.IsClass || type.IsAbstract || type.ContainsGenericParameters)
+        {
+            return false;
+        }
+
+        return type.GetInterfaces().Any(x => x == typeof(ITransformer));
+    }
+
+    private static bool IsMessageMapper(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)]
+        Type type)
+    {
+        if (!type.IsClass || type.IsAbstract || type.ContainsGenericParameters)
+        {
+            return false;
+        }
+
+        return type.GetInterfaces().Any(x => x == typeof(IMessageMapper));
     }
 }

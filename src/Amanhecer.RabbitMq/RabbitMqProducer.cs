@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,24 +22,80 @@ public class RabbitMqProducer(
     , IDisposable
 #endif
 {
+    private static readonly Counter<int> SuccessCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
+        "amanhecer.request.processing.success",
+        unit: "{request}",
+        description: "Number of requests processed successfully.");
+
+    /// <summary>Counts requests whose processing failed with an exception.</summary>
+    private static readonly Counter<int> FailedCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
+        "amanhecer.request.processing.failed",
+        unit: "{request}",
+        description: "Number of requests that failed during processing.");
+
+    /// <summary>Records how long request processing took, in seconds.</summary>
+    private static readonly Histogram<double> ProducerDuration =
+        AmanhecerDiagnostics.Meter.CreateHistogram<double>(
+            "amanhecer.request.processing.duration",
+            unit: "s",
+            description: "Duration of request processing, in seconds.");
+
     public async ValueTask ProducerAsync(Message message, IPublication publication, IPipelineContext context)
     {
         if (publication is not RabbitMqPublication rabbitMqPublication)
         {
             throw new ArgumentException();
         }
-        
 
         SetCloudEventHeaders(message);
         var properties = CreateProperties(message, context, rabbitMqPublication);
-        
-        await PublishAsync(rabbitMqPublication.Exchange!.Name,
-                rabbitMqPublication.RabbitMqRoutingKey,
-                rabbitMqPublication.Mandatory,
-                properties,
-                message.Payload,
-                context.CancellationToken)
-            .ConfigureAwait(context.ContinueOnCapturedContext);
+
+        var metadata = new List<KeyValuePair<string, object?>>
+        {
+            new("amanhecer.producer.routing_key", publication.RoutingKey),
+            new("amanhecer.producer.message_gateway", "rabbitmq"),
+            new("amanhecer.producer.cloudevents.type", message.Type),
+        }.ToArray();
+
+        var activity = AmanhecerDiagnostics.ActivitySource.StartActivity(
+            "Producer",
+            ActivityKind.Producer,
+            parentContext: context.Activity?.Context ?? default,
+            tags: metadata);
+
+        var duration = Stopwatch.StartNew();
+        try
+        {
+            await PublishAsync(rabbitMqPublication.Exchange!.Name,
+                    rabbitMqPublication.RabbitMqRoutingKey,
+                    rabbitMqPublication.Mandatory,
+                    properties,
+                    message.Payload,
+                    context.CancellationToken)
+                .ConfigureAwait(context.ContinueOnCapturedContext);
+
+            duration.Stop();
+            SuccessCounter.Add(1, metadata);
+
+            activity?.SetStatus(ActivityStatusCode.Ok);
+        }
+        catch (Exception e)
+        {
+            duration.Stop();
+            FailedCounter.Add(1, metadata);
+
+#if !NET8_0
+            activity?.AddException(e);
+#endif
+            activity?.SetStatus(ActivityStatusCode.Error);
+
+            throw;
+        }
+        finally
+        {
+            ProducerDuration.Record(duration.Elapsed.TotalSeconds, metadata);
+            activity?.Stop();
+        }
     }
 
     private static void SetCloudEventHeaders(Message message)

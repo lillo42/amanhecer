@@ -31,7 +31,7 @@ public partial class CloudeventTransformer(ILogger<CloudeventTransformer> logger
         }
     }
 
-    public async ValueTask EncodingAsync(Message message, IPipelineContext context,
+    public async ValueTask EncodeAsync(Message message, IPipelineContext context,
         Func<Message, IPipelineContext, ValueTask> next)
     {
         if (_attribute != null)

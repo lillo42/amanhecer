@@ -41,7 +41,6 @@ public abstract class Gateway<TPublication, TSubscription> : IGateway
         }
     }
 
-    public abstract IEnumerable<IProducer> CreateProducers();
-
+    public abstract IReadOnlyDictionary<string, IProducer> CreateProducers();
     public abstract IEnumerable<IConsumer> CreateSubscriptions();
 }

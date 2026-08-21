@@ -6,8 +6,10 @@ using Amanhecer.Abstractions.Messaging;
 
 namespace Amanhecer.Handlers;
 
-public class PostMessageHandler(IPublicationFinder publicationFinder, 
+public class PostMessageHandler(
+    IPublicationFinder publicationFinder,
     IProducerFinder producerFinder,
+    IMessageMapperFactory messageMapperFactory,
     ITransformerPipelineFactory transformerPipelineFactory) : IRequestHandler
 {
     public async ValueTask HandleAsync(object request, IPipelineContext context,
@@ -16,7 +18,7 @@ public class PostMessageHandler(IPublicationFinder publicationFinder,
         if (!context.Metadata.TryGetValue(MetadataName.PublicationRoutingKey, out var obj))
         {
             // TODO: change exceptiopn
-            throw new Exception();
+            throw new NotImplementedException();
         }
 
         if (obj is not string publicationRoutingKey)
@@ -25,10 +27,12 @@ public class PostMessageHandler(IPublicationFinder publicationFinder,
         }
 
         var publication = publicationFinder.Find(publicationRoutingKey);
-        context.Metadata[MetadataName.Publication] = publication;
-        context.Metadata[MetadataName.MessageMapper] = publication.MessageMapper;
+        var messageMapper = messageMapperFactory.Create(publication.MessageMapperType);
 
-        var message = await ToMessageAsync(request, publication, context)
+        context.Metadata[MetadataName.Publication] = publication;
+        context.Metadata[MetadataName.PublicationMessageMapper] = messageMapper;
+
+        var message = await ToMessageAsync(request, messageMapper, publication, context)
             .ConfigureAwait(context.ContinueOnCapturedContext);
 
         var producer = producerFinder.Find(publicationRoutingKey);
@@ -36,7 +40,8 @@ public class PostMessageHandler(IPublicationFinder publicationFinder,
             .ConfigureAwait(context.ContinueOnCapturedContext);
     }
 
-    private async ValueTask<Message> ToMessageAsync(object request, 
+    private async ValueTask<Message> ToMessageAsync(object request,
+        IMessageMapper messageMapper,
         IPublication publication,
         IPipelineContext context)
     {
@@ -45,13 +50,14 @@ public class PostMessageHandler(IPublicationFinder publicationFinder,
             return existingMessage;
         }
 
-        var message = await publication.MessageMapper.ToMessageAsync(request, context)
+        var message = await messageMapper.ToMessageAsync(request, context)
             .ConfigureAwait(context.ContinueOnCapturedContext);
 
-        var pipeline = transformerPipelineFactory.Create(context);
-        await pipeline.DecodeAsync(message, context)
+        var transformerPipelineName = $"Amanhecer.Messaging.Transformer.Encode.{publication.Name}";
+        var pipeline = transformerPipelineFactory.Create(transformerPipelineName, context);
+        await pipeline.EncodeAsync(message, context)
             .ConfigureAwait(context.ContinueOnCapturedContext);
-        
+
         return message;
     }
 }

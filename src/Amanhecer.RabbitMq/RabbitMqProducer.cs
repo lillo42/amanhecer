@@ -52,9 +52,16 @@ public class RabbitMqProducer(
 
         var metadata = new List<KeyValuePair<string, object?>>
         {
-            new("amanhecer.producer.routing_key", publication.RoutingKey),
-            new("amanhecer.producer.message_gateway", "rabbitmq"),
-            new("amanhecer.producer.cloudevents.type", message.Type),
+            new("amanhecer.messaging.producer.routing_key", publication.RoutingKey),
+            new("amanhecer.messaging.producer.gateway", "rabbitmq"),
+            new("amanhecer.messaging.producer.destination", rabbitMqPublication.Exchange!.Name),
+
+            new("amanhecer.messaging.producer.message.id", message.Id),
+            new("amanhecer.messaging.producer.message.correlation_id", message.CorrelationId),
+            new("amanhecer.messaging.producer.message.cloudevent.id", message.Id),
+            new("amanhecer.messaging.producer.message.cloudevent.source", message.Source?.ToString() ?? ""),
+            new("amanhecer.messaging.producer.message.cloudevent.specversion", message.SpecVersion ?? ""),
+            new("amanhecer.messaging.producer.message.cloudevent.type", message.Type),
         }.ToArray();
 
         var activity = AmanhecerDiagnostics.ActivitySource.StartActivity(

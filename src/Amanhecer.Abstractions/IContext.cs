@@ -31,8 +31,16 @@ public interface IContext
     /// </summary>
     string? RoutingKey { get; set; }
     
+    /// <summary>
+    /// Gets or sets the unique identifier of the request. When <see langword="null"/>, an
+    /// identifier is generated.
+    /// </summary>
     string? RequestId { get; set; }
     
+    /// <summary>
+    /// Gets or sets the identifier used to correlate the dispatch with related requests.
+    /// When <see langword="null"/>, an identifier is generated.
+    /// </summary>
     string? CorrelationId { get; set; }
 
     /// <summary>

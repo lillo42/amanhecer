@@ -36,8 +36,14 @@ public interface IPipelineContext
     /// </summary>
     string RoutingKey { get; }
     
+    /// <summary>
+    /// Gets the identifier used to correlate this request with related requests.
+    /// </summary>
     string CorrelationId { get; }
     
+    /// <summary>
+    /// Gets the unique identifier of the request being processed.
+    /// </summary>
     string RequestId { get; }
 
     /// <summary>

@@ -7,12 +7,22 @@ using Amanhecer.Messaging;
 
 namespace Amanhecer.Handlers;
 
+/// <summary>
+/// The handler that publishes requests as messages: maps the request to a <see cref="Message"/>,
+/// runs the publication's encode transformer pipeline, and sends it through the producer resolved
+/// for the publication routing key.
+/// </summary>
+/// <param name="publicationFinder">The finder used to resolve the publication for the routing key.</param>
+/// <param name="producerFinder">The finder used to resolve the producer for the routing key.</param>
+/// <param name="messageMapperFactory">The factory used to create the publication's message mapper.</param>
+/// <param name="transformerPipelineFactory">The factory used to create the encode transformer pipeline.</param>
 public class PostMessageHandler(
     IPublicationFinder publicationFinder,
     IProducerFinder producerFinder,
     IMessageMapperFactory messageMapperFactory,
     IEncodeTransformerPipelineFactory transformerPipelineFactory) : IRequestHandler
 {
+    /// <inheritdoc />
     public async ValueTask HandleAsync(object request, IPipelineContext context,
         CancellationToken cancellationToken = default)
     {

@@ -11,6 +11,10 @@ using RabbitMQ.Client;
 
 namespace Amanhecer.RabbitMq;
 
+/// <summary>
+/// An <see cref="IProducer"/> that publishes messages to a RabbitMQ exchange.
+/// </summary>
+/// <param name="channel">The RabbitMQ channel used to publish messages.</param>
 public class RabbitMqProducer(
 #if NETFRAMEWORK
     IModel channel
@@ -40,6 +44,7 @@ public class RabbitMqProducer(
             unit: "s",
             description: "Duration of request processing, in seconds.");
 
+    /// <inheritdoc />
     public async ValueTask ProducerAsync(Message message, IPublication publication, IPipelineContext context)
     {
         if (publication is not RabbitMqPublication rabbitMqPublication)

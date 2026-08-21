@@ -7,12 +7,19 @@ using Amanhecer.Abstractions.Messaging;
 
 namespace Amanhecer.Messaging;
 
+/// <summary>
+/// A <see cref="MessageMapper{TRequest}"/> that serialises requests to and from JSON using
+/// <see cref="JsonSerializer"/>.
+/// </summary>
+/// <typeparam name="TRequests">The application type mapped to and from messages.</typeparam>
+/// <param name="options">The JSON serialiser options.</param>
 public class JsonMessageMapper<
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties |
                                 DynamicallyAccessedMemberTypes.PublicMethods)]
     TRequests>(
     JsonSerializerOptions options) : MessageMapper<TRequests>
 {
+    /// <inheritdoc />
     public override ValueTask<Message> ToMessageAsync(TRequests request, IPipelineContext context)
     {
         return new ValueTask<Message>(new Message
@@ -28,6 +35,7 @@ public class JsonMessageMapper<
     }
 
 
+    /// <inheritdoc />
     public override ValueTask<TRequests> ToRequestAsync(Message message, IPipelineContext context)
     {
 #pragma warning disable IL3050

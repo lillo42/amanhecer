@@ -3,8 +3,19 @@ using Amanhecer.Abstractions.Messaging;
 
 namespace Amanhecer.Abstractions.Extensions;
 
+/// <summary>
+/// Extension methods to propagate tracing context from an <see cref="Activity"/> to a
+/// <see cref="Message"/>.
+/// </summary>
 public static class MessageExtensions
 {
+    /// <summary>
+    /// Copies the tracing context of the activity (trace state, trace parent and baggage) onto
+    /// the message, without overwriting values already set on the message. Does nothing when
+    /// the activity is <see langword="null"/>.
+    /// </summary>
+    /// <param name="message">The message to enrich.</param>
+    /// <param name="activity">The activity whose tracing context is copied onto the message, if any.</param>
     public static void Enrich(this Message message, Activity? activity)
     {
         if (activity == null)

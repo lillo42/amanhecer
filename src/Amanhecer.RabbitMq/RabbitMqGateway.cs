@@ -6,20 +6,49 @@ using RabbitMQ.Client;
 
 namespace Amanhecer.RabbitMq;
 
+/// <summary>
+/// A gateway that publishes messages to, and consumes messages from, a RabbitMQ broker.
+/// </summary>
 public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription>
 {
     private IConnection? _connection;
+
+    /// <summary>
+    /// Gets or sets the AMQP URI used to connect to the broker.
+    /// </summary>
     public Uri? AmqpUri { get; set; }
+
+    /// <summary>
+    /// Gets or sets the exchange provisioned before the gateway is used.
+    /// </summary>
     public Exchange? Exchange { get; set; }
 
+    /// <summary>
+    /// Gets or sets the user id associated with this gateway.
+    /// </summary>
     public string? UserId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the application id associated with this gateway.
+    /// </summary>
     public string? AppId { get; set; }
+
+    /// <summary>
+    /// Gets or sets the cluster id associated with this gateway.
+    /// </summary>
     public string? ClusterId { get; set; }
 
 #if !NETFRAMEWORK
+    /// <summary>
+    /// Gets or sets the options used to create the channels of this gateway.
+    /// </summary>
     public CreateChannelOptions? ChannelOptions { get; set; }
 #endif
 
+    /// <summary>
+    /// Gets or sets a callback invoked with the <see cref="ConnectionFactory"/> before the
+    /// connection is created, allowing further customization.
+    /// </summary>
     public Action<ConnectionFactory>? Configure { get; set; }
 
     internal ValueTask<IConnection> GetOrCreateAsync()
@@ -45,6 +74,11 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
     }
 
 
+    /// <summary>
+    /// Provisions the gateway <see cref="Exchange"/>, if one is set, then the provisioners
+    /// declared by the publications and subscriptions.
+    /// </summary>
+    /// <returns>A <see cref="ValueTask"/> that completes when all provisioners have run.</returns>
     public override async ValueTask ProvisionerAsync()
     {
         var connection = await GetOrCreateAsync();
@@ -66,6 +100,7 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
     }
 
 
+    /// <inheritdoc />
     public override IReadOnlyDictionary<string, IProducer> CreateProducers()
     {
         var producers = new Dictionary<string, IProducer>();
@@ -85,6 +120,7 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
         return producers;
     }
 
+    /// <inheritdoc />
     public override IEnumerable<IConsumer> CreateSubscriptions()
     {
         var producers = new List<IConsumer>();

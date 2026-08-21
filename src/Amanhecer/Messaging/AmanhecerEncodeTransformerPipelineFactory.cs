@@ -5,10 +5,17 @@ using Amanhecer.Configurator;
 
 namespace Amanhecer.Messaging;
 
+/// <summary>
+/// An <see cref="IEncodeTransformerPipelineFactory"/> that builds pipelines from the transformer
+/// pipelines declared in <see cref="AmanhecerTransformerPipelineOptions"/>.
+/// </summary>
+/// <param name="options">The configured transformer pipelines.</param>
+/// <param name="transformerFactory">The factory used to create the configured transformers.</param>
 public class AmanhecerEncodeTransformerPipelineFactory(
     AmanhecerTransformerPipelineOptions options,
     IEncodeTransformerFactory transformerFactory) : IEncodeTransformerPipelineFactory
 {
+    /// <inheritdoc />
     public IEncodeTransformerPipeline Create(string transformerPipelineName, IPipelineContext context)
     {
         if (!options.Configuration.TryGetValue(transformerPipelineName, out var transformers))

@@ -8,12 +8,20 @@ using Amanhecer.Messaging;
 
 namespace Amanhecer.Handlers;
 
+/// <summary>
+/// The handler that processes incoming messages: runs the subscription's decode transformer
+/// pipeline over the message, maps it back to a request, and dispatches it to the local handlers.
+/// </summary>
+/// <param name="dispatcher">The dispatcher used to invoke the local handlers.</param>
+/// <param name="messageMapperFactory">The factory used to create the subscription's message mapper.</param>
+/// <param name="transformerPipelineFactory">The factory used to create the decode transformer pipeline.</param>
 public class ReceiveMessageHandler(
     IDispatcher dispatcher,
     IMessageMapperFactory messageMapperFactory,
     IDecodeTransformerPipelineFactory transformerPipelineFactory
 ) : QueryHandler<Message, object?>
 {
+    /// <inheritdoc />
     public override async ValueTask<object?> HandleAsync(Message query, IPipelineContext context,
         CancellationToken cancellationToken = default)
     {

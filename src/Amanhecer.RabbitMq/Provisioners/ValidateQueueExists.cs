@@ -3,10 +3,18 @@ using Amanhecer.Abstractions.Messaging;
 
 namespace Amanhecer.RabbitMq.Provisioners;
 
+/// <summary>
+/// An <see cref="ISubscriptionProvisoner"/> that validates the queue exists on the broker,
+/// failing if it does not.
+/// </summary>
 public class ValidateQueueExists : ISubscriptionProvisoner
 {
+    /// <summary>
+    /// Gets or sets the <see cref="RabbitMq.Exchange"/> to validate before the queue, if any.
+    /// </summary>
     public Exchange? Exchange { get; set; }
 
+    /// <inheritdoc />
     public async Task ExecuteAsync(IGateway gateway, ISubscription subscription)
     {
         if (gateway is not RabbitMqGateway rabbitMqGateway)

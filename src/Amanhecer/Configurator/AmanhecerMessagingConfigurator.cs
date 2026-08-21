@@ -9,13 +9,43 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Amanhecer.Configurator;
 
+/// <summary>
+/// Configures the messaging gateways, named transformer pipelines and global transformers
+/// of an Amanhecer application.
+/// </summary>
+/// <param name="services">The service collection where gateways and transformers are registered.</param>
 public class AmanhecerMessagingConfigurator(IServiceCollection services)
 {
+    /// <summary>
+    /// Gets the service collection where gateways and transformers are registered.
+    /// </summary>
     public IServiceCollection Services { get; } = services;
+
+    /// <summary>
+    /// Gets the gateways registered via <see cref="AddGateway"/>.
+    /// </summary>
     public List<IGateway> Gateways { get; } = [];
+
+    /// <summary>
+    /// Gets the named transformer pipelines, keyed by pipeline name.
+    /// </summary>
     public Dictionary<string, IReadOnlyList<AmanhecerTransformerOptions>> TransformerPipeline { get; } = [];
+
+    /// <summary>
+    /// Gets the transformers applied to every encode and decode transformer pipeline.
+    /// </summary>
     public List<AmanhecerTransformerOptions> GlobalTransformers { get; } = [];
 
+    /// <summary>
+    /// Adds a named transformer pipeline, ordering its transformers by
+    /// <see cref="AmanhecerTransformerOptions.Order"/>.
+    /// </summary>
+    /// <param name="pipelineName">The name of the transformer pipeline.</param>
+    /// <param name="options">The transformers that compose the pipeline.</param>
+    /// <returns>The current configurator, for chaining.</returns>
+    /// <exception cref="NotImplementedException">
+    /// Thrown when a pipeline with the same name has already been added.
+    /// </exception>
     public AmanhecerMessagingConfigurator AddTransformerPipeline(
         string pipelineName,
         IReadOnlyList<AmanhecerTransformerOptions> options)
@@ -80,6 +110,12 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
         return this;
     }
 
+    /// <summary>
+    /// Runs the gateway's provisioner (see <see cref="IGateway.ProvisionerAsync"/>), then adds the
+    /// gateway to <see cref="Gateways"/> and registers it as a singleton in <see cref="Services"/>.
+    /// </summary>
+    /// <param name="gateway">The gateway to register.</param>
+    /// <returns>The current configurator, for chaining.</returns>
     public AmanhecerMessagingConfigurator AddGateway(IGateway gateway)
     {
         gateway.ProvisionerAsync().GetAwaiter().GetResult();

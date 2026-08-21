@@ -9,9 +9,15 @@ namespace Amanhecer.Abstractions.Messaging;
 public abstract class Subscription: ISubscription
 {
     /// <summary>
-    /// Gets the name of the subscription. Defaults to a randomly generated UUID.
+    /// Gets or sets the name of the subscription. Defaults to a randomly generated UUID.
     /// </summary>
-    public string Name { get; } = Uuid.NewGuid().ToString();
+    public string Name { get; set; } = Uuid.NewGuid().ToString();
+
+    /// <inheritdoc cref="ISubscription.NumberOfConsumer"/>
+    public int NumberOfConsumer { get; set; }
+    
+    /// <inheritdoc cref="ISubscription.BufferSize"/>
+    public int BufferSize { get; set; }
 
     /// <inheritdoc cref="ISubscription.ToRoutingKey"/>
     public required string ToRoutingKey { get; set; }
@@ -20,13 +26,13 @@ public abstract class Subscription: ISubscription
     public string DefaultSpecVersion { get; set; } = "1.0";
 
     /// <inheritdoc cref="ISubscription.DefaultSource"/>
-    public Uri DefaultSource { get; set; } = new Uri("amanhecer", UriKind.RelativeOrAbsolute);
+    public Uri DefaultSource { get; set; } = new("amanhecer", UriKind.RelativeOrAbsolute);
 
     /// <inheritdoc cref="ISubscription.DefaultType"/>
     public string DefaultType { get; set; } = "default";
 
     /// <inheritdoc cref="ISubscription.MessageMapperType"/>
-    public Type MessageMapperType { get; }
+    public Type? MessageMapperType { get; set; }
 
     /// <inheritdoc cref="ISubscription.Provisioner"/>
     public ISubscriptionProvisoner? Provisioner { get; set; }

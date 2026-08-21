@@ -6,9 +6,15 @@ using Amanhecer.Abstractions.Messaging;
 
 namespace Amanhecer.Messaging;
 
+/// <summary>
+/// An <see cref="IDecodeTransformerPipeline"/> that runs an ordered chain of decode transformers,
+/// each transformer invoking the next one in the chain.
+/// </summary>
+/// <param name="transformers">The ordered transformers that compose the pipeline.</param>
 public class AmanhecerDecodeTransformerPipeline(IReadOnlyList<IDecodeTransformer> transformers)
     : IDecodeTransformerPipeline
 {
+    /// <inheritdoc />
     public async ValueTask DecodeAsync(Message message, IPipelineContext context)
     {
         Func<Message, IPipelineContext, ValueTask> next = static (_, _) => new ValueTask();

@@ -28,17 +28,26 @@ public interface ISubscription
     /// </summary>
     string DefaultType { get; }
 
-
     /// <summary>
     /// Gets the name of the subscription.
     /// </summary>
     string Name { get; }
+    
+    /// <summary>
+    /// Gets the number of consumers reading from the subscription.
+    /// </summary>
+    int NumberOfConsumer { get; }
+    
+    /// <summary>
+    /// Gets the size of the buffer of messages prefetched by each consumer.
+    /// </summary>
+    int BufferSize { get; }
 
     /// <summary>
     /// Gets the <see cref="IMessageMapper"/> implementation used to map between the
     /// consumed messages and application requests.
     /// </summary>
-    Type MessageMapperType { get; }
+    Type? MessageMapperType { get; }
 
     /// <summary>
     /// Gets the provisioner that creates the transport resources this subscription

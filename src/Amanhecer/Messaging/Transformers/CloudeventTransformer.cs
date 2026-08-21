@@ -8,21 +8,66 @@ using Microsoft.Extensions.Logging;
 
 namespace Amanhecer.Messaging.Transformers;
 
+/// <summary>
+/// Declares that the <see cref="CloudeventTransformer"/> applies to the handler method or
+/// class the attribute is placed on, setting the configured CloudEvents attributes on the
+/// outgoing messages.
+/// </summary>
+/// <param name="order">The position of the transformer in the pipeline.</param>
 public class CloudeventAttribute(int order) : TransformeAttribute<CloudeventTransformer>(order)
 {
+    /// <summary>
+    /// Gets or sets the content type set on messages that do not specify one.
+    /// </summary>
     public string? ContentType { get; set; }
+
+    /// <summary>
+    /// Gets or sets the schema the message payload conforms to (the CloudEvents
+    /// <c>dataschema</c> attribute), set on messages that do not specify one.
+    /// </summary>
     public string? DataSchema { get; set; }
+
+    /// <summary>
+    /// Gets or sets the address replies should be sent to, set on messages that do not
+    /// specify one.
+    /// </summary>
     public string? ReplyTo { get; set; }
+
+    /// <summary>
+    /// Gets or sets the source (the CloudEvents <c>source</c> attribute) set on messages
+    /// that do not specify one.
+    /// </summary>
     public string? Source { get; set; }
+
+    /// <summary>
+    /// Gets or sets the CloudEvents spec version set on messages that do not specify one.
+    /// </summary>
     public string? SpecVersion { get; set; }
+
+    /// <summary>
+    /// Gets or sets the subject (the CloudEvents <c>subject</c> attribute) set on messages
+    /// that do not specify one.
+    /// </summary>
     public string? Subject { get; set; }
+
+    /// <summary>
+    /// Gets or sets the type (the CloudEvents <c>type</c> attribute) set on messages that
+    /// do not specify one.
+    /// </summary>
     public string? Type { get; set; }
 }
 
+/// <summary>
+/// An <see cref="IEncodeTransformer"/> that applies the CloudEvents attributes configured
+/// through <see cref="CloudeventAttribute"/>, and the defaults of the resolved
+/// <see cref="IPublication"/>, to outgoing messages that do not already specify them.
+/// </summary>
+/// <param name="logger">The logger used to report invalid attribute values.</param>
 public partial class CloudeventTransformer(ILogger<CloudeventTransformer> logger) : IEncodeTransformer
 {
     private CloudeventAttribute? _attribute;
 
+    /// <inheritdoc />
     public void Initialize(object? metadata)
     {
         if (metadata is CloudeventAttribute attribute)
@@ -31,6 +76,7 @@ public partial class CloudeventTransformer(ILogger<CloudeventTransformer> logger
         }
     }
 
+    /// <inheritdoc />
     public async ValueTask EncodeAsync(Message message, IPipelineContext context,
         Func<Message, IPipelineContext, ValueTask> next)
     {

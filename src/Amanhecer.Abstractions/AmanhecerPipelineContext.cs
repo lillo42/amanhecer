@@ -12,6 +12,8 @@ namespace Amanhecer.Abstractions;
 /// <param name="TelemetryTags">The additional tags to attach to the telemetry recorded while the request flows through the pipeline.</param>
 /// <param name="Metadata">The metadata associated with the request being processed.</param>
 /// <param name="RoutingKey">The routing key used to resolve the pipeline for the request.</param>
+/// <param name="RequestId">The unique identifier of the request being processed.</param>
+/// <param name="CorrelationId">The identifier used to correlate this request with related requests.</param>
 /// <param name="Request">The request being processed by the pipeline.</param>
 /// <param name="ExecutingStrategy">The strategy used to execute the pipelines resolved for this context.</param>
 /// <param name="ContinueOnCapturedContext">Whether continuations should resume on the captured

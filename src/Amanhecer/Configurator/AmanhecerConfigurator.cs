@@ -27,8 +27,15 @@ public class AmanhecerConfigurator(IServiceCollection services)
     /// </summary>
     public List<AmanhecerRoutingOptions> RoutingConfigurators { get; } = [];
 
+    /// <summary>
+    /// Gets the messaging gateways registered via <see cref="UsingMessagingGateway"/>.
+    /// </summary>
     public List<IGateway> Gateways { get; set; } = [];
 
+    /// <summary>
+    /// Gets the named transformer pipelines registered via <see cref="UsingMessagingGateway"/>,
+    /// keyed by pipeline name.
+    /// </summary>
     public Dictionary<string, IReadOnlyList<AmanhecerTransformerOptions>> TransformerPipelineConfiguration { get; } =
         [];
 
@@ -108,6 +115,15 @@ public class AmanhecerConfigurator(IServiceCollection services)
         return this;
     }
 
+    /// <summary>
+    /// Configures the messaging side of Amanhecer: registers gateways, transformer pipelines
+    /// and global transformers into the service collection.
+    /// </summary>
+    /// <param name="configure">An action that configures the messaging gateways and transformers.</param>
+    /// <returns>The current <see cref="AmanhecerConfigurator"/>, for chaining.</returns>
+    /// <exception cref="NotImplementedException">
+    /// Thrown when two gateways share the same name or a transformer pipeline name is registered twice.
+    /// </exception>
     public AmanhecerConfigurator UsingMessagingGateway(Action<AmanhecerMessagingConfigurator> configure)
     {
         var cfg = new AmanhecerMessagingConfigurator(services);

@@ -12,6 +12,12 @@ using RabbitMQ.Client;
 
 namespace Amanhecer.RabbitMq;
 
+/// <summary>
+/// An <see cref="IConsumer"/> that receives messages from a RabbitMQ queue, dispatches them
+/// through the pipeline, and acks or nacks each delivery based on the result.
+/// </summary>
+/// <param name="subscription">The subscription this consumer receives messages for.</param>
+/// <param name="channel">The RabbitMQ channel used to consume and acknowledge messages.</param>
 public class RabbitMqConsumer(
     RabbitMqSubscription subscription,
 #if NETFRAMEWORK
@@ -43,11 +49,36 @@ public class RabbitMqConsumer(
     private string? _consumerTag;
 
 #if NETFRAMEWORK
+    /// <summary>
+    /// Handles a delivered message: maps it to a <see cref="Message"/>, dispatches it through
+    /// the pipeline, and acks or nacks the delivery according to the response.
+    /// </summary>
+    /// <param name="consumerTag">The tag identifying this consumer.</param>
+    /// <param name="deliveryTag">The tag identifying the delivery to acknowledge.</param>
+    /// <param name="redelivered">Whether the message has been delivered before.</param>
+    /// <param name="exchange">The exchange the message was published to.</param>
+    /// <param name="routingKey">The routing key the message was published with.</param>
+    /// <param name="properties">The properties of the delivered message.</param>
+    /// <param name="body">The body of the delivered message.</param>
+    /// <returns>A <see cref="Task"/> that completes when the delivery has been handled.</returns>
     public override async Task HandleBasicDeliver(string consumerTag, ulong deliveryTag, bool redelivered,
         string exchange,
         string routingKey,
         IBasicProperties properties, ReadOnlyMemory<byte> body)
 #else
+    /// <summary>
+    /// Handles a delivered message: maps it to a <see cref="Message"/>, dispatches it through
+    /// the pipeline, and acks or nacks the delivery according to the response.
+    /// </summary>
+    /// <param name="consumerTag">The tag identifying this consumer.</param>
+    /// <param name="deliveryTag">The tag identifying the delivery to acknowledge.</param>
+    /// <param name="redelivered">Whether the message has been delivered before.</param>
+    /// <param name="exchange">The exchange the message was published to.</param>
+    /// <param name="routingKey">The routing key the message was published with.</param>
+    /// <param name="properties">The properties of the delivered message.</param>
+    /// <param name="body">The body of the delivered message.</param>
+    /// <param name="cancellationToken">A token that signals the handling should be aborted.</param>
+    /// <returns>A <see cref="Task"/> that completes when the delivery has been handled.</returns>
     public override async Task HandleBasicDeliverAsync(string consumerTag,
         ulong deliveryTag,
         bool redelivered,
@@ -313,6 +344,7 @@ public class RabbitMqConsumer(
         return null;
     }
 
+    /// <inheritdoc />
     public async ValueTask StartAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(_consumerTag))
@@ -328,6 +360,7 @@ public class RabbitMqConsumer(
 #endif
     }
 
+    /// <inheritdoc />
     public async ValueTask StopAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(_consumerTag))

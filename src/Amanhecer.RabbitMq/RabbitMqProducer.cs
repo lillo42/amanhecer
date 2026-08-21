@@ -47,7 +47,7 @@ public class RabbitMqProducer(
             throw new ArgumentException();
         }
 
-        SetCloudEventHeaders(message);
+        SetCloudEventHeaders(message, publication);
         var properties = CreateProperties(message, context, rabbitMqPublication);
 
         var metadata = new List<KeyValuePair<string, object?>>
@@ -105,8 +105,13 @@ public class RabbitMqProducer(
         }
     }
 
-    private static void SetCloudEventHeaders(Message message)
+    private static void SetCloudEventHeaders(Message message, IPublication publication)
     {
+        if (publication.CloudEventType == CloudEventType.Json)
+        {
+            return;
+        }
+        
         Set(message, "cloudEvents:id", message.Id);
         Set(message, "cloudEvents:source", message.Source);
         Set(message, "cloudEvents:specversion", message.SpecVersion);

@@ -11,7 +11,7 @@ public class RabbitMqExchangeConfigurator
     {
         if (string.IsNullOrEmpty(name))
         {
-            throw new NotImplementedException();
+            throw new ArgumentException("Exchange name cannot be null or empty.", nameof(name));
         }
 
         _name = name;
@@ -50,7 +50,8 @@ public class RabbitMqExchangeConfigurator
     {
         if (string.IsNullOrEmpty(_name))
         {
-            throw new NotImplementedException();
+            throw new InvalidOperationException(
+                "An exchange name is required. Call Name to configure it.");
         }
 
         return new Exchange
@@ -68,7 +69,7 @@ public class RabbitMqExchangeConfigurator
         {
             if (string.IsNullOrEmpty(type))
             {
-                throw new NotImplementedException();
+                throw new ArgumentException("Exchange type cannot be null or empty.", nameof(type));
             }
 
             _type = type;

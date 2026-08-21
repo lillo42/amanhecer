@@ -15,7 +15,7 @@ public class RabbitMqConfigurator
         configure.Invoke(cfg);
 
         _connectionFactory = new ConnectionFactory();
-        cfg.Configure(_connectionFactory);
+        cfg.ApplyTo(_connectionFactory);
         return this;
     }
 

@@ -1,18 +1,37 @@
 using System;
 using System.Collections.Generic;
-using Amanhecer.Abstractions.Messaging;
 
 namespace Amanhecer.RabbitMq.Configurations;
 
+/// <summary>
+/// Configures the set of RabbitMQ publications a gateway produces messages through.
+/// </summary>
 public class RabbitMqPublicationsConfigurator
 {
-    private List<RabbitMqPublication> _publications = [];
+    private readonly List<RabbitMqPublication> _publications = [];
+
+    /// <summary>
+    /// Adds a publication, configured through <see cref="RabbitMqPublicationConfigurator"/>.
+    /// </summary>
+    /// <param name="configure">A delegate that configures the publication.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
     public RabbitMqPublicationsConfigurator AddPublication(Action<RabbitMqPublicationConfigurator> configure)
     {
         var cfg = new RabbitMqPublicationConfigurator();
         configure.Invoke(cfg);
-        
+
         _publications.Add(cfg.ToPublication());
+        return this;
+    }
+
+    /// <summary>
+    /// Adds an already-built publication instance.
+    /// </summary>
+    /// <param name="publication">The publication to add.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqPublicationsConfigurator AddPublication(RabbitMqPublication publication)
+    {
+        _publications.Add(publication);
         return this;
     }
 

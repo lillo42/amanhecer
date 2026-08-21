@@ -27,6 +27,13 @@ public class PostMessageHandler(
         }
 
         var publication = publicationFinder.Find(publicationRoutingKey);
+
+        if (publication.MessageMapperType is null)
+        {
+            throw new InvalidOperationException(
+                $"The publication '{publication.Name}' has no message mapper configured.");
+        }
+
         var messageMapper = messageMapperFactory.Create(publication.MessageMapperType);
 
         context.Metadata[MetadataName.Publication] = publication;

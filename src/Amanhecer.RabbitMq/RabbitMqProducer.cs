@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Abstractions.Messaging;
 using RabbitMQ.Client;
 
@@ -58,7 +59,7 @@ public class RabbitMqProducer(
         var metadata = new List<KeyValuePair<string, object?>>
         {
             new("amanhecer.messaging.producer.routing_key", publication.RoutingKey),
-            new("amanhecer.messaging.producer.gateway", "rabbitmq"),
+            new("amanhecer.messaging.gateway", "rabbitmq"),
             new("amanhecer.messaging.producer.destination", rabbitMqPublication.Exchange!.Name),
 
             new("amanhecer.messaging.producer.message.id", message.Id),
@@ -74,6 +75,8 @@ public class RabbitMqProducer(
             ActivityKind.Producer,
             parentContext: context.Activity?.Context ?? default,
             tags: metadata);
+        
+        message.Enrich(activity);
 
         var duration = Stopwatch.StartNew();
         try
@@ -239,6 +242,7 @@ public class RabbitMqProducer(
 
 
 #if NETFRAMEWORK
+    /// <inheritdoc />
     public void Dispose()
     {
         channel.Dispose();

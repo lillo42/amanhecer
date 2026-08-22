@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.RabbitMq.Provisioners;
 
 namespace Amanhecer.RabbitMq.Configurations;
 
@@ -187,6 +189,41 @@ public class RabbitMqSubscriptionConfigurator
         return this;
     }
 
+    /// <summary>
+    /// Assumes the queue and its bindings already exist on the broker and performs no
+    /// provisioning.
+    /// </summary>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator AssumeExists()
+    {
+        _provisioner = new AssumeQueueExists();
+        return this;
+    }
+
+    /// <summary>
+    /// Validates that the queue exists on the broker, throwing when it does not.
+    /// </summary>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator ValidateIfExists()
+    {
+        _provisioner = new ValidateQueueExists();
+        return this;
+    }
+
+    /// <summary>
+    /// Declares the queue on the broker and binds it to an exchange when they do not already
+    /// exist.
+    /// </summary>
+    /// <param name="configure">A delegate that configures how the queue is declared and bound.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator CreateIfNotExists(Action<CreateIfNotExistsConfigurator> configure)
+    {
+        var cfg = new CreateIfNotExistsConfigurator();
+        configure.Invoke(cfg);
+        _provisioner = cfg.ToProvisioner();
+        return this;
+    }
+
     internal RabbitMqSubscription ToSubscription()
     {
         if (string.IsNullOrEmpty(_toRoutingKey))
@@ -199,12 +236,6 @@ public class RabbitMqSubscriptionConfigurator
         {
             throw new InvalidOperationException(
                 "A queue name is required for a subscription. Call QueueName to configure it.");
-        }
-
-        if (_messageMapperType is null)
-        {
-            throw new InvalidOperationException(
-                "A message mapper is required for a subscription. Call MessageMapper<TMapper> to configure it.");
         }
 
         return new RabbitMqSubscription
@@ -220,5 +251,151 @@ public class RabbitMqSubscriptionConfigurator
             DefaultType = _defaultType ?? "default",
             Provisioner = _provisioner
         };
+    }
+
+    /// <summary>
+    /// Configures how the queue is declared on the broker and bound to an exchange when they
+    /// do not already exist.
+    /// </summary>
+    public class CreateIfNotExistsConfigurator
+    {
+        private Exchange? _exchange;
+
+        /// <summary>
+        /// Sets the exchange the queue is bound to.
+        /// </summary>
+        /// <param name="exchange">The exchange instance.</param>
+        /// <returns>The configurator instance for method chaining.</returns>
+        public CreateIfNotExistsConfigurator Exchange(Exchange exchange)
+        {
+            _exchange = exchange;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the exchange the queue is bound to.
+        /// </summary>
+        /// <param name="configure">A delegate that configures the exchange.</param>
+        /// <returns>The configurator instance for method chaining.</returns>
+        public CreateIfNotExistsConfigurator Exchange(Action<RabbitMqExchangeConfigurator> configure)
+        {
+            var cfg = new RabbitMqExchangeConfigurator();
+            configure.Invoke(cfg);
+
+            _exchange = cfg.ToExchange();
+            return this;
+        }
+
+        private string? _routingKey;
+
+        /// <summary>
+        /// Sets the routing key used for the binding between the queue and the exchange.
+        /// </summary>
+        /// <param name="routingKey">The binding routing key.</param>
+        /// <returns>The configurator instance for method chaining.</returns>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="routingKey"/> is null or empty.</exception>
+        public CreateIfNotExistsConfigurator RoutingKey(string routingKey)
+        {
+            if (string.IsNullOrEmpty(routingKey))
+            {
+                throw new ArgumentException("Routing key cannot be null or empty.", nameof(routingKey));
+            }
+
+            _routingKey = routingKey;
+            return this;
+        }
+
+        private bool _durable;
+
+        /// <summary>
+        /// Sets whether the declared queue survives a broker restart.
+        /// </summary>
+        /// <param name="durable">Whether the queue is durable.</param>
+        /// <returns>The configurator instance for method chaining.</returns>
+        public CreateIfNotExistsConfigurator Durable(bool durable)
+        {
+            _durable = durable;
+            return this;
+        }
+
+        private bool _exclusive;
+
+        /// <summary>
+        /// Sets whether the declared queue can only be used by the connection that declared it.
+        /// </summary>
+        /// <param name="exclusive">Whether the queue is exclusive.</param>
+        /// <returns>The configurator instance for method chaining.</returns>
+        public CreateIfNotExistsConfigurator Exclusive(bool exclusive)
+        {
+            _exclusive = exclusive;
+            return this;
+        }
+
+        private bool _autoDelete;
+
+        /// <summary>
+        /// Sets whether the declared queue is deleted when it is no longer in use.
+        /// </summary>
+        /// <param name="autoDelete">Whether the queue is auto-deleted.</param>
+        /// <returns>The configurator instance for method chaining.</returns>
+        public CreateIfNotExistsConfigurator AutoDelete(bool autoDelete)
+        {
+            _autoDelete = autoDelete;
+            return this;
+        }
+
+        private readonly Dictionary<string, object?> _queueArguments = [];
+
+        /// <summary>
+        /// Adds an argument passed to the queue declaration.
+        /// </summary>
+        /// <param name="key">The argument name.</param>
+        /// <param name="value">The argument value.</param>
+        /// <returns>The configurator instance for method chaining.</returns>
+        public CreateIfNotExistsConfigurator QueueArgument(string key, object? value)
+        {
+            _queueArguments[key] = value;
+            return this;
+        }
+
+        private readonly Dictionary<string, object?> _bindArguments = [];
+
+        /// <summary>
+        /// Adds an argument passed to the queue binding.
+        /// </summary>
+        /// <param name="key">The argument name.</param>
+        /// <param name="value">The argument value.</param>
+        /// <returns>The configurator instance for method chaining.</returns>
+        public CreateIfNotExistsConfigurator BindArgument(string key, object? value)
+        {
+            _bindArguments[key] = value;
+            return this;
+        }
+
+        internal CreateQueue ToProvisioner()
+        {
+            if (_exchange is null)
+            {
+                throw new InvalidOperationException(
+                    "An exchange is required to declare the queue binding. Call Exchange to configure it.");
+            }
+
+            if (string.IsNullOrEmpty(_routingKey))
+            {
+                throw new InvalidOperationException(
+                    "A routing key is required to declare the queue binding. Call RoutingKey to configure it.");
+            }
+
+            return new CreateQueue
+            {
+                Exchange = _exchange,
+                RoutingKey = _routingKey!,
+                Durable = _durable,
+                Exclusive = _exclusive,
+                AutoDelete = _autoDelete,
+                QueueArguments = _queueArguments,
+                BindArguments = _bindArguments
+            };
+        }
     }
 }

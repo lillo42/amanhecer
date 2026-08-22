@@ -109,7 +109,7 @@ public partial class CloudeventTransformer(ILogger<CloudeventTransformer> logger
             }
             else
             {
-                Logger.InvalidDataSchema(logger, attribute.DataSchema);
+                Logger.InvalidDataSchema(logger, attribute.DataSchema ?? "null");
             }
         }
 
@@ -126,7 +126,7 @@ public partial class CloudeventTransformer(ILogger<CloudeventTransformer> logger
             }
             else
             {
-                Logger.InvalidDataSchema(logger, attribute.Source);
+                Logger.InvalidDataSchema(logger, attribute.Source ?? "null");
             }
         }
 

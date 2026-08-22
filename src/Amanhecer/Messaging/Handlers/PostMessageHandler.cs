@@ -42,7 +42,8 @@ public class PostMessageHandler(
         if (publication.MessageMapperType is null)
         {
             throw new InvalidOperationException(
-                $"The publication '{publication.Name}' has no message mapper configured.");
+                $"The publication '{publication.Name}' has no message mapper configured. " +
+                "Call MessageMapper<TMapper> on the publication or DefaultMessageMapper when configuring the gateway.");
         }
 
         var messageMapper = messageMapperFactory.Create(publication.MessageMapperType);

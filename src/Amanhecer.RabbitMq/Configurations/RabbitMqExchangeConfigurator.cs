@@ -84,7 +84,7 @@ public class RabbitMqExchangeConfigurator
 
         return new Exchange
         {
-            Name = _name,
+            Name = _name!,
             Provisioner = _provisioner
         };
     }
@@ -94,7 +94,7 @@ public class RabbitMqExchangeConfigurator
     /// </summary>
     public class CreateIfNotExistsConfigurator
     {
-        private string _type;
+        private string? _type;
 
         /// <summary>
         /// Sets the exchange type (e.g. <c>direct</c>, <c>fanout</c>, <c>topic</c>, <c>headers</c>).
@@ -128,9 +128,14 @@ public class RabbitMqExchangeConfigurator
 
         internal CreateIfNotExchange ToProvisioner()
         {
+            if (string.IsNullOrEmpty(_type))
+            {
+                throw new NotImplementedException();
+            }
+
             return new CreateIfNotExchange
             {
-                Type = _type,
+                Type = _type!,
                 Durable = _durable
             };
         }

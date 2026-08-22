@@ -38,4 +38,10 @@ public static class MetadataName
     /// to map the consumed message.
     /// </summary>
     public const string SubscriptionMessageMapper = "Amanhecer.Messaging.Subscription";
+
+    /// <summary>
+    /// The name of the metadata entry holding the request <see cref="System.Type"/> the pipeline
+    /// handling the consumed message expects.
+    /// </summary>
+    public const string RequestType = "Amanhecer.Messaging.RequestType";
 }

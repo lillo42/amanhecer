@@ -67,9 +67,16 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
         Configure?.Invoke(factory);
 
 #if NETFRAMEWORK
-        return new ValueTask<IConnection>(factory.CreateConnection());
+        _connection = factory.CreateConnection();
+        return new ValueTask<IConnection>(_connection);
 #else
-        return new ValueTask<IConnection>(factory.CreateConnectionAsync());
+        return new ValueTask<IConnection>(Create());
+
+        async Task<IConnection> Create()
+        {
+            _connection = await factory.CreateConnectionAsync();
+            return _connection;
+        }
 #endif
     }
 
@@ -96,6 +103,15 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
                 .ExecuteAsync(channel, Exchange);
         }
 
+        foreach (var subscription in Subscriptions)
+        {
+            if (subscription.Provisioner != null)
+            {
+                await subscription.Provisioner
+                    .ExecuteAsync(this, subscription);
+            }
+        }
+
         await base.ProvisionerAsync();
     }
 
@@ -105,7 +121,7 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
     {
         var producers = new Dictionary<string, IProducer>();
         var connection = GetOrCreateAsync().GetAwaiter().GetResult();
-        
+
         foreach (var publication in Publications)
         {
 #if NETFRAMEWORK
@@ -121,23 +137,21 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
     }
 
     /// <inheritdoc />
-    public override IEnumerable<IConsumer> CreateSubscriptions()
+    public override IConsumer CreateConsumer(ISubscription subscription)
     {
-        var producers = new List<IConsumer>();
-        var connection = GetOrCreateAsync().GetAwaiter().GetResult();
-        
-        foreach (var subscription in Subscriptions)
+        if (subscription is not RabbitMqSubscription rabbitMqSubscription)
         {
-#if NETFRAMEWORK
-            var channel = connection.CreateModel();
-#else
-            var channel = connection.CreateChannelAsync().GetAwaiter().GetResult();
-#endif
-
-            var consumer = new RabbitMqConsumer(subscription, channel);
-            producers.Add(consumer);
+            throw new NotImplementedException();
         }
 
-        return producers;
+        var connection = GetOrCreateAsync().GetAwaiter().GetResult();
+
+#if NETFRAMEWORK
+        var channel = connection.CreateModel();
+#else
+        var channel = connection.CreateChannelAsync().GetAwaiter().GetResult();
+#endif
+
+        return new RabbitMqConsumer(rabbitMqSubscription, channel);
     }
 }

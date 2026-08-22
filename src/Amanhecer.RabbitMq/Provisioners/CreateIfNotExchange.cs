@@ -12,7 +12,7 @@ public class CreateIfNotExchange : IExchangeProvisioner
     /// <summary>
     /// Gets or sets the exchange type (for example <c>direct</c>, <c>topic</c> or <c>fanout</c>).
     /// </summary>
-    public string Type { get; set; }
+    public required string Type { get; set; }
 
     /// <summary>
     /// Gets or sets a value indicating whether the exchange survives a broker restart.
@@ -27,13 +27,14 @@ public class CreateIfNotExchange : IExchangeProvisioner
     /// <summary>
     /// Gets or sets additional arguments passed to the exchange declaration.
     /// </summary>
-    public IDictionary<string, object>? Arguments { get; set; }
+    public IDictionary<string, object?> Arguments { get; set; } = new Dictionary<string, object?>();
 
     /// <inheritdoc />
 #if NETFRAMEWORK
-    public async ValueTask ExecuteAsync(IModel channel, Exchange exchange)
+    public ValueTask ExecuteAsync(IModel channel, Exchange exchange)
     {
         channel.ExchangeDeclare(exchange.Name, Type, Durable, AutoDelete, Arguments);
+        return new ValueTask();
     }
 #else
     public async ValueTask ExecuteAsync(IChannel channel, Exchange exchange)

@@ -391,12 +391,6 @@ public class RabbitMqPublicationConfigurator
                 "An exchange is required for a publication. Call Exchange to configure it.");
         }
 
-        if (_messageMapperType is null)
-        {
-            throw new InvalidOperationException(
-                "A message mapper is required for a publication. Call MessageMapper<TMapper> to configure it.");
-        }
-
         return new RabbitMqPublication
         {
             RoutingKey = _routingKey!,

@@ -23,6 +23,11 @@ public class AmanhecerConfigurator(IServiceCollection services)
     private readonly HashSet<Type> _autoRegisteredTypes = [];
 
     /// <summary>
+    /// Gets the service collection where handlers and middlewares are registered.
+    /// </summary>
+    public IServiceCollection Services { get; } = services;
+
+    /// <summary>
     /// Gets the routing options built from the configured routing keys.
     /// </summary>
     public List<AmanhecerRoutingOptions> RoutingConfigurators { get; } = [];
@@ -96,7 +101,7 @@ public class AmanhecerConfigurator(IServiceCollection services)
     public AmanhecerConfigurator AddRoutingKey(string routingKey,
         Action<AmanhecerRoutingConfigurator>? configure = null)
     {
-        var cfg = new AmanhecerRoutingConfigurator(routingKey, services);
+        var cfg = new AmanhecerRoutingConfigurator(routingKey, Services);
 
         configure?.Invoke(cfg);
 
@@ -111,7 +116,7 @@ public class AmanhecerConfigurator(IServiceCollection services)
     /// <returns>The current <see cref="AmanhecerConfigurator"/>, for chaining.</returns>
     public AmanhecerConfigurator SetExecutorStrategy(IExecutingStrategy executor)
     {
-        services.AddSingleton(executor);
+        Services.AddSingleton(executor);
         return this;
     }
 
@@ -126,7 +131,7 @@ public class AmanhecerConfigurator(IServiceCollection services)
     /// </exception>
     public AmanhecerConfigurator UsingMessagingGateway(Action<AmanhecerMessagingConfigurator> configure)
     {
-        var cfg = new AmanhecerMessagingConfigurator(services);
+        var cfg = new AmanhecerMessagingConfigurator(Services);
         configure.Invoke(cfg);
         Gateways.AddRange(cfg.Gateways);
 
@@ -197,7 +202,7 @@ public class AmanhecerConfigurator(IServiceCollection services)
 
                 if (IsMiddleware(type) || IsTransformer(type) || IsMessageMapper(type))
                 {
-                    services.TryAddTransient(type);
+                    Services.TryAddTransient(type);
                 }
                 else if (IsHandler(type))
                 {

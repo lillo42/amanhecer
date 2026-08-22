@@ -21,5 +21,5 @@ public class NackException(bool requeue) : AmanhecerException
     /// Gets or sets whether the message should be requeued by the transport instead of
     /// being discarded or dead-lettered.
     /// </summary>
-    public bool Requeue { get; set; }
+    public bool Requeue { get; set; } = requeue;
 }

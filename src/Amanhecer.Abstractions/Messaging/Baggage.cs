@@ -63,7 +63,7 @@ public class Baggage : Dictionary<string, string?>
             .Where(x => x.Length == 2)
             .ToDictionary(x => x[0], x => x[1]);
 
-        return new Baggage(dict);
+        return new Baggage(dict!);
     }
 
 

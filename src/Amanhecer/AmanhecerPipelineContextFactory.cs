@@ -61,7 +61,7 @@ public class AmanhecerPipelineContextFactory(IExecutingStrategy defaultStrategy)
     {
         if (!string.IsNullOrEmpty(context.RequestId))
         {
-            return context.RequestId;
+            return context.RequestId!;
         }
 
         if (request is IMessageId messageId)

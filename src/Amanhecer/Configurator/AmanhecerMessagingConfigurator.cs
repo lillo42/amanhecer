@@ -36,6 +36,47 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
     /// </summary>
     public List<AmanhecerTransformerOptions> GlobalTransformers { get; } = [];
 
+    private Type? _defaultMessageMapperType;
+
+    /// <summary>
+    /// Sets the default <see cref="IMessageMapper"/> implementation used by the publications and
+    /// subscriptions of every gateway added via <see cref="AddGateway"/> that do not configure a
+    /// message mapper themselves. The type is registered in the service collection.
+    /// </summary>
+    /// <param name="messageMapperType">The default message mapper implementation type.</param>
+    /// <returns>The current configurator, for chaining.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="messageMapperType"/> does
+    /// not implement <see cref="IMessageMapper"/>.</exception>
+    public AmanhecerMessagingConfigurator DefaultMessageMapper(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+        Type messageMapperType)
+    {
+        if (!typeof(IMessageMapper).IsAssignableFrom(messageMapperType))
+        {
+            throw new ArgumentException(
+                $"The type '{messageMapperType.FullName}' does not implement IMessageMapper.",
+                nameof(messageMapperType));
+        }
+
+        _defaultMessageMapperType = messageMapperType;
+        Services.TryAddTransient(messageMapperType);
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the default <see cref="IMessageMapper"/> implementation used by the publications and
+    /// subscriptions of every gateway added via <see cref="AddGateway"/> that do not configure a
+    /// message mapper themselves. The type is registered in the service collection.
+    /// </summary>
+    /// <typeparam name="TMapper">The default message mapper implementation type.</typeparam>
+    /// <returns>The current configurator, for chaining.</returns>
+    public AmanhecerMessagingConfigurator DefaultMessageMapper<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+        TMapper>() where TMapper : IMessageMapper
+    {
+        return DefaultMessageMapper(typeof(TMapper));
+    }
+
     /// <summary>
     /// Adds a named transformer pipeline, ordering its transformers by
     /// <see cref="AmanhecerTransformerOptions.Order"/>.
@@ -113,6 +154,8 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
     /// <summary>
     /// Runs the gateway's provisioner (see <see cref="IGateway.ProvisionerAsync"/>), then adds the
     /// gateway to <see cref="Gateways"/> and registers it as a singleton in <see cref="Services"/>.
+    /// Publications and subscriptions without a message mapper fall back to the default
+    /// configured via <see cref="DefaultMessageMapper(Type)"/>.
     /// </summary>
     /// <param name="gateway">The gateway to register.</param>
     /// <returns>The current configurator, for chaining.</returns>
@@ -120,8 +163,31 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
     {
         gateway.ProvisionerAsync().GetAwaiter().GetResult();
 
+        ApplyDefaultMessageMapper(gateway);
+
         Gateways.Add(gateway);
         Services.AddSingleton(gateway);
         return this;
+    }
+
+    private void ApplyDefaultMessageMapper(IGateway gateway)
+    {
+        if (_defaultMessageMapperType is null)
+        {
+            return;
+        }
+
+        foreach (var publication in gateway.Publications)
+        {
+            publication.MessageMapperType ??= _defaultMessageMapperType;
+        }
+
+        foreach (var subscription in gateway.Subscriptions)
+        {
+            if (subscription.MessageMapperType is null && subscription is Subscription concrete)
+            {
+                concrete.MessageMapperType = _defaultMessageMapperType;
+            }
+        }
     }
 }

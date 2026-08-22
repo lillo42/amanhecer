@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
@@ -43,5 +44,62 @@ public class JsonMessageMapper<
         return new ValueTask<TRequests>(JsonSerializer.Deserialize<TRequests>(message.Payload.Span, options)!);
 #pragma warning restore IL2026
 #pragma warning restore IL3050
+    }
+}
+
+/// <summary>
+/// An <see cref="IMessageMapper"/> that serialises requests to and from JSON using
+/// <see cref="JsonSerializer"/>, without a compile-time request type: requests are serialised
+/// using their runtime type, and messages are deserialised to the request type expected by the
+/// pipeline handling them (see <see cref="MetadataName.RequestType"/>).
+/// </summary>
+public class JsonMessageMapper : IMessageMapper
+{
+    private readonly JsonSerializerOptions _options;
+
+    /// <summary>
+    /// Initialises the mapper with the default JSON serialiser options.
+    /// </summary>
+    public JsonMessageMapper() : this(new JsonSerializerOptions())
+    {
+    }
+
+    /// <summary>
+    /// Initialises the mapper with the given JSON serialiser options.
+    /// </summary>
+    /// <param name="options">The JSON serialiser options.</param>
+    public JsonMessageMapper(JsonSerializerOptions options)
+    {
+        _options = options;
+    }
+
+    /// <inheritdoc />
+    public ValueTask<Message> ToMessageAsync(object request, IPipelineContext context)
+    {
+#pragma warning disable IL2026
+#pragma warning disable IL3050
+        return new ValueTask<Message>(new Message
+        {
+            Id = context.RequestId,
+            CorrelationId = context.CorrelationId,
+            Payload = JsonSerializer.SerializeToUtf8Bytes(request, request.GetType(), _options).AsMemory()
+        });
+#pragma warning restore IL3050
+#pragma warning restore IL2026
+    }
+
+    /// <inheritdoc />
+    public ValueTask<object> ToRequestAsync(Message message, IPipelineContext context)
+    {
+        var requestType = context.Metadata.GetOrDefault<Type>(MetadataName.RequestType)
+            ?? throw new InvalidOperationException(
+                $"The metadata entry '{MetadataName.RequestType}' holding the expected request " +
+                "type is not set on the pipeline context.");
+
+#pragma warning disable IL2026
+#pragma warning disable IL3050
+        return new ValueTask<object>(JsonSerializer.Deserialize(message.Payload.Span, requestType, _options)!);
+#pragma warning restore IL3050
+#pragma warning restore IL2026
     }
 }

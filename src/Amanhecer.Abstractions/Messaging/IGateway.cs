@@ -44,5 +44,5 @@ public interface IGateway
     /// Creates the consumers that receive messages for this gateway's subscriptions.
     /// </summary>
     /// <returns>The consumers to start.</returns>
-    IEnumerable<IConsumer> CreateSubscriptions();
+    IConsumer CreateConsumer(ISubscription subscription);
 }

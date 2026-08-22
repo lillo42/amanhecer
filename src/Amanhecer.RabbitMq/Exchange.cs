@@ -10,7 +10,7 @@ public class Exchange
     /// <summary>
     /// Gets or sets the name of the exchange.
     /// </summary>
-    public string Name { get; set; }
+    public required string Name { get; set; }
 
     /// <summary>
     /// Gets or sets the provisioner used to set up the exchange. Defaults to

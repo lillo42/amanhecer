@@ -6,6 +6,7 @@ using System.Net.Mime;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Abstractions.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using RabbitMQ.Client;
@@ -109,12 +110,15 @@ public class RabbitMqConsumer(
             ActivityKind.Consumer,
             name: "Consumer",
             tags: metadata);
+        
 
         var duration = Stopwatch.StartNew();
 
         try
         {
             var message = ToMessage(consumerTag, deliveryTag, redelivered, exchange, routingKey, body, properties);
+            activity?.Enrich(message);
+            
             var resp = await dispatcher.QueryAsync(
                 message,
                 new AmanhecerContext
@@ -167,7 +171,7 @@ public class RabbitMqConsumer(
         {
             duration.Stop();
             FailedCounter.Add(1, metadata);
-            
+
 #if !NET8_0
             activity?.AddException(ex);
 #endif
@@ -352,11 +356,14 @@ public class RabbitMqConsumer(
             return;
         }
 
-        _consumerTag =
+        _serviceProvider = serviceProvider;
+
 #if NETFRAMEWORK
-            Model.BasicConsume(subscription.QueueName, false, this);
+        Model.BasicQos(0, (ushort)subscription.BufferSize, false);
+        _consumerTag = Model.BasicConsume(subscription.QueueName, false, this);
 #else
-            await Channel.BasicConsumeAsync(subscription.QueueName, false, this, cancellationToken: cancellationToken);
+        await Channel.BasicQosAsync(0, (ushort)subscription.BufferSize, false, cancellationToken);
+        _consumerTag = await Channel.BasicConsumeAsync(subscription.QueueName, false, this, cancellationToken: cancellationToken);
 #endif
     }
 

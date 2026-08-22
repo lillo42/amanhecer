@@ -22,12 +22,12 @@ public abstract class Gateway<TPublication, TSubscription> : IGateway
     /// <summary>
     /// Gets or sets the publications declared on this gateway.
     /// </summary>
-    public List<TPublication> Publications { get; set; }
+    public List<TPublication> Publications { get; set; } = [];
 
     /// <summary>
     /// Gets or sets the subscriptions declared on this gateway.
     /// </summary>
-    public List<TSubscription> Subscriptions { get; set; }
+    public List<TSubscription> Subscriptions { get; set; } = [];
 
 
     IEnumerable<IPublication> IGateway.Publications => Publications.Cast<IPublication>();
@@ -74,5 +74,5 @@ public abstract class Gateway<TPublication, TSubscription> : IGateway
     /// Creates the consumers that receive messages for this gateway's subscriptions.
     /// </summary>
     /// <returns>The consumers to start.</returns>
-    public abstract IEnumerable<IConsumer> CreateSubscriptions();
+    public abstract IConsumer CreateConsumer(ISubscription subscription);
 }

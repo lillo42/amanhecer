@@ -61,12 +61,67 @@ public class RabbitMqConfigurator
         return this;
     }
 
+    private Type? _defaultMessageMapperType;
+
+    /// <summary>
+    /// Sets the default <see cref="IMessageMapper"/> implementation used by the publications
+    /// and subscriptions that do not configure a message mapper themselves.
+    /// </summary>
+    /// <param name="messageMapper">The default message mapper implementation type.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    /// <exception cref="ArgumentException">Thrown when <paramref name="messageMapper"/> does
+    /// not implement <see cref="IMessageMapper"/>.</exception>
+    public RabbitMqConfigurator DefaultMessageMapper(Type messageMapper)
+    {
+        if (!typeof(IMessageMapper).IsAssignableFrom(messageMapper))
+        {
+            throw new ArgumentException(
+                $"The type '{messageMapper.FullName}' does not implement IMessageMapper.",
+                nameof(messageMapper));
+        }
+
+        _defaultMessageMapperType = messageMapper;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the default <see cref="IMessageMapper"/> implementation used by the publications
+    /// and subscriptions that do not configure a message mapper themselves.
+    /// </summary>
+    /// <typeparam name="TMapper">The default message mapper implementation type.</typeparam>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqConfigurator DefaultMessageMapper<TMapper>() where TMapper : IMessageMapper
+    {
+        _defaultMessageMapperType = typeof(TMapper);
+        return this;
+    }
+
     internal IGateway CreateGateway()
     {
+        ApplyDefaultMessageMapper();
+
         return new RabbitMqGateway
         {
             Publications = _publications,
             Subscriptions = _subscriptions
         };
+    }
+
+    private void ApplyDefaultMessageMapper()
+    {
+        if (_defaultMessageMapperType is null)
+        {
+            return;
+        }
+
+        foreach (var publication in _publications)
+        {
+            publication.MessageMapperType ??= _defaultMessageMapperType;
+        }
+
+        foreach (var subscription in _subscriptions)
+        {
+            subscription.MessageMapperType ??= _defaultMessageMapperType;
+        }
     }
 }

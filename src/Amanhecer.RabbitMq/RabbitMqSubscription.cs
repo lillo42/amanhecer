@@ -11,9 +11,4 @@ public class RabbitMqSubscription : Subscription
     /// Gets or sets the name of the queue messages are consumed from.
     /// </summary>
     public required string QueueName { get; set; }
-    
-    /// <summary>
-    /// Gets the provisioner used to set up the queue and its bindings before consumption starts.
-    /// </summary>
-    public ISubscriptionProvisoner? Provisoner { get; }
 }

@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Exceptions;
+using Amanhecer.Abstractions.Messaging;
 using Microsoft.Extensions.Logging;
 
 namespace Amanhecer;
@@ -505,6 +506,163 @@ public partial class AmanhecerDispatcher(
                     .ExecuteAsync(pipelineContext, pipelines)
                     .ConfigureAwait(pipelineContext.ContinueOnCapturedContext);
                 return pipelineContext.Response;
+        }
+    }
+
+    /// <summary>
+    /// Posts a message synchronously to the single publication pipeline registered for it,
+    /// using a new <see cref="AmanhecerContext"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of the message.</typeparam>
+    /// <param name="message">The message to post.</param>
+    public void Post<T>(T message)
+    {
+        Post(message, new AmanhecerContext());
+    }
+
+    /// <summary>
+    /// Posts a message synchronously to the single publication pipeline registered for it,
+    /// using a new <see cref="AmanhecerContext"/>.
+    /// </summary>
+    /// <param name="message">The message to post.</param>
+    public void Post(Message message)
+    {
+        Post(message, new AmanhecerContext());
+    }
+
+    /// <summary>
+    /// Posts a message synchronously to the single publication pipeline registered for the
+    /// context's routing key, using the provided context.
+    /// </summary>
+    /// <typeparam name="T">The type of the message.</typeparam>
+    /// <param name="message">The message to post.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="message"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the message's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the message's routing key.</exception>
+    public void Post<T>(T message, IContext context)
+    {
+        var response = PostCoreAsync(message!, context, CancellationToken.None);
+        if (response.IsCompleted)
+        {
+            response.GetAwaiter().GetResult();
+        }
+        else
+        {
+            response.AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    /// <summary>
+    /// Posts a message synchronously to the single publication pipeline registered for the
+    /// context's routing key, using the provided context.
+    /// </summary>
+    /// <param name="message">The message to post.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="message"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the message's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the message's routing key.</exception>
+    public void Post(Message message, IContext context)
+    {
+        var response = PostCoreAsync(message, context, CancellationToken.None);
+        if (response.IsCompleted)
+        {
+            response.GetAwaiter().GetResult();
+        }
+        else
+        {
+            response.AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    /// <summary>
+    /// Posts a message asynchronously to the single publication pipeline registered for it,
+    /// using a new <see cref="AmanhecerContext"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of the message.</typeparam>
+    /// <param name="message">The message to post.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has executed.</returns>
+    public async ValueTask PostAsync<T>(T message, CancellationToken cancellationToken = default)
+    {
+        await PostAsync(message, new AmanhecerContext(), cancellationToken);
+    }
+
+    /// <summary>
+    /// Posts a message asynchronously to the single publication pipeline registered for it,
+    /// using a new <see cref="AmanhecerContext"/>.
+    /// </summary>
+    /// <param name="message">The message to post.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has executed.</returns>
+    public async ValueTask PostAsync(Message message, CancellationToken cancellationToken = default)
+    {
+        await PostAsync(message, new AmanhecerContext(), cancellationToken);
+    }
+
+    /// <summary>
+    /// Posts a message asynchronously to the single publication pipeline registered for the
+    /// context's routing key, using the provided context.
+    /// </summary>
+    /// <typeparam name="T">The type of the message.</typeparam>
+    /// <param name="message">The message to post.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has executed.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="message"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the message's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the message's routing key.</exception>
+    public async ValueTask PostAsync<T>(T message, IContext context, CancellationToken cancellationToken = default)
+    {
+        await PostCoreAsync(message!, context, cancellationToken);
+    }
+
+    /// <summary>
+    /// Posts a message asynchronously to the single publication pipeline registered for the
+    /// context's routing key, using the provided context.
+    /// </summary>
+    /// <param name="message">The message to post.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has executed.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="message"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the message's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the message's routing key.</exception>
+    public async ValueTask PostAsync(Message message, IContext context, CancellationToken cancellationToken = default)
+    {
+        await PostCoreAsync(message, context, cancellationToken);
+    }
+
+    private async ValueTask PostCoreAsync(object message, IContext context, CancellationToken cancellationToken)
+    {
+        if (message == null)
+        {
+            throw new ArgumentNullException(nameof(message));
+        }
+
+        if (context == null)
+        {
+            throw new ArgumentNullException(nameof(context));
+        }
+
+        context.RoutingKey = "Amanhecer.Messaging.Post";
+
+        var pipelineContext = contextFactory.Create(message, context, cancellationToken);
+        var pipelines = factory.Create(pipelineContext);
+
+        pipelineContext.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhecer.operation", "post"));
+
+        switch (pipelines.Count)
+        {
+            case 0:
+                Logger.NoPipelineFound(logger, pipelineContext.RoutingKey);
+                throw new PipelineNotFoundException(pipelineContext.RoutingKey);
+            case > 1:
+                throw new MultiPipelineFoundException(pipelineContext.RoutingKey);
+            default:
+                await pipelineContext.ExecutingStrategy.ExecuteAsync(pipelineContext, pipelines)
+                    .ConfigureAwait(pipelineContext.ContinueOnCapturedContext);
+                break;
         }
     }
 

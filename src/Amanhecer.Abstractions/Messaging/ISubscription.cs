@@ -54,4 +54,22 @@ public interface ISubscription
     /// needs, if any.
     /// </summary>
     ISubscriptionProvisoner? Provisioner { get; }
+    
+    /// <summary>
+    /// Gets the routing key messages are reposted to when they are moved to the
+    /// dead-letter queue, if configured.
+    /// </summary>
+    string? DeadLetterQueueRoutingKey { get; }
+
+    /// <summary>
+    /// Gets the routing key messages are reposted to when they are moved to the
+    /// invalid-message destination, if configured.
+    /// </summary>
+    string? InvalidMessageRoutingKey { get; }
+
+    /// <summary>
+    /// Gets the function that maps an exception thrown while handling a consumed message
+    /// to the <see cref="IConsumerAction"/> used to settle it.
+    /// </summary>
+    Func<Message, Exception, IConsumerAction> OnError { get; }
 }

@@ -32,37 +32,52 @@ public class ReceiveMessageHandler(
     {
         var subscription = GetSubscription(context);
 
-        if (subscription.MessageMapperType is null)
+        try
         {
-            throw new InvalidOperationException(
-                $"The subscription '{subscription.Name}' has no message mapper configured. " +
-                "Call MessageMapper<TMapper> on the subscription or DefaultMessageMapper when configuring the gateway.");
+
+            if (subscription.MessageMapperType is null)
+            {
+                throw new InvalidOperationException(
+                    $"The subscription '{subscription.Name}' has no message mapper configured. " +
+                    "Call MessageMapper<TMapper> on the subscription or DefaultMessageMapper when configuring the gateway.");
+            }
+
+            var messageMapper = messageMapperFactory.Create(subscription.MessageMapperType);
+
+            context.Metadata[MetadataName.SubscriptionMessageMapper] = messageMapper;
+
+            var requestType = GetRequestType(subscription.ToRoutingKey);
+            if (requestType is not null)
+            {
+                context.Metadata[MetadataName.RequestType] = requestType;
+            }
+
+            var request = await ToRequestAsync(query, messageMapper, subscription, context)
+                .ConfigureAwait(context.ContinueOnCapturedContext);
+
+            return await dispatcher.QueryAsync(request,
+                    new AmanhecerContext
+                    {
+                        RoutingKey = subscription.ToRoutingKey,
+                        ContinueOnCapturedContext = context.ContinueOnCapturedContext,
+                        CorrelationId = query.CorrelationId,
+                        RequestId = query.Id,
+                        Metadata = context.Metadata
+                    },
+                    cancellationToken)
+                .ConfigureAwait(context.ContinueOnCapturedContext);
         }
-
-        var messageMapper = messageMapperFactory.Create(subscription.MessageMapperType);
-
-        context.Metadata[MetadataName.SubscriptionMessageMapper] = messageMapper;
-
-        var requestType = GetRequestType(subscription.ToRoutingKey);
-        if (requestType is not null)
+        catch(Exception exception)
         {
-            context.Metadata[MetadataName.RequestType] = requestType;
+            var action = subscription.OnError(query, exception);
+            if (action is IResolvingConsumerAction resolvingConsumerAction)
+            {
+                return await resolvingConsumerAction.ExecuteAsync(query, subscription, dispatcher, cancellationToken)
+                    .ConfigureAwait(context.ContinueOnCapturedContext);
+            }
+            
+            return action;
         }
-
-        var request = await ToRequestAsync(query, messageMapper, subscription, context)
-            .ConfigureAwait(context.ContinueOnCapturedContext);
-
-        return await dispatcher.QueryAsync(request,
-                new AmanhecerContext
-                {
-                    RoutingKey = subscription.ToRoutingKey,
-                    ContinueOnCapturedContext = context.ContinueOnCapturedContext,
-                    CorrelationId = query.CorrelationId,
-                    RequestId = query.Id,
-                    Metadata = context.Metadata
-                },
-                cancellationToken)
-            .ConfigureAwait(context.ContinueOnCapturedContext);
     }
 
     private Type? GetRequestType(string routingKey)

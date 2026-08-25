@@ -28,23 +28,24 @@ public class RabbitMqConsumer(
 #endif
 ) : AsyncDefaultBasicConsumer(channel), IConsumer
 {
+    /// <summary>Counts messages consumed successfully.</summary>
     private static readonly Counter<int> SuccessCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
-        "amanhecer.request.processing.success",
-        unit: "{request}",
-        description: "Number of requests processed successfully.");
+        "amanhecer.message.consume.success",
+        unit: "{message}",
+        description: "Number of messages consumed successfully.");
 
-    /// <summary>Counts requests whose processing failed with an exception.</summary>
+    /// <summary>Counts messages whose consumption failed with an exception.</summary>
     private static readonly Counter<int> FailedCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
-        "amanhecer.request.processing.failed",
-        unit: "{request}",
-        description: "Number of requests that failed during processing.");
+        "amanhecer.message.consume.failed",
+        unit: "{message}",
+        description: "Number of messages that failed during consumption.");
 
-    /// <summary>Records how long request processing took, in seconds.</summary>
-    private static readonly Histogram<double> ProducerDuration =
+    /// <summary>Records how long consuming a message took, in seconds.</summary>
+    private static readonly Histogram<double> ConsumerDuration =
         AmanhecerDiagnostics.Meter.CreateHistogram<double>(
-            "amanhecer.request.processing.duration",
+            "amanhecer.message.consume.duration",
             unit: "s",
-            description: "Duration of request processing, in seconds.");
+            description: "Duration of message consumption, in seconds.");
 
     private IServiceProvider? _serviceProvider;
     private string? _consumerTag;
@@ -62,7 +63,9 @@ public class RabbitMqConsumer(
     /// <param name="properties">The properties of the delivered message.</param>
     /// <param name="body">The body of the delivered message.</param>
     /// <returns>A <see cref="Task"/> that completes when the delivery has been handled.</returns>
-    public override async Task HandleBasicDeliver(string consumerTag, ulong deliveryTag, bool redelivered,
+    public override async Task HandleBasicDeliver(string consumerTag,
+        ulong deliveryTag,
+        bool redelivered,
         string exchange,
         string routingKey,
         IBasicProperties properties, ReadOnlyMemory<byte> body)
@@ -101,29 +104,58 @@ public class RabbitMqConsumer(
 #if NETFRAMEWORK
         var cancellationToken = CancellationToken.None;
 #endif
-        var metadata = new List<KeyValuePair<string, object?>>
+        // Low-cardinality tags shared by the metrics instruments (OTel messaging conventions).
+        // The routing key is span-only: on topic exchanges it can take unbounded values.
+        var metricTags = new List<KeyValuePair<string, object?>>
         {
-            new("amanhecer.consumer.message_gateway", "rabbitmq"),
+            new("messaging.system", "rabbitmq"),
+            new("messaging.operation.type", "process"),
+            new("messaging.destination.name", subscription.QueueName),
         }.ToArray();
 
-        var activity = AmanhecerDiagnostics.ActivitySource.StartActivity(
-            ActivityKind.Consumer,
-            name: "Consumer",
-            tags: metadata);
-        
 
+        Message? message = null;
+        Activity? activity = null;
         var duration = Stopwatch.StartNew();
-
         try
         {
-            var message = ToMessage(consumerTag, deliveryTag, redelivered, exchange, routingKey, body, properties);
+            message = ToMessage(consumerTag, deliveryTag, redelivered, exchange, routingKey, body, properties);
+
+            // Per-message values are high-cardinality, so they go on the span only, never on metrics.
+            var spanTags = new List<KeyValuePair<string, object?>>(metricTags)
+            {
+                new("messaging.rabbitmq.destination.routing_key", routingKey),
+                new("messaging.message.id", message.Id),
+                new("messaging.message.conversation_id", message.CorrelationId),
+                new("cloudevents.event_id", message.Id),
+                new("cloudevents.event_source", message.Source?.ToString()),
+                new("cloudevents.event_spec_version", message.SpecVersion),
+                new("cloudevents.event_type", message.Type),
+            }.ToArray();
+
+            // The trace parent must be passed at start time: setting it after the activity
+            // has started has no effect and the span would begin a new trace.
+            ActivityContext parentContext = default;
+            if (ActivityContext.TryParse(message.TraceParent, message.TraceState?.ToString(), out var parsedContext))
+            {
+                parentContext = parsedContext;
+            }
+
+            activity = AmanhecerDiagnostics.ActivitySource.StartActivity(
+                ActivityKind.Consumer,
+                name: $"{subscription.QueueName} process",
+                parentContext: parentContext,
+                tags: spanTags);
+
+            // Copies the message baggage onto the span.
             activity?.Enrich(message);
-            
+
             var resp = await dispatcher.QueryAsync(
                 message,
                 new AmanhecerContext
                 {
                     RoutingKey = "Amanhecer.External.Message",
+                    Activity = activity,
                     Metadata = new Dictionary<string, object>
                     {
                         [Amanhecer.Abstractions.MetadataName.MessagingGateway] = "RabbitMQ",
@@ -132,45 +164,60 @@ public class RabbitMqConsumer(
                 },
                 cancellationToken);
 
-            if (resp is Ack or null)
+            if (resp is Nack)
             {
-#if NETFRAMEWORK
-                Model.BasicAck(deliveryTag, false);
-#else
-                await Channel.BasicAckAsync(deliveryTag, false, cancellationToken);
-#endif
+                await NackAsync(deliveryTag);
+
+                duration.Stop();
+
+                FailedCounter.Add(1, metricTags);
+                activity?.SetStatus(ActivityStatusCode.Error, "Message negatively acknowledged");
             }
-            else if (resp is Nack nack)
+            else if (resp is Defer)
             {
-#if NETFRAMEWORK
-                Model.BasicNack(deliveryTag, false, nack.Requeue);
-#else
-                await Channel.BasicNackAsync(deliveryTag, false, nack.Requeue, cancellationToken);
-#endif
+                await DeferAsync(deliveryTag);
+                duration.Stop();
+
+                FailedCounter.Add(1, metricTags);
+                activity?.SetStatus(ActivityStatusCode.Error, "Message negatively acknowledged");
             }
+            else
+            {
+                if (resp is Ack or null)
+                {
+                    await AckAsync(deliveryTag);
+                }
 
-            duration.Stop();
+                duration.Stop();
 
-            SuccessCounter.Add(1, metadata);
-            activity?.SetStatus(ActivityStatusCode.Ok);
+                SuccessCounter.Add(1, metricTags);
+                activity?.SetStatus(ActivityStatusCode.Ok);
+            }
         }
-        catch (NackException ex)
+        catch (NackException)
         {
-#if NETFRAMEWORK
-            Model.BasicNack(deliveryTag, false, ex.Requeue);
-#else
-            await Channel.BasicNackAsync(deliveryTag, false, ex.Requeue, cancellationToken);
-#endif
+            await NackAsync(deliveryTag);
 
             duration.Stop();
 
-            SuccessCounter.Add(1, metadata);
-            activity?.SetStatus(ActivityStatusCode.Ok);
+            FailedCounter.Add(1, metricTags);
+            activity?.SetStatus(ActivityStatusCode.Error, "Message negatively acknowledged");
+        }
+        catch (DeferException)
+        {
+            await DeferAsync(deliveryTag);
+
+            duration.Stop();
+
+            FailedCounter.Add(1, metricTags);
+            activity?.SetStatus(ActivityStatusCode.Error, "Message negatively acknowledged");
         }
         catch (Exception ex)
         {
+            await DeferAsync(deliveryTag);
+
             duration.Stop();
-            FailedCounter.Add(1, metadata);
+            FailedCounter.Add(1, metricTags);
 
 #if !NET8_0
             activity?.AddException(ex);
@@ -179,9 +226,39 @@ public class RabbitMqConsumer(
         }
         finally
         {
-            ProducerDuration.Record(duration.Elapsed.TotalSeconds, metadata);
+            ConsumerDuration.Record(duration.Elapsed.TotalSeconds, metricTags);
             activity?.Stop();
         }
+    }
+
+    private ValueTask AckAsync(ulong deliveryTag)
+    {
+#if NETFRAMEWORK
+        Model.BasicAck(deliveryTag, false);
+        return new ValueTask();
+#else
+        return Channel.BasicAckAsync(deliveryTag, false);
+#endif
+    }
+
+    private ValueTask NackAsync(ulong deliveryTag)
+    {
+#if NETFRAMEWORK
+        Model.BasicNack(deliveryTag, false, false);
+        return new ValueTask();
+#else
+        return Channel.BasicNackAsync(deliveryTag, false, false);
+#endif
+    }
+    
+    private ValueTask DeferAsync(ulong deliveryTag)
+    {
+#if NETFRAMEWORK
+        Model.BasicNack(deliveryTag, false, true);
+        return new ValueTask();
+#else
+        return Channel.BasicNackAsync(deliveryTag, false, true);
+#endif
     }
 
     private Message ToMessage(string consumerTag,
@@ -221,9 +298,9 @@ public class RabbitMqConsumer(
             Subject = GetSubject(headers),
             SpecVersion = GetSpecVersion(headers),
             Source = GetSource(headers),
-            Time = DateTimeOffset.FromUnixTimeMilliseconds(properties.Timestamp.UnixTime),
+            Time = GetTime(properties.Timestamp, headers),
             Type = GetType(headers),
-            Baggage = GeBaggage(headers),
+            Baggage = GetBaggage(headers),
             TraceParent = GetTraceParent(headers),
             TraceState = GetTraceState(headers),
         };
@@ -318,7 +395,7 @@ public class RabbitMqConsumer(
         return subscription.DefaultType;
     }
 
-    private static Baggage? GeBaggage(Dictionary<string, object?> properties)
+    private static Baggage? GetBaggage(Dictionary<string, object?> properties)
     {
         if (properties.TryGetValue("cloudEvents:baggage", out var obj) && obj is string val)
         {
@@ -326,6 +403,18 @@ public class RabbitMqConsumer(
         }
 
         return null;
+    }
+    
+    private static DateTimeOffset GetTime(AmqpTimestamp timestamp, Dictionary<string, object?> properties)
+    {
+        if (properties.TryGetValue("cloudEvents:time", out var obj) 
+            && obj is string val
+            && DateTimeOffset.TryParse(val, out var time))
+        {
+            return time;
+        }
+
+        return DateTimeOffset.FromUnixTimeSeconds(timestamp.UnixTime);
     }
 
     private static string? GetTraceParent(Dictionary<string, object?> properties)
@@ -349,36 +438,52 @@ public class RabbitMqConsumer(
     }
 
     /// <inheritdoc />
-    public async ValueTask StartAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
+    public ValueTask StartAsync(IServiceProvider serviceProvider, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(_consumerTag))
+        if (!string.IsNullOrEmpty(_consumerTag))
         {
-            return;
+            return new ValueTask();
         }
 
         _serviceProvider = serviceProvider;
 
 #if NETFRAMEWORK
-        Model.BasicQos(0, (ushort)subscription.BufferSize, false);
+        Model.BasicQos(subscription.PrefetchSize, (ushort)subscription.BufferSize, false);
         _consumerTag = Model.BasicConsume(subscription.QueueName, false, this);
+        return new ValueTask();
 #else
-        await Channel.BasicQosAsync(0, (ushort)subscription.BufferSize, false, cancellationToken);
-        _consumerTag = await Channel.BasicConsumeAsync(subscription.QueueName, false, this, cancellationToken: cancellationToken);
+        return new ValueTask(InnerStartAsync());
+        async Task InnerStartAsync()
+        {
+            await Channel.BasicQosAsync(subscription.PrefetchSize, (ushort)subscription.BufferSize, false,
+                cancellationToken);
+            _consumerTag =
+                await Channel.BasicConsumeAsync(subscription.QueueName, false, this,
+                    cancellationToken: cancellationToken);
+        }
 #endif
     }
 
     /// <inheritdoc />
-    public async ValueTask StopAsync(CancellationToken cancellationToken = default)
+    public ValueTask StopAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(_consumerTag))
         {
-            return;
+            return new ValueTask();
         }
 
 #if NETFRAMEWORK
-        Model.BasicCancel(subscription.QueueName);
+        Model.BasicCancel(_consumerTag);
+        _consumerTag = null;
+        return new ValueTask();
 #else
-        await Channel.BasicCancelAsync(_consumerTag, cancellationToken: cancellationToken);
+        return new ValueTask(InnerStopAsync());
+
+        async Task InnerStopAsync()
+        {
+            await Channel.BasicCancelAsync(_consumerTag, false, cancellationToken);
+            _consumerTag = null;
+        }
 #endif
     }
 }

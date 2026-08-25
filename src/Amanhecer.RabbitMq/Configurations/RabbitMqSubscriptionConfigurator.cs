@@ -131,6 +131,27 @@ public class RabbitMqSubscriptionConfigurator
         return this;
     }
 
+    private int _prefetchSize;
+
+    /// <summary>
+    /// Sets the prefetch size (the QoS window) in bytes for each consumer. Defaults to
+    /// <c>0</c>, meaning no limit. Note that RabbitMQ brokers ignore the prefetch size; use
+    /// <see cref="BufferSize"/> to limit how many messages each consumer prefetches.
+    /// </summary>
+    /// <param name="prefetchSize">The prefetch size in bytes.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator PrefetchSize(int prefetchSize)
+    {
+        if (prefetchSize < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(prefetchSize),
+                "Prefetch size cannot be negative.");
+        }
+
+        _prefetchSize = prefetchSize;
+        return this;
+    }
+
     private string _defaultSpecVersion = "1.0";
 
     /// <summary>
@@ -172,6 +193,58 @@ public class RabbitMqSubscriptionConfigurator
     public RabbitMqSubscriptionConfigurator DefaultType(string type)
     {
         _defaultType = type;
+        return this;
+    }
+
+    private string? _deadLetterQueueRoutingKey;
+
+    /// <summary>
+    /// Sets the routing key messages are reposted to when the consumer action moves them
+    /// to the dead-letter queue.
+    /// </summary>
+    /// <param name="routingKey">The dead-letter queue routing key.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator DeadLetterQueueRoutingKey(string routingKey)
+    {
+        if (string.IsNullOrEmpty(routingKey))
+        {
+            throw new ArgumentException("Routing key cannot be null or empty.", nameof(routingKey));
+        }
+
+        _deadLetterQueueRoutingKey = routingKey;
+        return this;
+    }
+
+    private string? _invalidMessageRoutingKey;
+
+    /// <summary>
+    /// Sets the routing key messages are reposted to when the consumer action moves them
+    /// to the invalid-message destination.
+    /// </summary>
+    /// <param name="routingKey">The invalid-message routing key.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator InvalidMessageRoutingKey(string routingKey)
+    {
+        if (string.IsNullOrEmpty(routingKey))
+        {
+            throw new ArgumentException("Routing key cannot be null or empty.", nameof(routingKey));
+        }
+
+        _invalidMessageRoutingKey = routingKey;
+        return this;
+    }
+
+    private Func<Message, Exception, IConsumerAction>? _onError;
+
+    /// <summary>
+    /// Sets the function that maps an exception thrown while handling a consumed message
+    /// to the <see cref="IConsumerAction"/> used to settle it.
+    /// </summary>
+    /// <param name="onError">The error handling function.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator OnError(Func<Message, Exception, IConsumerAction> onError)
+    {
+        _onError = onError ?? throw new ArgumentNullException(nameof(onError));
         return this;
     }
 
@@ -238,7 +311,7 @@ public class RabbitMqSubscriptionConfigurator
                 "A queue name is required for a subscription. Call QueueName to configure it.");
         }
 
-        return new RabbitMqSubscription
+        var subscription = new RabbitMqSubscription
         {
             Name = _name ?? Uuid.NewGuid().ToString(),
             ToRoutingKey = _toRoutingKey!,
@@ -246,11 +319,21 @@ public class RabbitMqSubscriptionConfigurator
             MessageMapperType = _messageMapperType,
             NumberOfConsumer = _numberOfConsumer,
             BufferSize = _bufferSize,
+            PrefetchSize = (uint)_prefetchSize,
             DefaultSpecVersion = _defaultSpecVersion,
             DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute),
             DefaultType = _defaultType ?? "default",
-            Provisioner = _provisioner
+            Provisioner = _provisioner,
+            DeadLetterQueueRoutingKey = _deadLetterQueueRoutingKey,
+            InvalidMessageRoutingKey = _invalidMessageRoutingKey
         };
+
+        if (_onError is not null)
+        {
+            subscription.OnError = _onError;
+        }
+
+        return subscription;
     }
 
     /// <summary>

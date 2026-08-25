@@ -10,11 +10,15 @@ namespace Amanhecer.Abstractions.Extensions;
 public static class ActivityExtensions
 {
     /// <summary>
-    /// Copies the tracing context of the message (baggage, trace parent and trace state)
-    /// onto the activity.
+    /// Copies the baggage carried by the message onto the activity.
     /// </summary>
+    /// <remarks>
+    /// The trace parent is deliberately not set here: parenting only takes effect when passed to
+    /// <see cref="ActivitySource.StartActivity(ActivityKind, string, ActivityContext, ...)"/> at
+    /// start time, so setting it afterwards would be a silent no-op.
+    /// </remarks>
     /// <param name="activity">The activity to enrich.</param>
-    /// <param name="message">The message whose tracing context is copied onto the activity.</param>
+    /// <param name="message">The message whose baggage is copied onto the activity.</param>
     public static void Enrich(this Activity activity, Message message)
     {
         if (message.Baggage != null)
@@ -23,16 +27,6 @@ public static class ActivityExtensions
             {
                 activity.AddBaggage(keyPairValue.Key, keyPairValue.Value);
             }
-        }
-
-        if (!string.IsNullOrEmpty(message.TraceParent))
-        {
-            activity.SetParentId(message.TraceParent!);
-        }
-
-        if (message.TraceState != null)
-        {
-            activity.TraceStateString = message.TraceState.ToString();
         }
     }
 }

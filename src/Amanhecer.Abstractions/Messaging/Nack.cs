@@ -6,20 +6,16 @@ namespace Amanhecer.Abstractions.Messaging;
 /// A negative acknowledgement returned by a consumer handler to signal that the message
 /// could not be processed.
 /// </summary>
-/// <param name="Requeue">Whether the message should be requeued by the transport instead
-/// of being discarded or dead-lettered.</param>
-public record Nack(bool Requeue);
+public record Nack : IConsumerAction
+{
+    /// <summary>
+    /// The shared <see cref="Nack"/> instance.
+    /// </summary>
+    public static Nack Instance { get; } = new();
+}
 
 /// <summary>
 /// The exception thrown to signal a negative acknowledgement (<see cref="Nack"/>) for the
 /// message being handled.
 /// </summary>
-/// <param name="requeue">Whether the message should be requeued by the transport.</param>
-public class NackException(bool requeue) : AmanhecerException
-{
-    /// <summary>
-    /// Gets or sets whether the message should be requeued by the transport instead of
-    /// being discarded or dead-lettered.
-    /// </summary>
-    public bool Requeue { get; set; } = requeue;
-}
+public class NackException() : AmanhecerException;

@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using Amanhecer.Abstractions.Messaging;
 
 namespace Amanhecer.Abstractions;
 
@@ -253,4 +254,84 @@ public interface IDispatcher
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The response produced by the query handler.</returns>
     ValueTask<object?> QueryAsync(object query, IContext context, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Posts a message to the single pipeline registered for it (typically a publication
+    /// pipeline producing the message to a broker, e.g. when moving it to a dead-letter or
+    /// invalid-message queue), blocking until it completes.
+    /// </summary>
+    /// <typeparam name="T">The type of the message to post.</typeparam>
+    /// <param name="message">The message to post.</param>
+    void Post<T>(T message);
+
+    /// <summary>
+    /// Posts a message to the single pipeline registered for it (typically a publication
+    /// pipeline producing the message to a broker, e.g. when moving it to a dead-letter or
+    /// invalid-message queue), blocking until it completes.
+    /// </summary>
+    /// <param name="message">The message to post.</param>
+    void Post(Message message);
+
+    /// <summary>
+    /// Posts a message to the single pipeline registered for the context's routing key
+    /// (typically a publication pipeline producing the message to a broker, e.g. when moving
+    /// it to a dead-letter or invalid-message queue), blocking until it completes.
+    /// </summary>
+    /// <typeparam name="T">The type of the message to post.</typeparam>
+    /// <param name="message">The message to post.</param>
+    /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
+    void Post<T>(T message, IContext context);
+
+    /// <summary>
+    /// Posts a message to the single pipeline registered for the context's routing key
+    /// (typically a publication pipeline producing the message to a broker, e.g. when moving
+    /// it to a dead-letter or invalid-message queue), blocking until it completes.
+    /// </summary>
+    /// <param name="message">The message to post.</param>
+    /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
+    void Post(Message message, IContext context);
+
+    /// <summary>
+    /// Posts a message to the single pipeline registered for it (typically a publication
+    /// pipeline producing the message to a broker, e.g. when moving it to a dead-letter or
+    /// invalid-message queue).
+    /// </summary>
+    /// <typeparam name="T">The type of the message to post.</typeparam>
+    /// <param name="message">The message to post.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the message has been posted.</returns>
+    ValueTask PostAsync<T>(T message, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Posts a message to the single pipeline registered for it (typically a publication
+    /// pipeline producing the message to a broker, e.g. when moving it to a dead-letter or
+    /// invalid-message queue).
+    /// </summary>
+    /// <param name="message">The message to post.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the message has been posted.</returns>
+    ValueTask PostAsync(Message message, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Posts a message to the single pipeline registered for the context's routing key
+    /// (typically a publication pipeline producing the message to a broker, e.g. when moving
+    /// it to a dead-letter or invalid-message queue).
+    /// </summary>
+    /// <typeparam name="T">The type of the message to post.</typeparam>
+    /// <param name="message">The message to post.</param>
+    /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the message has been posted.</returns>
+    ValueTask PostAsync<T>(T message, IContext context, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Posts a message to the single pipeline registered for the context's routing key
+    /// (typically a publication pipeline producing the message to a broker, e.g. when moving
+    /// it to a dead-letter or invalid-message queue).
+    /// </summary>
+    /// <param name="message">The message to post.</param>
+    /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
+    /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the message has been posted.</returns>
+    ValueTask PostAsync(Message message, IContext context, CancellationToken cancellationToken = default);
 }

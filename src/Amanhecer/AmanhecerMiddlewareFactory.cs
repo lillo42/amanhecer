@@ -1,5 +1,6 @@
 using System;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Amanhecer;
@@ -16,10 +17,11 @@ public class AmanhecerMiddlewareFactory(IServiceProvider provider) : IMiddleware
     /// <param name="middlewareType">The type of the middleware to create.</param>
     /// <param name="metadata">Optional metadata passed to the middleware on initialisation.</param>
     /// <returns>The resolved and initialised middleware instance.</returns>
-    public IMiddleware Create(Type middlewareType, object? metadata)
+    public IMiddleware Create(Type middlewareType, object? metadata, AmanhecerContext context)
     {
+        context.SetMetadata(metadata);
+
         var obj = (IMiddleware)provider.GetRequiredService(middlewareType);
-        obj.Initialize(metadata);
         return obj;
     }
 }

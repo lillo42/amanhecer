@@ -9,12 +9,6 @@ namespace Amanhecer.Abstractions.Messaging;
 public interface IEncodeTransformer
 {
     /// <summary>
-    /// Initialises the transformer with the metadata supplied when the pipeline was built.
-    /// </summary>
-    /// <param name="metadata">Optional metadata used to configure the transformer instance.</param>
-    void Initialize(object? metadata);
-
-    /// <summary>
     /// Transforms a message on its way out. Invoke <paramref name="next"/> to continue
     /// executing the encoding pipeline.
     /// </summary>
@@ -23,8 +17,8 @@ public interface IEncodeTransformer
     /// <param name="next">A delegate that invokes the next transformer in the pipeline.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the transformer has finished.</returns>
     ValueTask EncodeAsync(Message message,
-        IPipelineContext context,
-        Func<Message, IPipelineContext, ValueTask> next);
+        AmanhecerContext context,
+        Func<Message, AmanhecerContext, ValueTask> next);
 }
 
 /// <summary>
@@ -32,12 +26,6 @@ public interface IEncodeTransformer
 /// </summary>
 public interface IDecodeTransformer
 {
-    /// <summary>
-    /// Initialises the transformer with the metadata supplied when the pipeline was built.
-    /// </summary>
-    /// <param name="metadata">Optional metadata used to configure the transformer instance.</param>
-    void Initialize(object? metadata);
-
     /// <summary>
     /// Transforms a message on its way in. Invoke <paramref name="next"/> to continue
     /// executing the decoding pipeline.
@@ -47,8 +35,8 @@ public interface IDecodeTransformer
     /// <param name="next">A delegate that invokes the next transformer in the pipeline.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the transformer has finished.</returns>
     ValueTask DecodeAsync(Message message,
-        IPipelineContext context,
-        Func<Message, IPipelineContext, ValueTask> next);
+        AmanhecerContext context,
+        Func<Message, AmanhecerContext, ValueTask> next);
 }
 
 /// <summary>

@@ -170,8 +170,8 @@ public class MiddlewareTests : BaseTests
             };
         }
 
-        public async ValueTask ExecuteAsync(IPipelineContext context,
-            Func<IPipelineContext, ValueTask> next)
+        public async ValueTask ExecuteAsync(AmanhecerContext context,
+            Func<AmanhecerContext, ValueTask> next)
         {
             log.Add($"{_name}:before");
             await next(context);
@@ -185,8 +185,8 @@ public class MiddlewareTests : BaseTests
         {
         }
 
-        public ValueTask ExecuteAsync(IPipelineContext context,
-            Func<IPipelineContext, ValueTask> next)
+        public ValueTask ExecuteAsync(AmanhecerContext context,
+            Func<AmanhecerContext, ValueTask> next)
         {
             log.Add("short-circuit");
             return ValueTask.CompletedTask;
@@ -209,7 +209,7 @@ public class MiddlewareTests : BaseTests
 
     private class OrderedRequestHandler(ExecutionLog log) : RequestHandler<OrderedRequest>
     {
-        public override ValueTask HandleAsync(OrderedRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(OrderedRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             log.Add("handled:ordered");
@@ -221,7 +221,7 @@ public class MiddlewareTests : BaseTests
 
     private class MetadataRequestHandler(ExecutionLog log) : RequestHandler<MetadataRequest>
     {
-        public override ValueTask HandleAsync(MetadataRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(MetadataRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             log.Add("handled:metadata");
@@ -233,7 +233,7 @@ public class MiddlewareTests : BaseTests
 
     private class ShortCircuitRequestHandler(ExecutionLog log) : RequestHandler<ShortCircuitRequest>
     {
-        public override ValueTask HandleAsync(ShortCircuitRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(ShortCircuitRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             log.Add("handled:short-circuit");
@@ -247,7 +247,7 @@ public class MiddlewareTests : BaseTests
     [Beta(1)]
     private class AttributedRequestHandler(ExecutionLog log) : RequestHandler<AttributedRequest>
     {
-        public override ValueTask HandleAsync(AttributedRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(AttributedRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             log.Add("handled:attributed");
@@ -261,7 +261,7 @@ public class MiddlewareTests : BaseTests
     [Beta(2)]
     private class MergedRequestHandler(ExecutionLog log) : RequestHandler<MergedRequest>
     {
-        public override ValueTask HandleAsync(MergedRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(MergedRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             log.Add("handled:merged");
@@ -274,7 +274,7 @@ public class MiddlewareTests : BaseTests
     private class MethodAttributedRequestHandler(ExecutionLog log) : RequestHandler<MethodAttributedRequest>
     {
         [Alpha(1)]
-        public override ValueTask HandleAsync(MethodAttributedRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(MethodAttributedRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             log.Add("handled:method-attributed");

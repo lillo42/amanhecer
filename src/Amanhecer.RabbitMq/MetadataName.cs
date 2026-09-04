@@ -24,4 +24,6 @@ public static class MetadataName
     /// The priority applied to the published message.
     /// </summary>
     public const string Priority = "Amanhecer.RabbitMq.Priority";
+    
+    public const string DeliveryTag = "Amanhecer.RabbitMq.DeliveryTag";
 }

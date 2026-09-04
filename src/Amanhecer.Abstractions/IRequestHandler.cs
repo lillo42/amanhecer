@@ -18,14 +18,14 @@ public interface IRequestHandler<in TRequest>  : IRequestHandler
     /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
     ValueTask  HandleAsync(
         TRequest request,
-        IPipelineContext context,
+        AmanhecerContext context,
         CancellationToken cancellationToken = default
     );
     
 #if NET8_0_OR_GREATER
     ValueTask IRequestHandler.HandleAsync(
         object request, 
-        IPipelineContext context,
+        AmanhecerContext context,
         CancellationToken cancellationToken) 
         => HandleAsync((TRequest)request, context, cancellationToken);
 #endif
@@ -47,7 +47,7 @@ public interface IRequestHandler : IHandler
     /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
     ValueTask HandleAsync(
         object request,
-        IPipelineContext context,
+        AmanhecerContext context,
         CancellationToken cancellationToken = default
     );
 }

@@ -21,11 +21,11 @@ public class AmanhecerPipelineTests
             {
                 var m = Substitute.For<IMiddleware>();
                 m
-                    .ExecuteAsync(Arg.Any<IPipelineContext>(), Arg.Any<Func<IPipelineContext, ValueTask>>())
+                    .ExecuteAsync(Arg.Any<AmanhecerContext>(), Arg.Any<Func<AmanhecerContext, ValueTask>>())
                     .Returns(x =>
                     {
-                        var context = (IPipelineContext)x[0];
-                        var next = (Func<IPipelineContext, ValueTask>)x[1];
+                        var context = (AmanhecerContext)x[0];
+                        var next = (Func<AmanhecerContext, ValueTask>)x[1];
                         return new ValueTask(next(context).AsTask());
                     });
                 return m;
@@ -34,7 +34,7 @@ public class AmanhecerPipelineTests
         
         var pipeline = new AmanhecerPipeline(middlewares);
 
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
 
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
             .ThrowsNothing();
@@ -43,7 +43,7 @@ public class AmanhecerPipelineTests
         {
             await middleware
                 .Received(1)
-                .ExecuteAsync(context, Arg.Any<Func<IPipelineContext, ValueTask>>());
+                .ExecuteAsync(context, Arg.Any<Func<AmanhecerContext, ValueTask>>());
         }
     }
     
@@ -55,11 +55,11 @@ public class AmanhecerPipelineTests
             {
                 var m = Substitute.For<IMiddleware>();
                 m
-                    .ExecuteAsync(Arg.Any<IPipelineContext>(), Arg.Any<Func<IPipelineContext, ValueTask>>())
+                    .ExecuteAsync(Arg.Any<AmanhecerContext>(), Arg.Any<Func<AmanhecerContext, ValueTask>>())
                     .Returns(x =>
                     {
-                        var context = (IPipelineContext)x[0];
-                        var next = (Func<IPipelineContext, ValueTask>)x[1];
+                        var context = (AmanhecerContext)x[0];
+                        var next = (Func<AmanhecerContext, ValueTask>)x[1];
                         return new ValueTask(next(context).AsTask());
                     });
                 return m;
@@ -71,7 +71,7 @@ public class AmanhecerPipelineTests
         var cts = new CancellationTokenSource();
         await cts.CancelAsync();
         
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
         context.CancellationToken.Returns(cts.Token);
 
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
@@ -81,7 +81,7 @@ public class AmanhecerPipelineTests
         {
             await middleware
                 .DidNotReceive()
-                .ExecuteAsync(context, Arg.Any<Func<IPipelineContext, ValueTask>>());
+                .ExecuteAsync(context, Arg.Any<Func<AmanhecerContext, ValueTask>>());
         }
     }
 
@@ -97,12 +97,12 @@ public class AmanhecerPipelineTests
             {
                 var m = Substitute.For<IMiddleware>();
                 m
-                    .ExecuteAsync(Arg.Any<IPipelineContext>(), Arg.Any<Func<IPipelineContext, ValueTask>>())
+                    .ExecuteAsync(Arg.Any<AmanhecerContext>(), Arg.Any<Func<AmanhecerContext, ValueTask>>())
                     .Returns(x =>
                     {
                         invocationOrder.Add(index);
-                        var context = (IPipelineContext)x[0];
-                        var next = (Func<IPipelineContext, ValueTask>)x[1];
+                        var context = (AmanhecerContext)x[0];
+                        var next = (Func<AmanhecerContext, ValueTask>)x[1];
                         return new ValueTask(next(context).AsTask());
                     });
                 return m;
@@ -111,7 +111,7 @@ public class AmanhecerPipelineTests
 
         var pipeline = new AmanhecerPipeline(middlewares);
 
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
 
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
             .ThrowsNothing();
@@ -125,7 +125,7 @@ public class AmanhecerPipelineTests
     {
         var first = Substitute.For<IMiddleware>();
         first
-            .ExecuteAsync(Arg.Any<IPipelineContext>(), Arg.Any<Func<IPipelineContext, ValueTask>>())
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), Arg.Any<Func<AmanhecerContext, ValueTask>>())
             .Returns(ValueTask.CompletedTask);
 
         var second = Substitute.For<IMiddleware>();
@@ -133,22 +133,22 @@ public class AmanhecerPipelineTests
 
         var pipeline = new AmanhecerPipeline([first, second, third]);
 
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
 
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
             .ThrowsNothing();
 
         await first
             .Received(1)
-            .ExecuteAsync(context, Arg.Any<Func<IPipelineContext, ValueTask>>());
+            .ExecuteAsync(context, Arg.Any<Func<AmanhecerContext, ValueTask>>());
 
         await second
             .DidNotReceive()
-            .ExecuteAsync(Arg.Any<IPipelineContext>(), Arg.Any<Func<IPipelineContext, ValueTask>>());
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), Arg.Any<Func<AmanhecerContext, ValueTask>>());
 
         await third
             .DidNotReceive()
-            .ExecuteAsync(Arg.Any<IPipelineContext>(), Arg.Any<Func<IPipelineContext, ValueTask>>());
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), Arg.Any<Func<AmanhecerContext, ValueTask>>());
     }
 
     [Test]
@@ -156,7 +156,7 @@ public class AmanhecerPipelineTests
     {
         var pipeline = new AmanhecerPipeline(ImmutableList<IMiddleware>.Empty);
 
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
 
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
             .ThrowsNothing();
@@ -167,20 +167,20 @@ public class AmanhecerPipelineTests
     {
         var first = Substitute.For<IMiddleware>();
         first
-            .ExecuteAsync(Arg.Any<IPipelineContext>(), Arg.Any<Func<IPipelineContext, ValueTask>>())
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), Arg.Any<Func<AmanhecerContext, ValueTask>>())
             .Returns(_ => throw new InvalidOperationException("boom"));
 
         var second = Substitute.For<IMiddleware>();
 
         var pipeline = new AmanhecerPipeline([first, second]);
 
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
 
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
             .Throws<InvalidOperationException>();
 
         await second
             .DidNotReceive()
-            .ExecuteAsync(Arg.Any<IPipelineContext>(), Arg.Any<Func<IPipelineContext, ValueTask>>());
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), Arg.Any<Func<AmanhecerContext, ValueTask>>());
     }
 }

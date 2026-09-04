@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Extensions;
 using Polly;
 using Polly.Registry;
 
@@ -14,7 +15,8 @@ namespace Amanhecer.Polly;
 /// <param name="pipelineName">The name of the resilience pipeline to execute, as registered in
 /// the <see cref="ResiliencePipelineProvider{TKey}"/>.</param>
 /// <param name="order">The order in which the middleware runs within the pipeline.</param>
-public class PollyResiliencePipelineAttribute(string pipelineName, int order) : MiddlewareAttribute<PollyResiliencePipelineMiddleware>(order)
+public class PollyResiliencePipelineAttribute(string pipelineName, int order)
+    : MiddlewareAttribute<PollyResiliencePipelineMiddleware>(order)
 {
     /// <summary>
     /// Gets the name of the resilience pipeline to execute.
@@ -31,7 +33,7 @@ public class PollyResiliencePipelineAttribute(string pipelineName, int order) : 
 /// The pipeline name is supplied via the middleware metadata: either as a string when registering
 /// the middleware fluently (for example, <c>Use&lt;PollyResiliencePipelineMiddleware&gt;(order, "myPipeline")</c>),
 /// or via <see cref="PollyResiliencePipelineAttribute"/> on the handler class or method.
-/// If <see cref="IPipelineContext.Metadata"/> contains a Polly <see cref="T:Polly.ResilienceContext"/>
+/// If <see cref="AmanhecerContext.Metadata"/> contains a Polly <see cref="T:Polly.ResilienceContext"/>
 /// under the key <see cref="ResilienceContext"/>, that context is used; otherwise a context is
 /// rented from the pool, carrying the pipeline context's cancellation token. The cancellation
 /// token provided by Polly replaces the token carried by the cloned pipeline context passed to
@@ -40,37 +42,13 @@ public class PollyResiliencePipelineAttribute(string pipelineName, int order) : 
 public class PollyResiliencePipelineMiddleware(ResiliencePipelineProvider<string> provider) : IMiddleware
 {
     /// <summary>
-    /// The <see cref="IPipelineContext.Metadata"/> key under which a Polly
+    /// The <see cref="AmanhecerContext.Metadata"/> key under which a Polly
     /// <see cref="T:Polly.ResilienceContext"/> can be supplied for the pipeline execution.
     /// </summary>
     public const string ResilienceContext = "Amanhecer.Polly.Resilience";
 
-    private string? _pipelineName;
+    public const string PipelineName = "Amanhecer.Polly.PipelineName";
 
-    /// <summary>
-    /// Initialises the middleware with the name of the resilience pipeline to execute.
-    /// </summary>
-    /// <param name="metadata">The middleware metadata; must be a non-empty <see cref="string"/>
-    /// containing the name of the resilience pipeline registered in the provider.</param>
-    /// <exception cref="ArgumentException"><paramref name="metadata"/> is not a non-empty
-    /// <see cref="string"/>.</exception>
-    public void Initialize(object? metadata)
-    {
-        if (metadata is string pipelineName && !string.IsNullOrWhiteSpace(pipelineName))
-        {
-            _pipelineName = pipelineName;
-        }
-        else if (metadata is PollyResiliencePipelineAttribute attribute)
-        {
-            _pipelineName = attribute.PipelineName;
-        }
-        else
-        {
-            throw new ArgumentException(
-                $"Metadata must be a non-empty string with the name of the resilience pipeline, but was '{metadata ?? "null"}'.",
-                nameof(metadata));
-        }
-    }
 
     /// <summary>
     /// Executes the rest of the pipeline inside the configured resilience pipeline.
@@ -81,32 +59,31 @@ public class PollyResiliencePipelineMiddleware(ResiliencePipelineProvider<string
     /// including any retries, completes.</returns>
     /// <exception cref="InvalidOperationException">The middleware was not initialised with a
     /// resilience pipeline name.</exception>
-    public async ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next)
+    public async ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
     {
-        if (string.IsNullOrEmpty(_pipelineName))
+        var pipelineName = GetPipelineName(context);
+        if (string.IsNullOrEmpty(pipelineName))
         {
             throw new InvalidOperationException(
                 $"The middleware '{nameof(PollyResiliencePipelineMiddleware)}' was not initialised with a resilience pipeline name. " +
                 "Ensure Initialize was called with the pipeline name before executing the middleware.");
         }
 
-        var pipeline = provider.GetPipeline(_pipelineName!);
+        var pipeline = provider.GetPipeline(pipelineName!);
+        var resilienceContext = context.GetMetadata<ResilienceContext>(ResilienceContext);
 
-        if (context.Metadata.TryGetValue(ResilienceContext, out var value) &&
-            value is ResilienceContext resilienceContext)
+        if (resilienceContext != null)
         {
-            await pipeline.ExecuteAsync(
-                rc => ExecuteNextAsync(context, next, rc.CancellationToken),
-                resilienceContext);
+            await pipeline.ExecuteAsync(rc => ExecuteNextAsync(context, next, rc.CancellationToken), resilienceContext)
+                .ConfigureAwait(context.ContinueOnCapturedContext);
         }
         else
         {
             var rentedContext = ResilienceContextPool.Shared.Get(context.CancellationToken);
             try
             {
-                await pipeline.ExecuteAsync(
-                    rc => ExecuteNextAsync(context, next, rc.CancellationToken),
-                    rentedContext);
+                await pipeline.ExecuteAsync(rc => ExecuteNextAsync(context, next, rc.CancellationToken), rentedContext)
+                    .ConfigureAwait(context.ContinueOnCapturedContext);
             }
             finally
             {
@@ -115,12 +92,39 @@ public class PollyResiliencePipelineMiddleware(ResiliencePipelineProvider<string
         }
     }
 
+    private static string? GetPipelineName(AmanhecerContext context)
+    {
+        var attribute = context.GetMetadata<PollyResiliencePipelineAttribute>();
+        if (attribute != null)
+        {
+            return attribute.PipelineName;
+        }
+
+        attribute = context.GetMetadata<PollyResiliencePipelineAttribute>(PipelineName);
+        if (attribute != null)
+        {
+            return attribute.PipelineName;
+        }
+
+        return context.GetMetadata<string>(PipelineName);
+    }
+
+
     private static async ValueTask ExecuteNextAsync(
-        IPipelineContext context,
-        Func<IPipelineContext, ValueTask> next,
+        AmanhecerContext context,
+        Func<AmanhecerContext, ValueTask> next,
         CancellationToken cancellationToken)
     {
-        var clone = context.DeepClone(cancellationToken: cancellationToken);
-        await next(clone);
+        var tmp = context.CancellationToken;
+
+        try
+        {
+            context.CancellationToken = cancellationToken;
+            await next(context).ConfigureAwait(context.ContinueOnCapturedContext);
+        }
+        finally
+        {
+            context.CancellationToken = tmp;
+        }
     }
 }

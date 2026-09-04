@@ -42,8 +42,8 @@ public class ExecuteHandlerMiddlewareTests
     [Test]
     public async Task When_ExecuteAsync_Should_ThrowNullReferenceException()
     {
-        var context = Substitute.For<IPipelineContext>();
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var context = Substitute.For<AmanhecerContext>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
         await Assert.That(async () => await _middleware.ExecuteAsync(context, next))
             .Throws<NullReferenceException>();
 
@@ -53,8 +53,8 @@ public class ExecuteHandlerMiddlewareTests
     [Test]
     public async Task When_ExecuteAsync_Should_ExecuteRequestHandler()
     {
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
-        var context = Substitute.For<IPipelineContext>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
+        var context = Substitute.For<AmanhecerContext>();
         context.Request.Returns(new SomeRequest());
 
         var handler = new SomeRequestHandler();
@@ -78,10 +78,10 @@ public class ExecuteHandlerMiddlewareTests
     [Test]
     public async Task When_ExecuteAsync_Should_ForwardTheCancellationTokenToTheHandler()
     {
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
         context.Request.Returns(new SomeRequest());
         context.CancellationToken.Returns(cancellationTokenSource.Token);
 
@@ -102,11 +102,11 @@ public class ExecuteHandlerMiddlewareTests
     [Test]
     public async Task When_ExecuteAsync_Should_ExecuteQueryRequestHandler()
     {
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
         var message = Guid.NewGuid().ToString();
 
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
         context.Request.Returns(new SomeQueryRequest(message));
 
         var handler = new SomeQueryRequestHandler();
@@ -132,8 +132,8 @@ public class ExecuteHandlerMiddlewareTests
     [Test]
     public async Task When_ExecuteAsync_Should_ThrowNotSupportedException()
     {
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
-        var context = Substitute.For<IPipelineContext>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
+        var context = Substitute.For<AmanhecerContext>();
 
         var handler = new SomeHandler();
         _factory.Create(typeof(SomeHandler), context)
@@ -157,7 +157,7 @@ public class ExecuteHandlerMiddlewareTests
         public bool Executed { get; private set; }
         public CancellationToken ReceivedCancellationToken { get; private set; }
 
-        public override ValueTask HandleAsync(SomeRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(SomeRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             Executed = true;
@@ -174,7 +174,7 @@ public class ExecuteHandlerMiddlewareTests
     {
         public bool Executed { get; private set; }
 
-        public override ValueTask<SomeQueryResponse> HandleAsync(SomeQueryRequest query, IPipelineContext context,
+        public override ValueTask<SomeQueryResponse> HandleAsync(SomeQueryRequest query, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             Executed = true;

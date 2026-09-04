@@ -114,7 +114,7 @@ public class SendTests : BaseTests
 
     private class OneSyncRequestHandler(ExecutedRequests executed) : RequestHandler<OneSyncRequest>
     {
-        public override ValueTask HandleAsync(OneSyncRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(OneSyncRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             executed.Add(nameof(OneSyncRequest));
@@ -126,7 +126,7 @@ public class SendTests : BaseTests
 
     private class OneAsyncRequestHandler(ExecutedRequests executed) : RequestHandler<OneAsyncRequest>
     {
-        public override async ValueTask HandleAsync(OneAsyncRequest request, IPipelineContext context,
+        public override async ValueTask HandleAsync(OneAsyncRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
@@ -138,7 +138,7 @@ public class SendTests : BaseTests
 
     private class FirstMultiRequestHandler : RequestHandler<MultiRequest>
     {
-        public override ValueTask HandleAsync(MultiRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(MultiRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
@@ -147,7 +147,7 @@ public class SendTests : BaseTests
 
     private class SecondMultiRequestHandler : RequestHandler<MultiRequest>
     {
-        public override ValueTask HandleAsync(MultiRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(MultiRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();

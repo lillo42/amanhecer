@@ -16,5 +16,5 @@ public interface IEncodeTransformerFactory
     /// implementation to create.</param>
     /// <param name="metadata">Optional metadata used to configure the transformer instance.</param>
     /// <returns>The created encode transformer.</returns>
-    IEncodeTransformer Create(Type transformerType, object? metadata);
+    IEncodeTransformer Create(Type transformerType, object? metadata, AmanhecerContext context);
 }

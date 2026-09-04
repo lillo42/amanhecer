@@ -1,6 +1,6 @@
 using System;
 
-namespace Amanhecer.Configurator;
+namespace Amanhecer.Abstractions.Options;
 
 /// <summary>
 /// Describes a middleware registration within a pipeline.

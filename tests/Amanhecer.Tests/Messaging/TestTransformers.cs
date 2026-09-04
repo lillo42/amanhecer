@@ -18,8 +18,8 @@ internal sealed class EncodeOnlyTransformer : IEncodeTransformer
         _recorder = metadata as List<string>;
     }
 
-    public ValueTask EncodeAsync(Message message, IPipelineContext context,
-        Func<Message, IPipelineContext, ValueTask> next)
+    public ValueTask EncodeAsync(Message message, AmanhecerContext context,
+        Func<Message, AmanhecerContext, ValueTask> next)
     {
         _recorder?.Add(Name);
         return next(message, context);
@@ -37,8 +37,8 @@ internal sealed class AnotherEncodeTransformer : IEncodeTransformer
         _recorder = metadata as List<string>;
     }
 
-    public ValueTask EncodeAsync(Message message, IPipelineContext context,
-        Func<Message, IPipelineContext, ValueTask> next)
+    public ValueTask EncodeAsync(Message message, AmanhecerContext context,
+        Func<Message, AmanhecerContext, ValueTask> next)
     {
         _recorder?.Add(Name);
         return next(message, context);
@@ -56,8 +56,8 @@ internal sealed class DecodeOnlyTransformer : IDecodeTransformer
         _recorder = metadata as List<string>;
     }
 
-    public ValueTask DecodeAsync(Message message, IPipelineContext context,
-        Func<Message, IPipelineContext, ValueTask> next)
+    public ValueTask DecodeAsync(Message message, AmanhecerContext context,
+        Func<Message, AmanhecerContext, ValueTask> next)
     {
         _recorder?.Add(Name);
         return next(message, context);
@@ -76,15 +76,15 @@ internal sealed class BothWaysTransformer : ITransformer
         _recorder = metadata as List<string>;
     }
 
-    public ValueTask EncodeAsync(Message message, IPipelineContext context,
-        Func<Message, IPipelineContext, ValueTask> next)
+    public ValueTask EncodeAsync(Message message, AmanhecerContext context,
+        Func<Message, AmanhecerContext, ValueTask> next)
     {
         _recorder?.Add(EncodeName);
         return next(message, context);
     }
 
-    public ValueTask DecodeAsync(Message message, IPipelineContext context,
-        Func<Message, IPipelineContext, ValueTask> next)
+    public ValueTask DecodeAsync(Message message, AmanhecerContext context,
+        Func<Message, AmanhecerContext, ValueTask> next)
     {
         _recorder?.Add(DecodeName);
         return next(message, context);
@@ -112,12 +112,12 @@ internal sealed class InvalidTransformerAttribute(int order) : TransformerAttrib
 [TestTransformer(5)]
 internal sealed class AttributedMapper : IMessageMapper
 {
-    public ValueTask<Message> ToMessageAsync(object request, IPipelineContext context)
+    public ValueTask<Message> ToMessageAsync(object request, AmanhecerContext context)
     {
         return new ValueTask<Message>(new Message());
     }
 
-    public ValueTask<object> ToRequestAsync(Message message, IPipelineContext context)
+    public ValueTask<object> ToRequestAsync(Message message, AmanhecerContext context)
     {
         return new ValueTask<object>(new object());
     }
@@ -126,12 +126,12 @@ internal sealed class AttributedMapper : IMessageMapper
 [InvalidTransformer(5)]
 internal sealed class InvalidAttributedMapper : IMessageMapper
 {
-    public ValueTask<Message> ToMessageAsync(object request, IPipelineContext context)
+    public ValueTask<Message> ToMessageAsync(object request, AmanhecerContext context)
     {
         return new ValueTask<Message>(new Message());
     }
 
-    public ValueTask<object> ToRequestAsync(Message message, IPipelineContext context)
+    public ValueTask<object> ToRequestAsync(Message message, AmanhecerContext context)
     {
         return new ValueTask<object>(new object());
     }

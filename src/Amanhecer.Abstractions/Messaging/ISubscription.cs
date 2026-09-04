@@ -1,4 +1,5 @@
 using System;
+using System.Net.Mime;
 
 namespace Amanhecer.Abstractions.Messaging;
 
@@ -13,16 +14,24 @@ public interface ISubscription
     /// </summary>
     string ToRoutingKey { get; }
 
-    /// <summary>
-    /// Gets the CloudEvents spec version expected on consumed messages.
-    /// </summary>
-    string DefaultSpecVersion { get; }
+    ContentType DefaultContentType { get; }
+
+    Uri? DefaultDataSchema { get; }
+
+    string? DefaultReplyTo { get; }
 
     /// <summary>
     /// Gets the source (the CloudEvents <c>source</c> attribute) expected on consumed messages.
     /// </summary>
     Uri DefaultSource { get; }
 
+    /// <summary>
+    /// Gets the CloudEvents spec version expected on consumed messages.
+    /// </summary>
+    string DefaultSpecVersion { get; }
+
+    string? DefaultSubject { get; }
+    
     /// <summary>
     /// Gets the type (the CloudEvents <c>type</c> attribute) expected on consumed messages.
     /// </summary>
@@ -32,16 +41,22 @@ public interface ISubscription
     /// Gets the name of the subscription.
     /// </summary>
     string Name { get; }
-    
+
     /// <summary>
     /// Gets the number of consumers reading from the subscription.
     /// </summary>
     int NumberOfConsumer { get; }
-    
+
     /// <summary>
     /// Gets the size of the buffer of messages prefetched by each consumer.
     /// </summary>
     int BufferSize { get; }
+
+    TimeSpan NoMessageDelay { get; }
+
+    TimeSpan FailureDelay { get; }
+
+    TimeSpan ReceiveMessageTimeout { get; }
 
     /// <summary>
     /// Gets the <see cref="IMessageMapper"/> implementation used to map between the
@@ -54,7 +69,7 @@ public interface ISubscription
     /// needs, if any.
     /// </summary>
     ISubscriptionProvisoner? Provisioner { get; }
-    
+
     /// <summary>
     /// Gets the routing key messages are reposted to when they are moved to the
     /// dead-letter queue, if configured.
@@ -66,6 +81,8 @@ public interface ISubscription
     /// invalid-message destination, if configured.
     /// </summary>
     string? InvalidMessageRoutingKey { get; }
+    
+    bool ContinueOnCapturedContext { get; }
 
     /// <summary>
     /// Gets the function that maps an exception thrown while handling a consumed message

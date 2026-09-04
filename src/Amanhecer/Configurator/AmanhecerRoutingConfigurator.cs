@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Options;
 using Amanhecer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -138,7 +139,7 @@ public class AmanhecerRoutingConfigurator(string routingKey, IServiceCollection 
         }
 
         var method = handlerType.GetMethod("HandleAsync",
-            [paramType, typeof(IPipelineContext), typeof(CancellationToken)]);
+            [paramType, typeof(AmanhecerContext), typeof(CancellationToken)]);
         
         if (method == null)
         {

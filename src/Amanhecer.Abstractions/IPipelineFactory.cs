@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+using System.Collections.Generic;
 
 namespace Amanhecer.Abstractions;
 
@@ -12,5 +12,5 @@ public interface IPipelineFactory
     /// </summary>
     /// <param name="context">The context of the request being processed.</param>
     /// <returns>The pipelines that match the context, or an empty list when none was found.</returns>
-    ImmutableList<IPipeline> Create(IPipelineContext context);
+    IReadOnlyList<IPipeline> Create(AmanhecerContext context);
 }

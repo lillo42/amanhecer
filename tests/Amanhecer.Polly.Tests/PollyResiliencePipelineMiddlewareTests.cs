@@ -51,18 +51,18 @@ public class PollyResiliencePipelineMiddlewareTests
         return middleware;
     }
 
-    private static IPipelineContext CreateContext(
+    private static AmanhecerContext CreateContext(
         CancellationToken cancellationToken = default,
         Dictionary<string, object>? metadata = null)
     {
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
         context.Metadata.Returns(metadata ?? []);
         context.CancellationToken.Returns(cancellationToken);
         context.Request.Returns(new TestRequest("request"));
         context.DeepClone(Arg.Any<Activity?>(), Arg.Any<CancellationToken>())
             .Returns(callInfo =>
             {
-                var clone = Substitute.For<IPipelineContext>();
+                var clone = Substitute.For<AmanhecerContext>();
                 clone.CancellationToken.Returns(callInfo.Arg<CancellationToken>());
                 return clone;
             });
@@ -74,10 +74,10 @@ public class PollyResiliencePipelineMiddlewareTests
     {
         var middleware = CreateMiddleware(CreateProvider(), RetryPipeline);
         var context = CreateContext();
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
         var calls = 0;
-        next.Invoke(Arg.Any<IPipelineContext>())
+        next.Invoke(Arg.Any<AmanhecerContext>())
             .Returns(_ =>
             {
                 calls++;
@@ -91,7 +91,7 @@ public class PollyResiliencePipelineMiddlewareTests
 
         await middleware.ExecuteAsync(context, next);
 
-        await next.Received(3).Invoke(Arg.Any<IPipelineContext>());
+        await next.Received(3).Invoke(Arg.Any<AmanhecerContext>());
     }
 
     [Test]
@@ -99,13 +99,13 @@ public class PollyResiliencePipelineMiddlewareTests
     {
         var middleware = CreateMiddleware(CreateProvider(), RetryPipeline);
         var context = CreateContext();
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
-        next.Invoke(Arg.Any<IPipelineContext>()).Throws(new InvalidOperationException("Boom."));
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
+        next.Invoke(Arg.Any<AmanhecerContext>()).Throws(new InvalidOperationException("Boom."));
 
         await Assert.That(async () => await middleware.ExecuteAsync(context, next))
             .ThrowsExactly<InvalidOperationException>();
 
-        await next.Received(3).Invoke(Arg.Any<IPipelineContext>());
+        await next.Received(3).Invoke(Arg.Any<AmanhecerContext>());
     }
 
     [Test]
@@ -113,13 +113,13 @@ public class PollyResiliencePipelineMiddlewareTests
     {
         var middleware = CreateMiddleware(CreateProvider(), RetryPipeline);
         var context = CreateContext();
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
-        next.Invoke(Arg.Any<IPipelineContext>()).Throws(new ArgumentException("Not handled."));
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
+        next.Invoke(Arg.Any<AmanhecerContext>()).Throws(new ArgumentException("Not handled."));
 
         await Assert.That(async () => await middleware.ExecuteAsync(context, next))
             .ThrowsExactly<ArgumentException>();
 
-        await next.Received(1).Invoke(Arg.Any<IPipelineContext>());
+        await next.Received(1).Invoke(Arg.Any<AmanhecerContext>());
     }
 
     [Test]
@@ -127,10 +127,10 @@ public class PollyResiliencePipelineMiddlewareTests
     {
         var middleware = CreateMiddleware(CreateProvider(), TimeoutPipeline);
         var context = CreateContext();
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
-        next.Invoke(Arg.Any<IPipelineContext>())
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
+        next.Invoke(Arg.Any<AmanhecerContext>())
             .Returns(callInfo => new ValueTask(
-                Task.Delay(TimeSpan.FromSeconds(10), callInfo.Arg<IPipelineContext>().CancellationToken)));
+                Task.Delay(TimeSpan.FromSeconds(10), callInfo.Arg<AmanhecerContext>().CancellationToken)));
 
         await Assert.That(async () => await middleware.ExecuteAsync(context, next))
             .ThrowsExactly<TimeoutRejectedException>();
@@ -143,12 +143,12 @@ public class PollyResiliencePipelineMiddlewareTests
         using var cancellationTokenSource = new CancellationTokenSource();
         await cancellationTokenSource.CancelAsync();
         var context = CreateContext(cancellationTokenSource.Token);
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
         await Assert.That(async () => await middleware.ExecuteAsync(context, next))
             .ThrowsExactly<OperationCanceledException>();
 
-        await next.DidNotReceive().Invoke(Arg.Any<IPipelineContext>());
+        await next.DidNotReceive().Invoke(Arg.Any<AmanhecerContext>());
     }
 
     [Test]
@@ -157,13 +157,13 @@ public class PollyResiliencePipelineMiddlewareTests
         var middleware = CreateMiddleware(CreateProvider(), PassThroughPipeline);
         using var cancellationTokenSource = new CancellationTokenSource();
         var context = CreateContext(cancellationTokenSource.Token);
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
-        IPipelineContext? seenByNext = null;
-        next.Invoke(Arg.Any<IPipelineContext>())
+        AmanhecerContext? seenByNext = null;
+        next.Invoke(Arg.Any<AmanhecerContext>())
             .Returns(callInfo =>
             {
-                seenByNext = callInfo.Arg<IPipelineContext>();
+                seenByNext = callInfo.Arg<AmanhecerContext>();
                 return ValueTask.CompletedTask;
             });
 
@@ -185,13 +185,13 @@ public class PollyResiliencePipelineMiddlewareTests
             {
                 [PollyResiliencePipelineMiddleware.ResilienceContext] = providedContext
             });
-            var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+            var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
-            IPipelineContext? seenByNext = null;
-            next.Invoke(Arg.Any<IPipelineContext>())
+            AmanhecerContext? seenByNext = null;
+            next.Invoke(Arg.Any<AmanhecerContext>())
                 .Returns(callInfo =>
                 {
-                    seenByNext = callInfo.Arg<IPipelineContext>();
+                    seenByNext = callInfo.Arg<AmanhecerContext>();
                     return ValueTask.CompletedTask;
                 });
 
@@ -211,7 +211,7 @@ public class PollyResiliencePipelineMiddlewareTests
     {
         var middleware = new PollyResiliencePipelineMiddleware(CreateProvider());
         var context = CreateContext();
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
         await Assert.That(async () => await middleware.ExecuteAsync(context, next))
             .ThrowsExactly<InvalidOperationException>();
@@ -222,7 +222,7 @@ public class PollyResiliencePipelineMiddlewareTests
     {
         var middleware = CreateMiddleware(CreateProvider(), "unknown");
         var context = CreateContext();
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
         await Assert.That(async () => await middleware.ExecuteAsync(context, next))
             .ThrowsExactly<KeyNotFoundException>();
@@ -234,10 +234,10 @@ public class PollyResiliencePipelineMiddlewareTests
         var middleware = new PollyResiliencePipelineMiddleware(CreateProvider());
         middleware.Initialize(new PollyResiliencePipelineAttribute(RetryPipeline, 1));
         var context = CreateContext();
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
         var calls = 0;
-        next.Invoke(Arg.Any<IPipelineContext>())
+        next.Invoke(Arg.Any<AmanhecerContext>())
             .Returns(_ =>
             {
                 calls++;
@@ -251,7 +251,7 @@ public class PollyResiliencePipelineMiddlewareTests
 
         await middleware.ExecuteAsync(context, next);
 
-        await next.Received(2).Invoke(Arg.Any<IPipelineContext>());
+        await next.Received(2).Invoke(Arg.Any<AmanhecerContext>());
     }
 
     [Test]
@@ -302,7 +302,7 @@ public class PollyResiliencePipelineMiddlewareTests
     {
         public override ValueTask HandleAsync(
             TestRequest request,
-            IPipelineContext context,
+            AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             if (Interlocked.Increment(ref state.Calls) == 1)

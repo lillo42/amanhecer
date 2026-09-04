@@ -1,5 +1,6 @@
 using System.Collections.Frozen;
-using System.Collections.Immutable;
+using System.Collections.Generic;
+using Amanhecer.Abstractions.Options;
 
 namespace Amanhecer.Configurator;
 
@@ -7,4 +8,4 @@ namespace Amanhecer.Configurator;
 /// Holds the immutable pipeline configuration: the middleware lists for each routing key.
 /// </summary>
 /// <param name="Configuration">Maps each routing key to its configured pipelines; each pipeline is an ordered list of middleware options.</param>
-public record AmanhecerPipelineOptions(FrozenDictionary<string, ImmutableList<ImmutableList<AmanhecerMiddlewareOptions>>> Configuration);
+public record AmanhecerPipelineOptions(FrozenDictionary<string, List<IEnumerable<AmanhecerMiddlewareOptions>>> Configuration);

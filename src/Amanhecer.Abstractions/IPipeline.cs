@@ -12,5 +12,5 @@ public interface IPipeline
     /// </summary>
     /// <param name="context">The context of the request being processed.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has finished executing.</returns>
-    ValueTask ExecuteAsync(IPipelineContext context);
+    ValueTask ExecuteAsync(AmanhecerContext context);
 }

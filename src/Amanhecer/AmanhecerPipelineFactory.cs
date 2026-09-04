@@ -1,7 +1,8 @@
-using System.Collections.Immutable;
+using System.Collections.Generic;
 using System.Linq;
 using Amanhecer.Abstractions;
 using Amanhecer.Configurator;
+using Amanhecer.Extensions;
 
 namespace Amanhecer;
 
@@ -11,7 +12,8 @@ namespace Amanhecer;
 /// </summary>
 /// <param name="options">The pipeline configuration, keyed by routing key.</param>
 /// <param name="middlewareFactory">The factory used to create the middleware instances.</param>
-public class AmanhecerPipelineFactory(AmanhecerPipelineOptions options,
+public class AmanhecerPipelineFactory(
+    AmanhecerPipelineOptions options,
     IMiddlewareFactory middlewareFactory) : IPipelineFactory
 {
     /// <summary>
@@ -19,24 +21,40 @@ public class AmanhecerPipelineFactory(AmanhecerPipelineOptions options,
     /// </summary>
     /// <param name="context">The pipeline context whose routing key is used to look up the pipelines.</param>
     /// <returns>The pipelines configured for the routing key, or an empty list when none is configured.</returns>
-    public ImmutableList<IPipeline> Create(IPipelineContext context)
+    public IReadOnlyList<IPipeline> Create(AmanhecerContext context)
     {
-        if (options.Configuration.TryGetValue(context.RoutingKey, out var pipelines))
+        if (!options.Configuration.TryGetValue(context.RoutingKey, out var pipelines))
         {
-            return
-            [
-                .. pipelines
-                    .Select(middlewares =>
-                    {
-                        IPipeline pipeline = new AmanhecerPipeline([
-                            .. middlewares
-                                .Select(middleware => middlewareFactory.Create(middleware.MiddlewareType, middleware.Metadata))
-                        ]);
-                        return pipeline;
-                    })
-            ];
+            pipelines = [];
+            if (context.Middlewares != null)
+            {
+                pipelines.Add([]);
+            }
         }
-        
-        return ImmutableList<IPipeline>.Empty;
+
+        if (pipelines.Count == 0)
+        {
+            return [];
+        }
+
+        return
+        [
+            .. pipelines
+                .Select(cfg =>
+                {
+                    var middlewares = cfg;
+                    if (context.Middlewares != null)
+                    {
+                        middlewares = middlewares
+                            .AppendRange(context.Middlewares);
+                    }
+
+                    return new AmanhecerPipeline([
+                        .. middlewares
+                            .OrderBy(x => x.Order)
+                            .Select(opt => middlewareFactory.Create(opt.MiddlewareType, opt.Metadata, context))
+                    ]);
+                })
+        ];
     }
 }

@@ -15,9 +15,9 @@ public class AmanhecerEncodeTransformerPipeline(IReadOnlyList<IEncodeTransformer
     : IEncodeTransformerPipeline
 {
     /// <inheritdoc />
-    public async ValueTask EncodeAsync(Message message, IPipelineContext context)
+    public async ValueTask EncodeAsync(Message message, AmanhecerContext context)
     {
-        Func<Message, IPipelineContext, ValueTask> next = static (_, _) => new ValueTask();
+        Func<Message, AmanhecerContext, ValueTask> next = static (_, _) => new ValueTask();
         for (var i = transformers.Count - 1; i >= 0; i--)
         {
             var transformer = transformers[i];

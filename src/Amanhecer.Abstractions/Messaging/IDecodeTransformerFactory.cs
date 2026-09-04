@@ -16,5 +16,5 @@ public interface IDecodeTransformerFactory
     /// implementation to create.</param>
     /// <param name="metadata">Optional metadata used to configure the transformer instance.</param>
     /// <returns>The created decode transformer.</returns>
-    IDecodeTransformer Create(Type transformerType, object? metadata);
+    IDecodeTransformer Create(Type transformerType, object? metadata, AmanhecerContext context);
 }

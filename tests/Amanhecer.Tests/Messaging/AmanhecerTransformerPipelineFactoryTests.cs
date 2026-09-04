@@ -21,8 +21,8 @@ public class AmanhecerTransformerPipelineFactoryTests
             ["known"] = [new AmanhecerTransformerOptions(typeof(EncodeOnlyTransformer), 0, recorder)]
         });
 
-        var pipeline = factory.Create("does.not.exist", Substitute.For<IPipelineContext>());
-        await pipeline.EncodeAsync(new Message(), Substitute.For<IPipelineContext>());
+        var pipeline = factory.Create("does.not.exist", Substitute.For<AmanhecerContext>());
+        await pipeline.EncodeAsync(new Message(), Substitute.For<AmanhecerContext>());
 
         await Assert.That(recorder).IsEmpty();
     }
@@ -41,8 +41,8 @@ public class AmanhecerTransformerPipelineFactoryTests
             ]
         });
 
-        var pipeline = factory.Create("known", Substitute.For<IPipelineContext>());
-        await pipeline.EncodeAsync(new Message(), Substitute.For<IPipelineContext>());
+        var pipeline = factory.Create("known", Substitute.For<AmanhecerContext>());
+        await pipeline.EncodeAsync(new Message(), Substitute.For<AmanhecerContext>());
 
         await Assert.That(recorder.Count).IsEqualTo(2);
         await Assert.That(recorder[0]).IsEqualTo(EncodeOnlyTransformer.Name);
@@ -62,8 +62,8 @@ public class AmanhecerTransformerPipelineFactoryTests
             ]
         });
 
-        var pipeline = factory.Create("known", Substitute.For<IPipelineContext>());
-        await pipeline.DecodeAsync(new Message(), Substitute.For<IPipelineContext>());
+        var pipeline = factory.Create("known", Substitute.For<AmanhecerContext>());
+        await pipeline.DecodeAsync(new Message(), Substitute.For<AmanhecerContext>());
 
         await Assert.That(recorder.Count).IsEqualTo(1);
         await Assert.That(recorder[0]).IsEqualTo(DecodeOnlyTransformer.Name);

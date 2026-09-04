@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Collections.Immutable;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 
@@ -11,16 +11,16 @@ namespace Amanhecer;
 /// </summary>
 public class AmanhecerPipeline : IPipeline
 {
-    private readonly Func<IPipelineContext, ValueTask> _chain;
+    private readonly Func<AmanhecerContext, ValueTask> _chain;
 
     /// <summary>
     /// An <see cref="IPipeline"/> implementation that runs an ordered chain of middlewares,
     /// each middleware invoking the next one in the chain.
     /// </summary>
     /// <param name="middlewares">The ordered middlewares that compose the pipeline.</param>
-    public AmanhecerPipeline(ImmutableList<IMiddleware> middlewares)
+    public AmanhecerPipeline(IReadOnlyList<IMiddleware> middlewares)
     {
-        Func<IPipelineContext, ValueTask> next = static _ => new ValueTask();
+        Func<AmanhecerContext, ValueTask> next = static _ => new ValueTask();
 
         for (var i = middlewares.Count - 1; i >= 0; i--)
         {
@@ -37,9 +37,9 @@ public class AmanhecerPipeline : IPipeline
     /// </summary>
     /// <param name="context">The pipeline context that flows through the middleware chain.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the pipeline finishes.</returns>
-    public async ValueTask ExecuteAsync(IPipelineContext context)
+    public async ValueTask ExecuteAsync(AmanhecerContext context)
     {
         context.CancellationToken.ThrowIfCancellationRequested();
-        await _chain(context);
+        await _chain(context).ConfigureAwait(context.ContinueOnCapturedContext);
     }
 }

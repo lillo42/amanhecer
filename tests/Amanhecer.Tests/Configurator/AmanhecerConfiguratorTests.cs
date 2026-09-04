@@ -180,7 +180,7 @@ public class AmanhecerConfiguratorTests
             "DynamicRequestHandler", TypeAttributes.Public | TypeAttributes.Class);
         requestHandlerType.AddInterfaceImplementation(typeof(IRequestHandler<>).MakeGenericType(requestType));
         AddValueTaskMethod(requestHandlerType, "HandleAsync", typeof(ValueTask),
-            requestType, typeof(IPipelineContext), typeof(CancellationToken));
+            requestType, typeof(AmanhecerContext), typeof(CancellationToken));
         requestHandlerType.CreateType();
 
         var queryTypeBuilder = moduleBuilder.DefineType(
@@ -194,14 +194,14 @@ public class AmanhecerConfiguratorTests
         queryHandlerType.AddInterfaceImplementation(
             typeof(IQueryHandler<,>).MakeGenericType(queryType, typeof(string)));
         AddValueTaskMethod(queryHandlerType, "HandleAsync", typeof(ValueTask<string>),
-            queryType, typeof(IPipelineContext), typeof(CancellationToken));
+            queryType, typeof(AmanhecerContext), typeof(CancellationToken));
         queryHandlerType.CreateType();
 
         var middlewareType = moduleBuilder.DefineType(
             "DynamicMiddleware", TypeAttributes.Public | TypeAttributes.Class);
         middlewareType.AddInterfaceImplementation(typeof(IMiddleware));
         AddValueTaskMethod(middlewareType, "ExecuteAsync", typeof(ValueTask),
-            typeof(IPipelineContext), typeof(Func<IPipelineContext, ValueTask>));
+            typeof(AmanhecerContext), typeof(Func<AmanhecerContext, ValueTask>));
         AddVoidMethod(middlewareType, "Initialize", typeof(object));
         middlewareType.CreateType();
 
@@ -217,7 +217,7 @@ public class AmanhecerConfiguratorTests
         openGenericHandlerType.AddInterfaceImplementation(
             typeof(IRequestHandler<>).MakeGenericType(genericParameters[0]));
         AddValueTaskMethod(openGenericHandlerType, "HandleAsync", typeof(ValueTask),
-            genericParameters[0], typeof(IPipelineContext), typeof(CancellationToken));
+            genericParameters[0], typeof(AmanhecerContext), typeof(CancellationToken));
         openGenericHandlerType.CreateType();
 
         var subInterfaceType = moduleBuilder.DefineType(
@@ -259,7 +259,7 @@ public class AmanhecerConfiguratorTests
 
     private class PlainRequestHandler : RequestHandler<PlainRequest>
     {
-        public override ValueTask HandleAsync(PlainRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(PlainRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
             => ValueTask.CompletedTask;
     }
@@ -269,7 +269,7 @@ public class AmanhecerConfiguratorTests
 
     private class AttributedRequestHandler : RequestHandler<AttributedRequest>
     {
-        public override ValueTask HandleAsync(AttributedRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(AttributedRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
             => ValueTask.CompletedTask;
     }
@@ -280,18 +280,18 @@ public class AmanhecerConfiguratorTests
 
     private class MultiInterfacesHandler : IRequestHandler<MultiRequest>, IQueryHandler<MultiQuery, string>
     {
-        public ValueTask HandleAsync(MultiRequest request, IPipelineContext context,
+        public ValueTask HandleAsync(MultiRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
             => ValueTask.CompletedTask;
 
-        public ValueTask<string> HandleAsync(MultiQuery query, IPipelineContext context,
+        public ValueTask<string> HandleAsync(MultiQuery query, AmanhecerContext context,
             CancellationToken cancellationToken = default)
             => ValueTask.FromResult(string.Empty);
     }
 
     private class MarkerOnlyRequestHandler : IRequestHandler
     {
-        public ValueTask HandleAsync(object request, IPipelineContext context,
+        public ValueTask HandleAsync(object request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
             => ValueTask.CompletedTask;
     }

@@ -30,14 +30,14 @@ public interface IDispatcher
     /// <typeparam name="TRequest">The type of the request to send.</typeparam>
     /// <param name="request">The request to send.</param>
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
-    void Send<TRequest>(TRequest request, IContext context);
+    void Send<TRequest>(TRequest request, AmanhecerContext context);
 
     /// <summary>
     /// Sends a request to the single pipeline registered for it, blocking until it completes.
     /// </summary>
     /// <param name="request">The request to send.</param>
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
-    void Send(object request, IContext context);
+    void Send(object request, AmanhecerContext context);
 
     /// <summary>
     /// Sends a request to the single pipeline registered for it.
@@ -64,7 +64,8 @@ public interface IDispatcher
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
-    ValueTask SendAsync<TRequest>(TRequest request, IContext context, CancellationToken cancellationToken = default);
+    ValueTask SendAsync<TRequest>(TRequest request, AmanhecerContext context,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sends a request to the single pipeline registered for it.
@@ -73,7 +74,8 @@ public interface IDispatcher
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
-    ValueTask SendAsync(object request, IContext context, CancellationToken cancellationToken = default);
+    ValueTask SendAsync(object request, AmanhecerContext context,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Publishes a request to every pipeline registered for it, blocking until all complete.
@@ -94,14 +96,14 @@ public interface IDispatcher
     /// <typeparam name="TRequest">The type of the request to publish.</typeparam>
     /// <param name="request">The request to publish.</param>
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
-    void Publish<TRequest>(TRequest request, IContext context);
+    void Publish<TRequest>(TRequest request, AmanhecerContext context);
 
     /// <summary>
     /// Publishes a request to every pipeline registered for it, blocking until all complete.
     /// </summary>
     /// <param name="request">The request to publish.</param>
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
-    void Publish(object request, IContext context);
+    void Publish(object request, AmanhecerContext context);
 
     /// <summary>
     /// Publishes a request to every pipeline registered for it.
@@ -128,7 +130,8 @@ public interface IDispatcher
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
-    ValueTask PublishAsync<TRequest>(TRequest request, IContext context, CancellationToken cancellationToken = default);
+    ValueTask PublishAsync<TRequest>(TRequest request, AmanhecerContext context,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Publishes a request to every pipeline registered for it.
@@ -137,7 +140,8 @@ public interface IDispatcher
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the request has been handled.</returns>
-    ValueTask PublishAsync(object request, IContext context, CancellationToken cancellationToken = default);
+    ValueTask PublishAsync(object request, AmanhecerContext context,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Sends a query to the single pipeline registered for it and returns the response,
@@ -175,7 +179,7 @@ public interface IDispatcher
     /// <param name="query">The query to send.</param>
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     /// <returns>The response produced by the query handler.</returns>
-    TResponse Query<TQuery, TResponse>(TQuery query, IContext context);
+    TResponse Query<TQuery, TResponse>(TQuery query, AmanhecerContext context);
 
     /// <summary>
     /// Sends a query to the single pipeline registered for it and returns the response,
@@ -185,7 +189,7 @@ public interface IDispatcher
     /// <param name="query">The query to send.</param>
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     /// <returns>The response produced by the query handler.</returns>
-    TResponse Query<TResponse>(object query, IContext context);
+    TResponse Query<TResponse>(object query, AmanhecerContext context);
 
     /// <summary>
     /// Sends a query to the single pipeline registered for it and returns the response,
@@ -194,7 +198,7 @@ public interface IDispatcher
     /// <param name="query">The query to send.</param>
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     /// <returns>The response produced by the query handler.</returns>
-    object? Query(object query, IContext context);
+    object? Query(object query, AmanhecerContext context);
 
     /// <summary>
     /// Sends a query to the single pipeline registered for it and returns the response.
@@ -232,7 +236,7 @@ public interface IDispatcher
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The response produced by the query handler.</returns>
-    ValueTask<TResponse> QueryAsync<TQuery, TResponse>(TQuery query, IContext context,
+    ValueTask<TResponse> QueryAsync<TQuery, TResponse>(TQuery query, AmanhecerContext context,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -243,7 +247,7 @@ public interface IDispatcher
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The response produced by the query handler.</returns>
-    ValueTask<TResponse> QueryAsync<TResponse>(object query, IContext context,
+    ValueTask<TResponse> QueryAsync<TResponse>(object query, AmanhecerContext context,
         CancellationToken cancellationToken = default);
 
     /// <summary>
@@ -253,7 +257,8 @@ public interface IDispatcher
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The response produced by the query handler.</returns>
-    ValueTask<object?> QueryAsync(object query, IContext context, CancellationToken cancellationToken = default);
+    ValueTask<object?> QueryAsync(object query, AmanhecerContext context,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Posts a message to the single pipeline registered for it (typically a publication
@@ -280,7 +285,7 @@ public interface IDispatcher
     /// <typeparam name="T">The type of the message to post.</typeparam>
     /// <param name="message">The message to post.</param>
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
-    void Post<T>(T message, IContext context);
+    void Post<T>(T message, AmanhecerContext context);
 
     /// <summary>
     /// Posts a message to the single pipeline registered for the context's routing key
@@ -289,7 +294,7 @@ public interface IDispatcher
     /// </summary>
     /// <param name="message">The message to post.</param>
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
-    void Post(Message message, IContext context);
+    void Post(Message message, AmanhecerContext context);
 
     /// <summary>
     /// Posts a message to the single pipeline registered for it (typically a publication
@@ -322,7 +327,7 @@ public interface IDispatcher
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the message has been posted.</returns>
-    ValueTask PostAsync<T>(T message, IContext context, CancellationToken cancellationToken = default);
+    ValueTask PostAsync<T>(T message, AmanhecerContext context, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Posts a message to the single pipeline registered for the context's routing key
@@ -333,5 +338,6 @@ public interface IDispatcher
     /// <param name="context">Additional context (routing key, metadata, activity, executing strategy) for the dispatch.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the message has been posted.</returns>
-    ValueTask PostAsync(Message message, IContext context, CancellationToken cancellationToken = default);
+    ValueTask PostAsync(Message message, AmanhecerContext context,
+        CancellationToken cancellationToken = default);
 }

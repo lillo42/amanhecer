@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Abstractions.Messaging;
 
 namespace Amanhecer.Messaging;
@@ -21,7 +22,7 @@ public class JsonMessageMapper<
     JsonSerializerOptions options) : MessageMapper<TRequests>
 {
     /// <inheritdoc />
-    public override ValueTask<Message> ToMessageAsync(TRequests request, IPipelineContext context)
+    public override ValueTask<Message> ToMessageAsync(TRequests request, AmanhecerContext context)
     {
         return new ValueTask<Message>(new Message
         {
@@ -37,7 +38,7 @@ public class JsonMessageMapper<
 
 
     /// <inheritdoc />
-    public override ValueTask<TRequests> ToRequestAsync(Message message, IPipelineContext context)
+    public override ValueTask<TRequests> ToRequestAsync(Message message, AmanhecerContext context)
     {
 #pragma warning disable IL3050
 #pragma warning disable IL2026
@@ -74,7 +75,7 @@ public class JsonMessageMapper : IMessageMapper
     }
 
     /// <inheritdoc />
-    public ValueTask<Message> ToMessageAsync(object request, IPipelineContext context)
+    public ValueTask<Message> ToMessageAsync(object request, AmanhecerContext context)
     {
 #pragma warning disable IL2026
 #pragma warning disable IL3050
@@ -89,12 +90,9 @@ public class JsonMessageMapper : IMessageMapper
     }
 
     /// <inheritdoc />
-    public ValueTask<object> ToRequestAsync(Message message, IPipelineContext context)
+    public ValueTask<object> ToRequestAsync(Message message, AmanhecerContext context)
     {
-        var requestType = context.Metadata.GetOrDefault<Type>(MetadataName.RequestType)
-            ?? throw new InvalidOperationException(
-                $"The metadata entry '{MetadataName.RequestType}' holding the expected request " +
-                "type is not set on the pipeline context.");
+        var requestType = context.GetRequiredMetadata<Type>(MetadataName.RequestType);
 
 #pragma warning disable IL2026
 #pragma warning disable IL3050

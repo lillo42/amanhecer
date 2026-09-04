@@ -33,7 +33,7 @@ public partial class AmanhecerLoggerMiddleware(ILogger<AmanhecerLoggerMiddleware
     /// <param name="context">The context of the pipeline being executed.</param>
     /// <param name="next">A delegate that invokes the next middleware in the pipeline.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has finished.</returns>
-    public async ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next)
+    public async ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
     {
         var requestType = context.Request.GetType().FullName ?? context.Request.GetType().Name;
         using (logger.BeginScope("{RoutingKey}", context.RoutingKey))

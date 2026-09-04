@@ -14,7 +14,7 @@ public interface IMessageMapper<TRequest> : IMessageMapper
     /// <param name="request">The request to map.</param>
     /// <param name="context">The context of the pipeline being executed.</param>
     /// <returns>The mapped message.</returns>
-    ValueTask<Message> ToMessageAsync(TRequest request, IPipelineContext context);
+    ValueTask<Message> ToMessageAsync(TRequest request, AmanhecerContext context);
 
     /// <summary>
     /// Maps a received <see cref="Message"/> back to an application request.
@@ -22,13 +22,13 @@ public interface IMessageMapper<TRequest> : IMessageMapper
     /// <param name="message">The message to map.</param>
     /// <param name="context">The context of the pipeline being executed.</param>
     /// <returns>The mapped request.</returns>
-    new ValueTask<TRequest> ToRequestAsync(Message message, IPipelineContext context);
+    new ValueTask<TRequest> ToRequestAsync(Message message, AmanhecerContext context);
 
 #if NET8_0_OR_GREATER
-    async ValueTask<Message> IMessageMapper.ToMessageAsync(object request, IPipelineContext context)
+    async ValueTask<Message> IMessageMapper.ToMessageAsync(object request, AmanhecerContext context)
         => await ToMessageAsync((TRequest)request, context);
 
-    async ValueTask<object> IMessageMapper.ToRequestAsync(Message message, IPipelineContext context)
+    async ValueTask<object> IMessageMapper.ToRequestAsync(Message message, AmanhecerContext context)
         => (await ToRequestAsync(message, context))!;
 #endif
 }
@@ -44,7 +44,7 @@ public interface IMessageMapper
     /// <param name="request">The request to map.</param>
     /// <param name="context">The context of the pipeline being executed.</param>
     /// <returns>The mapped message.</returns>
-    ValueTask<Message> ToMessageAsync(object request, IPipelineContext context);
+    ValueTask<Message> ToMessageAsync(object request, AmanhecerContext context);
 
     /// <summary>
     /// Maps a received <see cref="Message"/> back to an application request.
@@ -52,5 +52,5 @@ public interface IMessageMapper
     /// <param name="message">The message to map.</param>
     /// <param name="context">The context of the pipeline being executed.</param>
     /// <returns>The mapped request.</returns>
-    ValueTask<object> ToRequestAsync(Message message, IPipelineContext context);
+    ValueTask<object> ToRequestAsync(Message message, AmanhecerContext context);
 }

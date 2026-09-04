@@ -1,4 +1,6 @@
 using System;
+using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Abstractions.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -12,10 +14,11 @@ namespace Amanhecer.Messaging;
 public class AmanhecerEncodeTransformerFactory(IServiceProvider provider) : IEncodeTransformerFactory
 {
     /// <inheritdoc />
-    public IEncodeTransformer Create(Type transformerType, object? metadata)
+    public IEncodeTransformer Create(Type transformerType, object? metadata, AmanhecerContext context)
     {
+        context.SetMetadata(metadata);
+
         var transformer = (IEncodeTransformer)provider.GetRequiredService(transformerType);
-        transformer.Initialize(metadata);
         return transformer;
     }
 }

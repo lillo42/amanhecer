@@ -14,5 +14,5 @@ public interface IDecodeTransformerPipeline
     /// <param name="message">The message to decode.</param>
     /// <param name="context">The context of the pipeline being executed.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has finished.</returns>
-    ValueTask DecodeAsync(Message message, IPipelineContext context);
+    ValueTask DecodeAsync(Message message, AmanhecerContext context);
 }

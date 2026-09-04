@@ -27,7 +27,7 @@ public class AmanhecerPipelineFactoryTests
             new AmanhecerPipelineOptions(options), 
             _middlewareFactory);
         
-        var context = Substitute.For<IPipelineContext >();
+        var context = Substitute.For<AmanhecerContext >();
         await Assert.That(() => pipelineFactory.Create(context))
             .ThrowsNothing()
             .And.IsEquivalentTo(ImmutableList<IPipeline>.Empty);
@@ -55,7 +55,7 @@ public class AmanhecerPipelineFactoryTests
             new AmanhecerPipelineOptions(options),
             _middlewareFactory);
 
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
         context.RoutingKey.Returns("key");
 
         var pipelines = pipelineFactory.Create(context);
@@ -84,7 +84,7 @@ public class AmanhecerPipelineFactoryTests
             new AmanhecerPipelineOptions(options),
             _middlewareFactory);
 
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
         context.RoutingKey.Returns("key");
 
         var pipelines = pipelineFactory.Create(context);
@@ -119,7 +119,7 @@ public class AmanhecerPipelineFactoryTests
             new AmanhecerPipelineOptions(options),
             _middlewareFactory);
 
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
         context.RoutingKey.Returns("key");
 
         await Assert.That(pipelineFactory.Create(context))
@@ -146,7 +146,7 @@ public class AmanhecerPipelineFactoryTests
             new AmanhecerPipelineOptions(options),
             _middlewareFactory);
 
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
         context.RoutingKey.Returns("key");
 
         var pipelines = pipelineFactory.Create(context);

@@ -17,15 +17,19 @@ public class MoveToInvalidConsumerAction : IResolvingConsumerAction
     public static MoveToInvalidConsumerAction Instance { get; } = new();
 
     /// <inheritdoc />
-    public async ValueTask<IConsumerAction> ExecuteAsync(Message message, 
-        ISubscription subscription, 
-        IDispatcher dispatcher, 
+    public async ValueTask<IConsumerAction> ExecuteAsync(Message message,
+        ISubscription subscription,
+        IDispatcher dispatcher,
         CancellationToken cancellationToken = default)
     {
-        await dispatcher.PostAsync(message, new AmanhecerContext
+        if (subscription.InvalidMessageRoutingKey != null)
         {
-            RoutingKey = subscription.InvalidMessageRoutingKey,
-        }, cancellationToken);
+            await dispatcher.PostAsync(message, new AmanhecerContext
+            {
+                RoutingKey = subscription.InvalidMessageRoutingKey,
+            }, cancellationToken);
+        }
+
         return Ack.Instance;
     }
 }

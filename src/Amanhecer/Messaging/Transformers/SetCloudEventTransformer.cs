@@ -3,18 +3,19 @@ using System.Linq;
 using System.Net.Mime;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Abstractions.Messaging;
 using Microsoft.Extensions.Logging;
 
 namespace Amanhecer.Messaging.Transformers;
 
 /// <summary>
-/// Declares that the <see cref="CloudeventTransformer"/> applies to the handler method or
+/// Declares that the <see cref="SetCloudEventTransformer"/> applies to the handler method or
 /// class the attribute is placed on, setting the configured CloudEvents attributes on the
 /// outgoing messages.
 /// </summary>
 /// <param name="order">The position of the transformer in the pipeline.</param>
-public class CloudeventAttribute(int order) : TransformeAttribute<CloudeventTransformer>(order)
+public class CloudEventAttribute(int order) : TransformeAttribute<SetCloudEventTransformer>(order)
 {
     /// <summary>
     /// Gets or sets the content type set on messages that do not specify one.
@@ -59,46 +60,54 @@ public class CloudeventAttribute(int order) : TransformeAttribute<CloudeventTran
 
 /// <summary>
 /// An <see cref="IEncodeTransformer"/> that applies the CloudEvents attributes configured
-/// through <see cref="CloudeventAttribute"/>, and the defaults of the resolved
+/// through <see cref="CloudEventAttribute"/>, and the defaults of the resolved
 /// <see cref="IPublication"/>, to outgoing messages that do not already specify them.
 /// </summary>
 /// <param name="logger">The logger used to report invalid attribute values.</param>
-public partial class CloudeventTransformer(ILogger<CloudeventTransformer> logger) : IEncodeTransformer
+public partial class SetCloudEventTransformer(ILogger<SetCloudEventTransformer> logger) : IEncodeTransformer, IDecodeTransformer
 {
-    private CloudeventAttribute? _attribute;
-
     /// <inheritdoc />
-    public void Initialize(object? metadata)
+    public ValueTask EncodeAsync(Message message, AmanhecerContext context,
+        Func<Message, AmanhecerContext, ValueTask> next)
     {
-        if (metadata is CloudeventAttribute attribute)
+        var attribute = context.GetMetadata<CloudEventAttribute>();
+        if (attribute != null)
         {
-            _attribute = attribute;
-        }
-    }
-
-    /// <inheritdoc />
-    public async ValueTask EncodeAsync(Message message, IPipelineContext context,
-        Func<Message, IPipelineContext, ValueTask> next)
-    {
-        if (_attribute != null)
-        {
-            Apply(message, _attribute);
+            Apply(message, attribute);
         }
 
-        var publication = context.Metadata.GetOrDefault<IPublication>(MetadataName.Publication);
+        var publication = context.GetMetadata<IPublication>(MetadataName.Publication);
         if (publication != null)
         {
             Apply(message, publication);
         }
 
-        await next(message, context);
+        return next(message, context);
+    }
+    
+    /// <inheritdoc />
+    public ValueTask DecodeAsync(Message message, AmanhecerContext context, Func<Message, AmanhecerContext, ValueTask> next)
+    {
+        var attribute = context.GetMetadata<CloudEventAttribute>();
+        if (attribute != null)
+        {
+            Apply(message, attribute);
+        }
+
+        var subscription = context.GetMetadata<ISubscription>(MetadataName.Subscription);
+        if (subscription != null)
+        {
+            Apply(message, subscription);
+        }
+
+        return next(message, context);
     }
 
-    private void Apply(Message message, CloudeventAttribute attribute)
+    private void Apply(Message message, CloudEventAttribute attribute)
     {
         if (!string.IsNullOrEmpty(attribute.ContentType) && message.ContentType == null)
         {
-            message.ContentType = new ContentType(attribute.ContentType);
+            message.ContentType = new ContentType(attribute.ContentType!);
         }
 
         if (!string.IsNullOrEmpty(attribute.DataSchema) && message.DataSchema == null)
@@ -146,7 +155,6 @@ public partial class CloudeventTransformer(ILogger<CloudeventTransformer> logger
         }
     }
 
-
     private static void Apply(Message message, IPublication publication)
     {
         message.ContentType ??= publication.DefaultContentType;
@@ -166,10 +174,20 @@ public partial class CloudeventTransformer(ILogger<CloudeventTransformer> logger
         }
     }
 
+    private static void Apply(Message message, ISubscription subscription)
+    {
+        message.ContentType ??= subscription.DefaultContentType;
+        message.DataSchema ??= subscription.DefaultDataSchema;
+        message.ReplyTo ??= subscription.DefaultReplyTo;
+        message.Subject ??= subscription.DefaultSubject;
+        message.Source ??= subscription.DefaultSource;
+        message.SpecVersion ??= subscription.DefaultSpecVersion;
+        message.Type ??= subscription.DefaultType;
+    }
 
     private static partial class Logger
     {
-        [LoggerMessage(LogLevel.Warning, "Invalid dataschem {DataSchema}")]
+        [LoggerMessage(LogLevel.Warning, "Invalid data schema {DataSchema}")]
         public static partial void InvalidDataSchema(ILogger logger, string dataSchema);
     }
 }

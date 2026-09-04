@@ -17,7 +17,7 @@ public class AmanhecerTelemetryAttribute(int order) : MiddlewareAttribute<Amanhe
 
 /// <summary>
 /// Middleware that records telemetry for each request flowing through the pipeline: a span from
-/// <see cref="AmanhecerDiagnostics.ActivitySource"/> (parented to <see cref="IPipelineContext.Activity"/>
+/// <see cref="AmanhecerDiagnostics.ActivitySource"/> (parented to <see cref="AmanhecerContext.Activity"/>
 /// when set) and success/failure/timeout/cancellation counters plus a processing-duration histogram
 /// on <see cref="AmanhecerDiagnostics.Meter"/>.
 /// </summary>
@@ -61,21 +61,20 @@ public class AmanhecerTelemetryMiddleware : IMiddleware
 
     /// <summary>
     /// Starts a span named <c>{routing key} process</c>, tags it and the metrics with the routing key,
-    /// request type, executing strategy and <see cref="IPipelineContext.TelemetryTags"/>, then invokes
+    /// request type, executing strategy and <see cref="AmanhecerContext.TelemetryTags"/>, then invokes
     /// the rest of the pipeline. Records the outcome (success, failure, timeout or cancellation) and
     /// the processing duration, and rethrows any exception.
     /// </summary>
     /// <param name="context">The context of the pipeline being executed.</param>
     /// <param name="next">A delegate that invokes the next middleware in the pipeline.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has finished.</returns>
-    public async ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next)
+    public async ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
     {
         var metadata = new List<KeyValuePair<string, object?>>
         {
             new("amanhecer.routing_key", context.RoutingKey),
             new("amanhecer.request.type", context.Request.GetType().FullName ?? context.Request.GetType().Name),
-            new("amanhecer.executing_strategy",
-                context.ExecutingStrategy.GetType().FullName ?? context.ExecutingStrategy.GetType().Name),
+            new("amanhecer.executing_strategy", context.ExecutingStrategy!.GetType().FullName ?? context.ExecutingStrategy.GetType().Name),
         };
 
         metadata.AddRange(context.TelemetryTags);
@@ -85,7 +84,7 @@ public class AmanhecerTelemetryMiddleware : IMiddleware
             parentContext: context.Activity?.Context ?? default,
             tags: metadata);
 
-        context = activity == null ? context : context.DeepClone(activity);
+        context.Activity ??= activity;
 
         var duration = Stopwatch.StartNew();
 

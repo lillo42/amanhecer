@@ -22,10 +22,14 @@ public class MoveToDeadLetterQueueConsumerAction : IResolvingConsumerAction
         IDispatcher dispatcher,
         CancellationToken cancellationToken = default)
     {
-        await dispatcher.PostAsync(message, new AmanhecerContext
+        if (subscription.DeadLetterQueueRoutingKey != null)
         {
-            RoutingKey = subscription.DeadLetterQueueRoutingKey
-        }, cancellationToken);
+            await dispatcher.PostAsync(message, new AmanhecerContext
+            {
+                RoutingKey = subscription.DeadLetterQueueRoutingKey
+            }, cancellationToken);
+        }
+
         return Ack.Instance;
     }
 }

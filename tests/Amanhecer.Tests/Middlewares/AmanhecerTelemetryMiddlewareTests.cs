@@ -19,10 +19,10 @@ public class AmanhecerTelemetryMiddlewareTests
 
     private readonly AmanhecerTelemetryMiddleware _middleware = new();
 
-    private static IPipelineContext CreateContext(string routingKey,
+    private static AmanhecerContext CreateContext(string routingKey,
         List<KeyValuePair<string, object?>>? telemetryTags = null)
     {
-        var context = Substitute.For<IPipelineContext>();
+        var context = Substitute.For<AmanhecerContext>();
         context.RoutingKey.Returns(routingKey);
         context.Request.Returns(new SomeRequest());
         context.ExecutingStrategy.Returns(Substitute.For<IExecutingStrategy>());
@@ -51,7 +51,7 @@ public class AmanhecerTelemetryMiddlewareTests
     {
         const string routingKey = "unit.telemetry.no-listener";
         var context = CreateContext(routingKey);
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
         var recordedRoutingKeys = new List<string?>();
         using var meterListener = new MeterListener();
@@ -91,7 +91,7 @@ public class AmanhecerTelemetryMiddlewareTests
 
         var context = CreateContext(routingKey);
         context.Activity.Returns(parent);
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
         await _middleware.ExecuteAsync(context, next);
 
@@ -110,7 +110,7 @@ public class AmanhecerTelemetryMiddlewareTests
         using var listener = ListenForSpans(started);
 
         var context = CreateContext(routingKey, [new KeyValuePair<string, object?>("tenant", "acme")]);
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
         await _middleware.ExecuteAsync(context, next);
 

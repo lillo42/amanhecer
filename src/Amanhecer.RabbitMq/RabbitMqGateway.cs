@@ -136,6 +136,8 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
         return producers;
     }
 
+    private readonly Dictionary<RabbitMqSubscription, RabbitMqMessagePoller> _pollers = [];
+
     /// <inheritdoc />
     public override IConsumer CreateConsumer(ISubscription subscription)
     {
@@ -144,14 +146,20 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
             throw new NotImplementedException();
         }
 
-        var connection = GetOrCreateAsync().GetAwaiter().GetResult();
-
+        if (!_pollers.TryGetValue(rabbitMqSubscription, out var poller))
+        {
+            var connection = GetOrCreateAsync().GetAwaiter().GetResult();
 #if NETFRAMEWORK
         var channel = connection.CreateModel();
 #else
-        var channel = connection.CreateChannelAsync().GetAwaiter().GetResult();
+            var channel = connection.CreateChannelAsync().GetAwaiter().GetResult();
 #endif
 
-        return new RabbitMqConsumer(rabbitMqSubscription, channel);
+            poller = new RabbitMqMessagePoller(rabbitMqSubscription, channel);
+
+            _pollers.Add(rabbitMqSubscription, poller);
+        }
+
+        return new RabbitMqConsumer(poller, rabbitMqSubscription);
     }
 }

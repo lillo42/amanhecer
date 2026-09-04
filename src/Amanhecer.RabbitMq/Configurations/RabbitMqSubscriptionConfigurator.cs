@@ -311,11 +311,9 @@ public class RabbitMqSubscriptionConfigurator
                 "A queue name is required for a subscription. Call QueueName to configure it.");
         }
 
-        var subscription = new RabbitMqSubscription
+        var subscription = new RabbitMqSubscription(_toRoutingKey!, _queueName!)
         {
             Name = _name ?? Uuid.NewGuid().ToString(),
-            ToRoutingKey = _toRoutingKey!,
-            QueueName = _queueName!,
             MessageMapperType = _messageMapperType,
             NumberOfConsumer = _numberOfConsumer,
             BufferSize = _bufferSize,

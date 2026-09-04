@@ -46,6 +46,12 @@ public class Message
     public Dictionary<string, object?> Headers { get; set; } = [];
 
     /// <summary>
+    /// Gets or sets the message metadata.
+    /// Not send during publishing
+    /// </summary>
+    public Dictionary<string, object?> Metadata { get; set; } = [];
+
+    /// <summary>
     /// Gets or sets the unique identifier of the message (the CloudEvents <c>id</c>
     /// attribute). Defaults to a randomly generated UUID.
     /// </summary>

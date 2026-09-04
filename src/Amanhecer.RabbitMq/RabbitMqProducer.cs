@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
@@ -47,7 +46,7 @@ public class RabbitMqProducer(
             description: "Duration of message publishing, in seconds.");
 
     /// <inheritdoc />
-    public async ValueTask ProducerAsync(Message message, IPublication publication, IPipelineContext context)
+    public async ValueTask ProducerAsync(Message message, IPublication publication, AmanhecerContext context)
     {
         if (publication is not RabbitMqPublication rabbitMqPublication)
         {
@@ -170,7 +169,7 @@ public class RabbitMqProducer(
         return new ValueTask();
     }
 
-    private IBasicProperties CreateProperties(Message message, IPipelineContext context,
+    private IBasicProperties CreateProperties(Message message, AmanhecerContext context,
         RabbitMqPublication publication)
     {
         var properties = channel.CreateBasicProperties();
@@ -185,16 +184,16 @@ public class RabbitMqProducer(
 
         properties.ContentType = message.ContentType?.ToString() ?? publication.DefaultContentType.ToString();
 
-        var encoding = context.Metadata.GetOrDefault<string?>(MetadataName.ContentEncoding);
+        var encoding = context.GetMetadata<string?>(MetadataName.ContentEncoding);
         properties.ContentEncoding = encoding ?? publication.ContentEncoding;
 
-        var persistent = context.Metadata.GetOrDefault<bool?>(MetadataName.Persistent);
+        var persistent = context.GetMetadata<bool?>(MetadataName.Persistent);
         properties.Persistent = persistent ?? publication.Persistent;
 
-        var expiration = context.Metadata.GetOrDefault<string?>(MetadataName.Expiration);
+        var expiration = context.GetMetadata<string?>(MetadataName.Expiration);
         properties.Expiration = expiration;
 
-        var priority = context.Metadata.GetOrDefault<byte?>(MetadataName.Priority);
+        var priority = context.GetMetadata<byte?>(MetadataName.Priority);
         if (priority != null)
         {
             properties.Priority = priority.Value;
@@ -203,7 +202,7 @@ public class RabbitMqProducer(
         return properties;
     }
 #else
-    private BasicProperties CreateProperties(Message message, IPipelineContext context, RabbitMqPublication publication)
+    private static BasicProperties CreateProperties(Message message, AmanhecerContext context, RabbitMqPublication publication)
     {
         var properties = new BasicProperties
         {
@@ -215,20 +214,19 @@ public class RabbitMqProducer(
             AppId = publication.AppId,
             ClusterId = publication.ClusterId,
             Headers = message.Headers!,
+            ContentType = message.ContentType?.ToString() ?? publication.DefaultContentType.ToString()
         };
 
-        properties.ContentType = message.ContentType?.ToString() ?? publication.DefaultContentType.ToString();
-
-        var encoding = context.Metadata.GetOrDefault<string?>(MetadataName.ContentEncoding);
+        var encoding = context.GetMetadata<string?>(MetadataName.ContentEncoding);
         properties.ContentEncoding = encoding ?? publication.ContentEncoding;
 
-        var persistent = context.Metadata.GetOrDefault<bool?>(MetadataName.Persistent);
+        var persistent = context.GetMetadata<bool?>(MetadataName.Persistent);
         properties.Persistent = persistent ?? publication.Persistent;
 
-        var expiration = context.Metadata.GetOrDefault<string?>(MetadataName.Expiration);
+        var expiration = context.GetMetadata<string?>(MetadataName.Expiration);
         properties.Expiration = expiration;
 
-        var priority = context.Metadata.GetOrDefault<byte?>(MetadataName.Priority);
+        var priority = context.GetMetadata<byte?>(MetadataName.Priority);
         if (priority != null)
         {
             properties.Priority = priority.Value;

@@ -12,5 +12,5 @@ public interface IEncodeTransformerPipelineFactory
     /// <param name="transformerPipelineName">The name of the transformer pipeline to create.</param>
     /// <param name="context">The context of the pipeline being executed.</param>
     /// <returns>The created encode transformer pipeline.</returns>
-    IEncodeTransformerPipeline Create(string transformerPipelineName, IPipelineContext context);
+    IEncodeTransformerPipeline Create(string transformerPipelineName, AmanhecerContext context);
 }

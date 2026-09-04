@@ -32,7 +32,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -74,7 +74,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -115,7 +115,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -156,7 +156,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -197,7 +197,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -249,7 +249,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -311,7 +311,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -367,7 +367,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -409,7 +409,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -452,7 +452,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -507,7 +507,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -560,7 +560,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -624,7 +624,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -666,7 +666,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -707,7 +707,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -748,7 +748,7 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -790,7 +790,7 @@ public class AmanhecerDispatcherTests
         var request = Guid.NewGuid().ToString();
         var response = new object();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
         pipelineContext.Response.Returns(response);
 
@@ -846,7 +846,7 @@ public class AmanhecerDispatcherTests
         var request = Guid.NewGuid().ToString();
         var response = new object();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
         pipelineContext.Response.Returns(response);
 
@@ -912,7 +912,7 @@ public class AmanhecerDispatcherTests
         var request = Guid.NewGuid().ToString();
         var response = new object();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
         pipelineContext.Response.Returns(response);
 
@@ -1030,7 +1030,7 @@ public class AmanhecerDispatcherTests
         var request = Guid.NewGuid().ToString();
         var tags = new List<KeyValuePair<string, object?>>();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns(tags);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -1053,7 +1053,7 @@ public class AmanhecerDispatcherTests
         var request = Guid.NewGuid().ToString();
         var tags = new List<KeyValuePair<string, object?>>();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns(tags);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -1076,7 +1076,7 @@ public class AmanhecerDispatcherTests
         var request = Guid.NewGuid().ToString();
         var tags = new List<KeyValuePair<string, object?>>();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns(tags);
 
         _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
@@ -1098,7 +1098,7 @@ public class AmanhecerDispatcherTests
         var response = new object();
         var tags = new List<KeyValuePair<string, object?>>();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns(tags);
         pipelineContext.Response.Returns(response);
 
@@ -1128,7 +1128,7 @@ public class AmanhecerDispatcherTests
         var context = Substitute.For<IContext>();
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, context, cancellationTokenSource.Token)
@@ -1152,7 +1152,7 @@ public class AmanhecerDispatcherTests
         var context = Substitute.For<IContext>();
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
 
         _contextFactory.Create(request, context, cancellationTokenSource.Token)
@@ -1177,7 +1177,7 @@ public class AmanhecerDispatcherTests
         var context = Substitute.For<IContext>();
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
+        var pipelineContext = Substitute.For<AmanhecerContext>();
         pipelineContext.TelemetryTags.Returns([]);
         pipelineContext.Response.Returns(response);
 

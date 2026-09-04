@@ -6,7 +6,7 @@ namespace Amanhecer.Middlewares;
 
 /// <summary>
 /// Terminal middleware that resolves the configured handler and invokes it, ending the pipeline.
-/// For query handlers, the handler result is stored in <see cref="IPipelineContext.Response"/>.
+/// For query handlers, the handler result is stored in <see cref="AmanhecerContext.Response"/>.
 /// </summary>
 /// <param name="factory">The factory used to create the handler instance.</param>
 public class ExecuteHandlerMiddleware(IHandlerFactory factory) : IMiddleware
@@ -37,7 +37,7 @@ public class ExecuteHandlerMiddleware(IHandlerFactory factory) : IMiddleware
     /// <returns>A <see cref="ValueTask"/> that completes when the handler has finished.</returns>
     /// <exception cref="NullReferenceException">Thrown when the middleware was not initialised with a handler type.</exception>
     /// <exception cref="NotSupportedException">Thrown when the resolved handler implements neither <see cref="IRequestHandler"/> nor <see cref="IQueryHandler"/>.</exception>
-    public async ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next)
+    public async ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
     {
         if (_handlerType == null)
         {

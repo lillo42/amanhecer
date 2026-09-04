@@ -15,9 +15,12 @@ namespace Amanhecer.Extensions.Hosting;
 /// </summary>
 /// <param name="provider">The service provider used to resolve the registered gateways and to
 /// start the consumers.</param>
-public class ConsumerHostedService(IServiceProvider provider) : IHostedService
+public class ConsumerHostedService(IServiceProvider provider, IMessagePumperFactory pumperFactory) : IHostedService
 {
-    private readonly List<IConsumer> _consumers = [];
+    private CancellationTokenSource? _cancellationTokenSource;
+
+    private readonly List<Task> _tasks = [];
+    private readonly List<IMessagePumper> _messagePumpers = [];
 
     /// <summary>
     /// Creates the consumers for all subscriptions of all registered gateways and starts them.
@@ -26,6 +29,9 @@ public class ConsumerHostedService(IServiceProvider provider) : IHostedService
     /// <returns>A <see cref="Task"/> that completes when all consumers have started.</returns>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        await StopAsync(cancellationToken);
+
+        _cancellationTokenSource = new CancellationTokenSource();
         var gateways = provider.GetServices<IGateway>();
         foreach (var gateway in gateways)
         {
@@ -33,14 +39,13 @@ public class ConsumerHostedService(IServiceProvider provider) : IHostedService
             {
                 for (var i = 0; i < subscription.NumberOfConsumer; i++)
                 {
-                    _consumers.Add(gateway.CreateConsumer(subscription));
+                    var consumer = gateway.CreateConsumer(subscription);
+                    var pump = pumperFactory.Create();
+
+                    _tasks.Add(pump.ExecuteAsync(consumer, cancellationToken));
+                    _messagePumpers.Add(pump);
                 }
             }
-        }
-
-        foreach (var consumer in _consumers)
-        {
-            await consumer.StartAsync(provider, cancellationToken);
         }
     }
 
@@ -51,9 +56,18 @@ public class ConsumerHostedService(IServiceProvider provider) : IHostedService
     /// <returns>A <see cref="Task"/> that completes when all consumers have stopped.</returns>
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        foreach (var consumer in _consumers)
+        if (_cancellationTokenSource == null)
         {
-            await consumer.StopAsync(cancellationToken);
+            return;
         }
+
+        await _cancellationTokenSource.CancelAsync();
+        await Task.WhenAll(_tasks);
+
+        _tasks.Clear();
+        _messagePumpers.Clear();
+
+        _cancellationTokenSource.Dispose();
+        _cancellationTokenSource = null;
     }
 }

@@ -14,5 +14,5 @@ public interface IEncodeTransformerPipeline
     /// <param name="message">The message to encode.</param>
     /// <param name="context">The context of the pipeline being executed.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has finished.</returns>
-    ValueTask EncodeAsync(Message message, IPipelineContext context);
+    ValueTask EncodeAsync(Message message, AmanhecerContext context);
 }

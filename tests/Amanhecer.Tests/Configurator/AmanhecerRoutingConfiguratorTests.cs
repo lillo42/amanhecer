@@ -126,7 +126,7 @@ public class AmanhecerRoutingConfiguratorTests
         {
         }
 
-        public ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next)
+        public ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
             => next(context);
     }
 
@@ -136,7 +136,7 @@ public class AmanhecerRoutingConfiguratorTests
         {
         }
 
-        public ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next)
+        public ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
             => next(context);
     }
 
@@ -144,7 +144,7 @@ public class AmanhecerRoutingConfiguratorTests
 
     private class SomeRequestHandler : RequestHandler<SomeRequest>
     {
-        public override ValueTask HandleAsync(SomeRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(SomeRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
             => ValueTask.CompletedTask;
     }

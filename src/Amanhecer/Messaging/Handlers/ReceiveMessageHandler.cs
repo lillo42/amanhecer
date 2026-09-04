@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Abstractions.Messaging;
 using Amanhecer.Configurator;
 using Amanhecer.Messaging;
@@ -27,10 +28,10 @@ public class ReceiveMessageHandler(
 ) : QueryHandler<Message, object?>
 {
     /// <inheritdoc />
-    public override async ValueTask<object?> HandleAsync(Message query, IPipelineContext context,
+    public override async ValueTask<object?> HandleAsync(Message query, AmanhecerContext context,
         CancellationToken cancellationToken = default)
     {
-        var subscription = GetSubscription(context);
+        var subscription = context.GetRequiredMetadata<ISubscription>(MetadataName.Subscription);
 
         try
         {
@@ -116,21 +117,10 @@ public class ReceiveMessageHandler(
         return null;
     }
 
-    private static ISubscription GetSubscription(IPipelineContext context)
-    {
-        var subscription = context.Metadata.GetOrDefault<ISubscription>(MetadataName.Subscription);
-        if (subscription == null)
-        {
-            throw new NotImplementedException();
-        }
-
-        return subscription;
-    }
-
     private async ValueTask<object> ToRequestAsync(Message message,
         IMessageMapper messageMapper,
         ISubscription subscription,
-        IPipelineContext context)
+        AmanhecerContext context)
     {
         var transformerPipelineName = TransformerPipelineNames.Decode(subscription.Name);
 

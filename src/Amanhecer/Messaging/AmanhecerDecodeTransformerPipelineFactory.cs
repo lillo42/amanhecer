@@ -16,7 +16,7 @@ public class AmanhecerDecodeTransformerPipelineFactory(
     IDecodeTransformerFactory transformerFactory) : IDecodeTransformerPipelineFactory
 {
     /// <inheritdoc />
-    public IDecodeTransformerPipeline Create(string transformerPipelineName, IPipelineContext context)
+    public IDecodeTransformerPipeline Create(string transformerPipelineName, AmanhecerContext context)
     {
         if (!options.Configuration.TryGetValue(transformerPipelineName, out var transformers))
         {
@@ -26,7 +26,7 @@ public class AmanhecerDecodeTransformerPipelineFactory(
         return new AmanhecerDecodeTransformerPipeline([
             .. transformers
                 .Where(x => typeof(IDecodeTransformer).IsAssignableFrom(x.TransformerType))
-                .Select(x => transformerFactory.Create(x.TransformerType, x.Metadata))
+                .Select(x => transformerFactory.Create(x.TransformerType, x.Metadata, context))
         ]);
     }
 }

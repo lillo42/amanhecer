@@ -14,5 +14,5 @@ public interface IMiddlewareFactory
     /// <param name="middlewareType">The type of the middleware to create.</param>
     /// <param name="metadata">Optional metadata used to initialise the middleware instance.</param>
     /// <returns>The created middleware instance.</returns>
-    IMiddleware Create(Type middlewareType, object? metadata);
+    IMiddleware Create(Type middlewareType, object? metadata, AmanhecerContext context);
 }

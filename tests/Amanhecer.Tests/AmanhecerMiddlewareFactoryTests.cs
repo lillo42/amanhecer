@@ -73,7 +73,7 @@ public class AmanhecerMiddlewareFactoryTests
             Metadata = metadata;
         }
 
-        public ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next)
+        public ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
         {
             Executed = true;
             return new ValueTask();

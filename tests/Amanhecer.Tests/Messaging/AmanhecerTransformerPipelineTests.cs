@@ -20,7 +20,7 @@ public class AmanhecerTransformerPipelineTests
 
         var pipeline = new AmanhecerEncodeTransformerPipeline([encode, both]);
 
-        await pipeline.EncodeAsync(new Message(), Substitute.For<IPipelineContext>());
+        await pipeline.EncodeAsync(new Message(), Substitute.For<AmanhecerContext>());
 
         await Assert.That(recorder.Count).IsEqualTo(2);
         await Assert.That(recorder[0]).IsEqualTo(EncodeOnlyTransformer.Name);
@@ -38,7 +38,7 @@ public class AmanhecerTransformerPipelineTests
 
         var pipeline = new AmanhecerDecodeTransformerPipeline([decode, both]);
 
-        await pipeline.DecodeAsync(new Message(), Substitute.For<IPipelineContext>());
+        await pipeline.DecodeAsync(new Message(), Substitute.For<AmanhecerContext>());
 
         await Assert.That(recorder.Count).IsEqualTo(2);
         await Assert.That(recorder[0]).IsEqualTo(DecodeOnlyTransformer.Name);

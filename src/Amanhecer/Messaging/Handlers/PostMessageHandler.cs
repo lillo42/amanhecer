@@ -23,7 +23,7 @@ public class PostMessageHandler(
     IEncodeTransformerPipelineFactory transformerPipelineFactory) : IRequestHandler
 {
     /// <inheritdoc />
-    public async ValueTask HandleAsync(object request, IPipelineContext context,
+    public async ValueTask HandleAsync(object request, AmanhecerContext context,
         CancellationToken cancellationToken = default)
     {
         if (!context.Metadata.TryGetValue(MetadataName.PublicationRoutingKey, out var obj))
@@ -62,7 +62,7 @@ public class PostMessageHandler(
     private async ValueTask<Message> ToMessageAsync(object request,
         IMessageMapper messageMapper,
         IPublication publication,
-        IPipelineContext context)
+        AmanhecerContext context)
     {
         if (request is Message existingMessage)
         {

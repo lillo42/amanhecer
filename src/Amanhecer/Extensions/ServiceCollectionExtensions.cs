@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Reflection;
 using Amanhecer.Abstractions;
@@ -34,7 +33,6 @@ public static class ServiceCollectionExtensions
         services.TryAddTransient<IHandlerFactory, AmanhecerHandlerFactory>();
         services.TryAddTransient<IMiddlewareFactory, AmanhecerMiddlewareFactory>();
         services.TryAddTransient<IPipelineFactory, AmanhecerPipelineFactory>();
-        services.TryAddSingleton<IPipelineContextFactory, AmanhecerPipelineContextFactory>();
 
         services.TryAddSingleton<AmanhecerTelemetryMiddleware>();
         services.TryAddSingleton<AmanhecerLoggerMiddleware>();
@@ -58,8 +56,8 @@ public static class ServiceCollectionExtensions
             .GroupBy(x => x.RoutingKey)
             .ToFrozenDictionary(x => x.Key,
                 x => x
-                    .Select(y => y.MiddlewareOptions.ToImmutableList())
-                    .ToImmutableList());
+                    .Select(y => y.Middlewares.ToList().AsEnumerable())
+                    .ToList());
 
         services.TryAddSingleton(new AmanhecerPipelineOptions(routing));
 

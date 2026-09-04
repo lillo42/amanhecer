@@ -16,7 +16,7 @@ public class MapToMessageMiddleware : IMiddleware
     }
 
     /// <inheritdoc />
-    public ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next)
+    public ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
     {
         throw new NotImplementedException();
     }

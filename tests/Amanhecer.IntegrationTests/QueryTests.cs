@@ -97,7 +97,7 @@ public class QueryTests : BaseTests
 
     private class OneSyncQueryHandler : QueryHandler<OneSyncQuery, OneSyncResponse>
     {
-        public override ValueTask<OneSyncResponse> HandleAsync(OneSyncQuery query, IPipelineContext context,
+        public override ValueTask<OneSyncResponse> HandleAsync(OneSyncQuery query, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             return new ValueTask<OneSyncResponse>(new OneSyncResponse(query.Value));
@@ -110,7 +110,7 @@ public class QueryTests : BaseTests
 
     private class OneAsyncQueryHandler : QueryHandler<OneAsyncQuery, OneAsyncResponse>
     {
-        public override async ValueTask<OneAsyncResponse> HandleAsync(OneAsyncQuery query, IPipelineContext context,
+        public override async ValueTask<OneAsyncResponse> HandleAsync(OneAsyncQuery query, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
@@ -122,7 +122,7 @@ public class QueryTests : BaseTests
 
     private class FirstMultiQueryHandler : QueryHandler<MultiQuery, string>
     {
-        public override ValueTask<string> HandleAsync(MultiQuery query, IPipelineContext context,
+        public override ValueTask<string> HandleAsync(MultiQuery query, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();
@@ -131,7 +131,7 @@ public class QueryTests : BaseTests
 
     private class SecondMultiQueryHandler : QueryHandler<MultiQuery, string>
     {
-        public override ValueTask<string> HandleAsync(MultiQuery query, IPipelineContext context,
+        public override ValueTask<string> HandleAsync(MultiQuery query, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             throw new NotImplementedException();

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Immutable;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Microsoft.Extensions.Logging;
@@ -8,10 +8,10 @@ using Microsoft.Extensions.Logging;
 namespace Amanhecer.ExecutingStrategies;
 
 /// <summary>
-/// Executes the pipelines in parallel, each with a deep-cloned <see cref="IPipelineContext"/>.
+/// Executes the pipelines in parallel, each with a deep-cloned <see cref="AmanhecerContext"/>.
 /// </summary>
 /// <param name="options">The options that control parallelism and cancellation.</param>
-/// <param name="accessor">Exposes the <see cref="IPipelineContext"/> of the pipeline currently executing.</param>
+/// <param name="accessor">Exposes the <see cref="AmanhecerContext"/> of the pipeline currently executing.</param>
 /// <param name="logger">The logger used to record execution diagnostics.</param>
 public partial class ParallelExecutingStrategy(
     ParallelOptions options,
@@ -26,7 +26,7 @@ public partial class ParallelExecutingStrategy(
     /// <param name="context">The pipeline context; deep-cloned per pipeline when running in parallel.</param>
     /// <param name="pipelines">The pipelines to execute.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when all pipelines have finished.</returns>
-    public async ValueTask ExecuteAsync(IPipelineContext context, ImmutableList<IPipeline> pipelines)
+    public async ValueTask ExecuteAsync(AmanhecerContext context, IReadOnlyList<IPipeline> pipelines)
     {
         if (pipelines.Count == 0)
         {
@@ -63,7 +63,7 @@ public partial class ParallelExecutingStrategy(
         {
             try
             {
-                var tmpContext = context.DeepClone();
+                var tmpContext = (AmanhecerContext)context.Clone();
                 accessor.PipelineContext = tmpContext;
                 
                 await pipeline.ExecuteAsync(tmpContext).ConfigureAwait(context.ContinueOnCapturedContext);
@@ -82,7 +82,7 @@ public partial class ParallelExecutingStrategy(
         {
             try
             {
-                var tmpContext = context.DeepClone();
+                var tmpContext = (AmanhecerContext)context.Clone();
                 accessor.PipelineContext = tmpContext;
 
                 var response = pipeline.ExecuteAsync(tmpContext);

@@ -12,7 +12,7 @@ public record PlaceOrder(string Product);
 
 public class PlaceOrderHandler : RequestHandler<PlaceOrder>
 {
-    public override ValueTask HandleAsync(PlaceOrder request, IPipelineContext context, CancellationToken cancellationToken = default)
+    public override ValueTask HandleAsync(PlaceOrder request, AmanhecerContext context, CancellationToken cancellationToken = default)
     {
         return ValueTask.CompletedTask;
     }
@@ -20,7 +20,7 @@ public class PlaceOrderHandler : RequestHandler<PlaceOrder>
 
 public class ExplodingOrderHandler : RequestHandler<PlaceOrder>
 {
-    public override ValueTask HandleAsync(PlaceOrder request, IPipelineContext context, CancellationToken cancellationToken = default)
+    public override ValueTask HandleAsync(PlaceOrder request, AmanhecerContext context, CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException("Handler exploded.");
     }

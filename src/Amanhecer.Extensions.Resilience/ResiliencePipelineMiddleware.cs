@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Extensions;
 using Microsoft.Extensions.Http.Diagnostics;
 using Polly;
 using Polly.Registry;
@@ -15,7 +16,8 @@ namespace Amanhecer.Extensions.Resilience;
 /// <param name="pipelineName">The name of the resilience pipeline to execute, as registered in
 /// the <see cref="ResiliencePipelineProvider{TKey}"/>.</param>
 /// <param name="order">The order in which the middleware runs within the pipeline.</param>
-public class ResiliencePipelineAttribute(string pipelineName, int order) : MiddlewareAttribute<ResiliencePipelineMiddleware>(order)
+public class ResiliencePipelineAttribute(string pipelineName, int order)
+    : MiddlewareAttribute<ResiliencePipelineMiddleware>(order)
 {
     /// <summary>
     /// Gets the name of the resilience pipeline to execute.
@@ -32,8 +34,8 @@ public class ResiliencePipelineAttribute(string pipelineName, int order) : Middl
 /// The pipeline name is supplied via the middleware metadata: either as a string when registering
 /// the middleware fluently (for example, <c>Use&lt;ResiliencePipelineMiddleware&gt;(order, "myPipeline")</c>),
 /// or via <see cref="ResiliencePipelineAttribute"/> on the handler class or method.
-/// If <see cref="IPipelineContext.Metadata"/> contains a Polly <see cref="Polly.ResilienceContext"/>
-/// under the key <see cref="ResilienceContextKey"/>, that context is used; otherwise a context is
+/// If <see cref="AmanhecerPipelineContext.Metadata"/> contains a Polly <see cref="Polly.ResilienceContext"/>
+/// under the key <see cref="ResilienceContext"/>, that context is used; otherwise a context is
 /// rented from the pool, carrying the pipeline context's cancellation token. The execution is
 /// enriched with <see cref="RequestMetadata"/> (the request type name) so that resilience telemetry
 /// registered via <c>AddResilienceEnricher()</c> includes it. The cancellation token provided by
@@ -42,38 +44,13 @@ public class ResiliencePipelineAttribute(string pipelineName, int order) : Middl
 public class ResiliencePipelineMiddleware(ResiliencePipelineProvider<string> provider) : IMiddleware
 {
     /// <summary>
-    /// The <see cref="IPipelineContext.Metadata"/> key under which a Polly
+    /// The <see cref="AmanhecerContext.Metadata"/> key under which a Polly
     /// <see cref="Polly.ResilienceContext"/> can be supplied for the pipeline execution.
     /// </summary>
-    public const string ResilienceContextKey = "Amanhecer.Extensions.Resilience.ResilienceContext";
+    public const string ResilienceContext = "Amanhecer.Extensions.Resilience.ResilienceContext";
 
-    private string? _pipelineName;
 
-    /// <summary>
-    /// Initialises the middleware with the name of the resilience pipeline to execute.
-    /// </summary>
-    /// <param name="metadata">The middleware metadata; must be a non-empty <see cref="string"/>
-    /// containing the name of the resilience pipeline registered in the provider, or a
-    /// <see cref="ResiliencePipelineAttribute"/>.</param>
-    /// <exception cref="ArgumentException"><paramref name="metadata"/> is neither a non-empty
-    /// <see cref="string"/> nor a <see cref="ResiliencePipelineAttribute"/>.</exception>
-    public void Initialize(object? metadata)
-    {
-        if (metadata is string pipelineName && !string.IsNullOrWhiteSpace(pipelineName))
-        {
-            _pipelineName = pipelineName;
-        }
-        else if (metadata is ResiliencePipelineAttribute attribute)
-        {
-            _pipelineName = attribute.PipelineName;
-        }
-        else
-        {
-            throw new ArgumentException(
-                $"Metadata must be a non-empty string with the name of the resilience pipeline, but was '{metadata ?? "null"}'.",
-                nameof(metadata));
-        }
-    }
+    public const string PipelineName = "Amanhecer.Extensions.Resilience.PipelineName";
 
     /// <summary>
     /// Executes the rest of the pipeline inside the configured resilience pipeline.
@@ -84,19 +61,20 @@ public class ResiliencePipelineMiddleware(ResiliencePipelineProvider<string> pro
     /// including any retries, completes.</returns>
     /// <exception cref="InvalidOperationException">The middleware was not initialised with a
     /// resilience pipeline name.</exception>
-    public async ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next)
+    public async ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
     {
-        if (string.IsNullOrEmpty(_pipelineName))
+        var pipelineName = GetPipelineName(context);
+        if (string.IsNullOrEmpty(pipelineName))
         {
             throw new InvalidOperationException(
                 $"The middleware '{nameof(ResiliencePipelineMiddleware)}' was not initialised with a resilience pipeline name. " +
                 "Ensure Initialize was called with the pipeline name before executing the middleware.");
         }
 
-        var pipeline = provider.GetPipeline(_pipelineName!);
+        var pipeline = provider.GetPipeline(pipelineName!);
+        var providedContext = context.GetMetadata<ResilienceContext>(ResilienceContext);
 
-        if (context.Metadata.TryGetValue(ResilienceContextKey, out var value) &&
-            value is ResilienceContext providedContext)
+        if (providedContext != null)
         {
             providedContext.SetRequestMetadataIfMissing(context);
             await pipeline.ExecuteAsync(
@@ -110,7 +88,7 @@ public class ResiliencePipelineMiddleware(ResiliencePipelineProvider<string> pro
             try
             {
                 await pipeline.ExecuteAsync(
-                   async rc => await ExecuteNextAsync(context, next, rc.CancellationToken),
+                    async rc => await ExecuteNextAsync(context, next, rc.CancellationToken),
                     resilienceContext);
             }
             finally
@@ -120,13 +98,39 @@ public class ResiliencePipelineMiddleware(ResiliencePipelineProvider<string> pro
         }
     }
 
+    private static string? GetPipelineName(AmanhecerContext context)
+    {
+        var attribute = context.GetMetadata<ResiliencePipelineAttribute>();
+        if (attribute != null)
+        {
+            return attribute.PipelineName;
+        }
+
+        attribute = context.GetMetadata<ResiliencePipelineAttribute>(PipelineName);
+        if (attribute != null)
+        {
+            return attribute.PipelineName;
+        }
+
+        return context.GetMetadata<string>(PipelineName);
+    }
+
     private static async ValueTask ExecuteNextAsync(
-        IPipelineContext context,
-        Func<IPipelineContext, ValueTask> next,
+        AmanhecerContext context,
+        Func<AmanhecerContext, ValueTask> next,
         CancellationToken cancellationToken)
     {
-        var clone = context.DeepClone(cancellationToken: cancellationToken);
-        await next(clone);
+        var tmp = context.CancellationToken;
+
+        try
+        {
+            context.CancellationToken = cancellationToken;
+            await next(context).ConfigureAwait(context.ContinueOnCapturedContext);
+        }
+        finally
+        {
+            context.CancellationToken = tmp;
+        }
     }
 }
 
@@ -136,11 +140,14 @@ internal static class ResilienceContextMetadataExtensions
     /// Enriches the resilience context with <see cref="RequestMetadata"/> carrying the request
     /// type name, unless the context already has request metadata set by the caller.
     /// </summary>
-    public static void SetRequestMetadataIfMissing(this ResilienceContext resilienceContext, IPipelineContext context)
+    public static void SetRequestMetadataIfMissing(this ResilienceContext resilienceContext, AmanhecerContext context)
     {
         if (resilienceContext.GetRequestMetadata() is null)
         {
-            resilienceContext.SetRequestMetadata(new RequestMetadata { RequestName = context.Request.GetType().Name });
+            resilienceContext.SetRequestMetadata(new RequestMetadata
+            {
+                RequestName = context.Request.GetType().Name
+            });
         }
     }
 }

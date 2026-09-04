@@ -150,13 +150,12 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
         {
             var connection = GetOrCreateAsync().GetAwaiter().GetResult();
 #if NETFRAMEWORK
-        var channel = connection.CreateModel();
+            var channel = connection.CreateModel();
 #else
             var channel = connection.CreateChannelAsync().GetAwaiter().GetResult();
 #endif
 
             poller = new RabbitMqMessagePoller(rabbitMqSubscription, channel);
-
             _pollers.Add(rabbitMqSubscription, poller);
         }
 

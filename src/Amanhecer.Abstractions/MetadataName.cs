@@ -44,7 +44,10 @@ public static class MetadataName
     /// handling the consumed message expects.
     /// </summary>
     public const string RequestType = "Amanhecer.Messaging.RequestType";
+    
+    public const string OriginalRequest= "Amanhecer.Messaging.Request";
 
     public const string MessageMapperType = "Amanhecer.Messaging.Mapper";
-    public const string Message= "Amanhecer.Messaging.Message";
+    
+    public const string OriginalMessage = "Amanhecer.Messaging.Message";
 }

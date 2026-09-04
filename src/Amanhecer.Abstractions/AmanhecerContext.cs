@@ -69,7 +69,7 @@ public class AmanhecerContext : ICloneable
     /// </summary>
     public bool ContinueOnCapturedContext { get; set; }
 
-    public IEnumerable<AmanhecerMiddlewareOptions>? Middlewares { get; set; }
+    public List<AmanhecerMiddlewareOptions>? Middlewares { get; set; }
 
     /// <inheritdoc/>
     public object Clone()

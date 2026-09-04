@@ -132,7 +132,7 @@ public class AmanhecerPumper(IServiceProvider provider, ILogger<AmanhecerPumper>
                 CorrelationId = message.CorrelationId,
                 Metadata = new Dictionary<string, object?>
                 {
-                    [MetadataName.Message] = message,
+                    [MetadataName.OriginalMessage] = message,
                     [MetadataName.Subscription] = subscription,
                     [MetadataName.MessageMapperType] = subscription.MessageMapperType
                 },

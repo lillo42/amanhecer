@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Exceptions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Abstractions.Options;
+using Amanhecer.ExecutingStrategies;
+using Amanhecer.Messaging.Middlewares;
 using Microsoft.Extensions.Logging;
 
 namespace Amanhecer;
@@ -647,8 +650,17 @@ public partial class AmanhecerDispatcher(
             throw new ArgumentNullException(nameof(context));
         }
 
+        if (!string.IsNullOrEmpty(context.RoutingKey))
+        {
+            context.Metadata[MetadataName.PublicationRoutingKey] = context.RoutingKey;
+        }
+
         context.RoutingKey = "Amanhecer.Messaging.Post";
         context.Request = message;
+        context.CancellationToken = cancellationToken;
+        context.Middlewares ??= [];
+        context.Middlewares.Add(new AmanhecerMiddlewareOptions(typeof(EncodeMiddleware), 0, null));
+
         var pipelines = factory.Create(context);
 
         switch (pipelines.Count)

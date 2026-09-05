@@ -22,10 +22,15 @@ public class RabbitMqProducer(
     IChannel channel
 #endif
 ) : IProducer
-#if NETFRAMEWORK
     , IDisposable
+#if !NETFRAMEWORK
+    , IAsyncDisposable
 #endif
 {
+    // RabbitMQ.Client channels are not thread-safe: every operation on the channel goes
+    // through this lock.
+    private readonly SemaphoreSlim _channelLock = new(1, 1);
+
     /// <summary>Counts messages published successfully.</summary>
     private static readonly Counter<int> SuccessCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
         "amanhecer.message.publish.success",
@@ -46,11 +51,13 @@ public class RabbitMqProducer(
             description: "Duration of message publishing, in seconds.");
 
     /// <inheritdoc />
-    public async ValueTask ProducerAsync(Message message, IPublication publication, AmanhecerContext context)
+    public async ValueTask ProduceAsync(Message message, IPublication publication, AmanhecerContext context)
     {
         if (publication is not RabbitMqPublication rabbitMqPublication)
         {
-            throw new ArgumentException();
+            throw new ArgumentException(
+                $"The publication must be a {nameof(RabbitMqPublication)}.",
+                nameof(publication));
         }
 
         // Low-cardinality tags shared by the metrics instruments (OTel messaging conventions).
@@ -59,12 +66,13 @@ public class RabbitMqProducer(
             new("messaging.system", "rabbitmq"),
             new("messaging.operation.type", "publish"),
             new("messaging.destination.name", rabbitMqPublication.Exchange!.Name),
-            new("messaging.rabbitmq.destination.routing_key", publication.RoutingKey),
         }.ToArray();
 
         // Per-message values are high-cardinality, so they go on the span only, never on metrics.
+        // The routing key is span-only too: on topic exchanges it can take unbounded values.
         var spanTags = new List<KeyValuePair<string, object?>>(metricTags)
         {
+            new("messaging.rabbitmq.destination.routing_key", publication.RoutingKey),
             new("messaging.message.id", message.Id),
             new("messaging.message.conversation_id", message.CorrelationId),
             new("cloudevents.event_id", message.Id),
@@ -84,18 +92,27 @@ public class RabbitMqProducer(
         message.Enrich(activity);
 
         SetCloudEventHeaders(message, publication);
-        var properties = CreateProperties(message, context, rabbitMqPublication);
 
         var duration = Stopwatch.StartNew();
         try
         {
-            await PublishAsync(rabbitMqPublication.Exchange!.Name,
-                    rabbitMqPublication.RabbitMqRoutingKey,
-                    rabbitMqPublication.Mandatory,
-                    properties,
-                    message.Payload,
-                    context.CancellationToken)
-                .ConfigureAwait(context.ContinueOnCapturedContext);
+            var properties = CreateProperties(message, context, rabbitMqPublication);
+
+            await _channelLock.WaitAsync(context.CancellationToken);
+            try
+            {
+                await PublishAsync(rabbitMqPublication.Exchange!.Name,
+                        rabbitMqPublication.RabbitMqRoutingKey,
+                        rabbitMqPublication.Mandatory,
+                        properties,
+                        message.Payload,
+                        context.CancellationToken)
+                    .ConfigureAwait(context.ContinueOnCapturedContext);
+            }
+            finally
+            {
+                _channelLock.Release();
+            }
 
             duration.Stop();
             SuccessCounter.Add(1, metricTags);
@@ -110,7 +127,7 @@ public class RabbitMqProducer(
 #if !NET8_0
             activity?.AddException(e);
 #endif
-            activity?.SetStatus(ActivityStatusCode.Error);
+            activity?.SetStatus(ActivityStatusCode.Error, e.Message);
 
             throw;
         }
@@ -127,13 +144,13 @@ public class RabbitMqProducer(
         {
             return;
         }
-        
+
         Set(message, "cloudEvents:id", message.Id);
-        Set(message, "cloudEvents:source", message.Source);
+        Set(message, "cloudEvents:source", message.Source?.ToString());
         Set(message, "cloudEvents:specversion", message.SpecVersion);
         Set(message, "cloudEvents:type", message.Type);
         Set(message, "cloudEvents:datacontenttype", message.ContentType?.ToString());
-        Set(message, "cloudEvents:dataschema", message.DataSchema);
+        Set(message, "cloudEvents:dataschema", message.DataSchema?.ToString());
         Set(message, "cloudEvents:subject", message.Subject);
         Set(message, "cloudEvents:time", message.Time.ToString("O"));
         Set(message, "cloudEvents:baggage", message.Baggage?.ToString());
@@ -149,10 +166,14 @@ public class RabbitMqProducer(
             }
 
             var headers = message.Headers;
+#if NETFRAMEWORK || NETSTANDARD
             if (!headers.ContainsKey(key))
             {
                 headers.Add(key, value);
             }
+#else
+            headers.TryAdd(key, value);
+#endif
         }
     }
 
@@ -202,7 +223,8 @@ public class RabbitMqProducer(
         return properties;
     }
 #else
-    private static BasicProperties CreateProperties(Message message, AmanhecerContext context, RabbitMqPublication publication)
+    private static BasicProperties CreateProperties(Message message, AmanhecerContext context,
+        RabbitMqPublication publication)
     {
         var properties = new BasicProperties
         {
@@ -248,11 +270,19 @@ public class RabbitMqProducer(
 #endif
 
 
-#if NETFRAMEWORK
     /// <inheritdoc />
     public void Dispose()
     {
         channel.Dispose();
+        _channelLock.Dispose();
+    }
+
+#if !NETFRAMEWORK
+    /// <inheritdoc />
+    public async ValueTask DisposeAsync()
+    {
+        await channel.DisposeAsync();
+        _channelLock.Dispose();
     }
 #endif
 }

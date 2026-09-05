@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Exceptions;
 using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Abstractions.Messaging;
 
@@ -40,11 +41,20 @@ public class JsonMessageMapper<
     /// <inheritdoc />
     public override ValueTask<TRequests> ToRequestAsync(Message message, AmanhecerContext context)
     {
+        try
+        {
 #pragma warning disable IL3050
 #pragma warning disable IL2026
-        return new ValueTask<TRequests>(JsonSerializer.Deserialize<TRequests>(message.Payload.Span, options)!);
+            return new ValueTask<TRequests>(JsonSerializer.Deserialize<TRequests>(message.Payload.Span, options)!);
 #pragma warning restore IL2026
 #pragma warning restore IL3050
+        }
+        catch (Exception exception) when (exception is JsonException or NotSupportedException)
+        {
+            throw new InvalidMessageException(
+                $"The message payload could not be deserialised to '{typeof(TRequests).FullName}'.",
+                exception);
+        }
     }
 }
 
@@ -94,10 +104,19 @@ public class JsonMessageMapper : IMessageMapper
     {
         var requestType = context.GetRequiredMetadata<Type>(MetadataName.RequestType);
 
+        try
+        {
 #pragma warning disable IL2026
 #pragma warning disable IL3050
-        return new ValueTask<object>(JsonSerializer.Deserialize(message.Payload.Span, requestType, _options)!);
+            return new ValueTask<object>(JsonSerializer.Deserialize(message.Payload.Span, requestType, _options)!);
 #pragma warning restore IL3050
 #pragma warning restore IL2026
+        }
+        catch (Exception exception) when (exception is JsonException or NotSupportedException)
+        {
+            throw new InvalidMessageException(
+                $"The message payload could not be deserialised to '{requestType.FullName}'.",
+                exception);
+        }
     }
 }

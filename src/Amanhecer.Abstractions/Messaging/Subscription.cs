@@ -1,5 +1,7 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Mime;
+using Amanhecer.Abstractions.Exceptions;
 
 namespace Amanhecer.Abstractions.Messaging;
 
@@ -12,8 +14,8 @@ public abstract class Subscription(string toRoutingKey) : ISubscription
     /// <inheritdoc cref="ISubscription.Name"/>
     public string Name { get; set; } = Uuid.NewGuid().ToString();
 
-    /// <inheritdoc cref="ISubscription.NumberOfConsumer"/>
-    public int NumberOfConsumer { get; set; } = 1;
+    /// <inheritdoc cref="ISubscription.NumberOfConsumers"/>
+    public int NumberOfConsumers { get; set; } = 1;
 
     /// <inheritdoc cref="ISubscription.BufferSize"/>
     public int BufferSize { get; set; } = 1;
@@ -52,10 +54,11 @@ public abstract class Subscription(string toRoutingKey) : ISubscription
     public string DefaultType { get; set; } = "default";
 
     /// <inheritdoc cref="ISubscription.MessageMapperType" />
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     public Type? MessageMapperType { get; set; }
 
     /// <inheritdoc cref="ISubscription.Provisioner" />
-    public ISubscriptionProvisoner? Provisioner { get; set; }
+    public ISubscriptionProvisioner? Provisioner { get; set; }
 
     /// <inheritdoc cref="ISubscription.DeadLetterQueueRoutingKey" />
     public string? DeadLetterQueueRoutingKey { get; set; }
@@ -71,8 +74,8 @@ public abstract class Subscription(string toRoutingKey) : ISubscription
     {
         return ex switch
         {
-            // InvalidMessageException => ConsumerActionOnError.MoveToInvalidMessage,
-            _ => Defer.Instance
+            InvalidMessageException => MoveToInvalidConsumerAction.Instance,
+            _ => new Defer(TimeSpan.FromSeconds(5))
         };
     };
 }

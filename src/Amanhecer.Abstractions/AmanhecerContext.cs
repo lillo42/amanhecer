@@ -69,6 +69,9 @@ public class AmanhecerContext : ICloneable
     /// </summary>
     public bool ContinueOnCapturedContext { get; set; }
 
+    /// <summary>
+    /// Gets the additional middlewares to prepend to the pipelines resolved for this context.
+    /// </summary>
     public List<AmanhecerMiddlewareOptions>? Middlewares { get; set; }
 
     /// <inheritdoc/>
@@ -85,7 +88,9 @@ public class AmanhecerContext : ICloneable
             Response = Response,
             RequestId = RequestId,
             ContinueOnCapturedContext = ContinueOnCapturedContext,
-            RoutingKey = RoutingKey
+            RoutingKey = RoutingKey,
+            Middlewares = Middlewares == null ? null : [.. Middlewares],
+            ExecutingStrategy = ExecutingStrategy
         };
     }
 }

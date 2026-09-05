@@ -35,6 +35,7 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
     /// </summary>
     public List<AmanhecerTransformerOptions> GlobalTransformers { get; } = [];
 
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     private Type? _defaultMessageMapperType;
 
     /// <summary>
@@ -83,7 +84,7 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
     /// <param name="pipelineName">The name of the transformer pipeline.</param>
     /// <param name="options">The transformers that compose the pipeline.</param>
     /// <returns>The current configurator, for chaining.</returns>
-    /// <exception cref="NotImplementedException">
+    /// <exception cref="InvalidOperationException">
     /// Thrown when a pipeline with the same name has already been added.
     /// </exception>
     public AmanhecerMessagingConfigurator AddTransformerPipeline(
@@ -92,7 +93,8 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
     {
         if (TransformerPipeline.ContainsKey(pipelineName))
         {
-            throw new NotImplementedException();
+            throw new InvalidOperationException(
+                $"A transformer pipeline named '{pipelineName}' is already registered; pipeline names must be unique.");
         }
 
         TransformerPipeline[pipelineName] =
@@ -112,7 +114,8 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
     /// </summary>
     /// <typeparam name="TTransformer">The transformer implementation type.</typeparam>
     /// <param name="order">The position of the transformer in the pipeline; lower values run first.</param>
-    /// <param name="metadata">Optional metadata passed to the transformer on initialisation.</param>
+    /// <param name="metadata">Optional metadata stored in the pipeline context's
+    /// <see cref="Amanhecer.Abstractions.AmanhecerContext.Metadata"/> when the transformer is created.</param>
     /// <returns>The current configurator, for chaining.</returns>
     public AmanhecerMessagingConfigurator AddGlobalTransformer<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
@@ -131,7 +134,8 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
     /// </summary>
     /// <param name="transformerType">The transformer implementation type.</param>
     /// <param name="order">The position of the transformer in the pipeline; lower values run first.</param>
-    /// <param name="metadata">Optional metadata passed to the transformer on initialisation.</param>
+    /// <param name="metadata">Optional metadata stored in the pipeline context's
+    /// <see cref="Amanhecer.Abstractions.AmanhecerContext.Metadata"/> when the transformer is created.</param>
     /// <returns>The current configurator, for chaining.</returns>
     public AmanhecerMessagingConfigurator AddGlobalTransformer(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
@@ -154,7 +158,8 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
     /// Runs the gateway's provisioner (see <see cref="IGateway.ProvisionerAsync"/>), then adds the
     /// gateway to <see cref="Gateways"/> and registers it as a singleton in <see cref="Services"/>.
     /// Publications and subscriptions without a message mapper fall back to the default
-    /// configured via <see cref="DefaultMessageMapper(Type)"/>.
+    /// configured via <see cref="DefaultMessageMapper(Type)"/>, and every configured message
+    /// mapper type is registered in <see cref="Services"/> so it can be resolved at runtime.
     /// </summary>
     /// <param name="gateway">The gateway to register.</param>
     /// <returns>The current configurator, for chaining.</returns>
@@ -163,6 +168,22 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
         gateway.ProvisionerAsync().GetAwaiter().GetResult();
 
         ApplyDefaultMessageMapper(gateway);
+
+        foreach (var publication in gateway.Publications)
+        {
+            if (publication.MessageMapperType != null)
+            {
+                Services.TryAddTransient(publication.MessageMapperType);
+            }
+        }
+
+        foreach (var subscription in gateway.Subscriptions)
+        {
+            if (subscription.MessageMapperType != null)
+            {
+                Services.TryAddTransient(subscription.MessageMapperType);
+            }
+        }
 
         Gateways.Add(gateway);
         Services.AddSingleton(gateway);
@@ -183,10 +204,7 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
 
         foreach (var subscription in gateway.Subscriptions)
         {
-            if (subscription.MessageMapperType is null && subscription is Subscription concrete)
-            {
-                concrete.MessageMapperType = _defaultMessageMapperType;
-            }
+            subscription.MessageMapperType ??= _defaultMessageMapperType;
         }
     }
 }

@@ -8,6 +8,7 @@ using Amanhecer.Abstractions.Messaging;
 using Amanhecer.Configurator;
 using Amanhecer.ExecutingStrategies;
 using Amanhecer.Messaging;
+using Amanhecer.Messaging.Handlers;
 using Amanhecer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -48,9 +49,28 @@ public static class ServiceCollectionExtensions
         services.TryAddTransient<IEncodeTransformerFactory, AmanhecerEncodeTransformerFactory>();
         services.TryAddTransient<IDecodeTransformerFactory, AmanhecerDecodeTransformerFactory>();
         services.TryAddTransient<IMessageMapperFactory, AmanhecerMessageMapperFactory>();
+        services.TryAddTransient<IMessagePumper, AmanhecerPumper>();
+        services.TryAddSingleton<IMessagePumperFactory, AmanhecerMessagePumperFactory>();
+        services.TryAddTransient<JsonMessageMapper>();
 
         var cfg = new AmanhecerConfigurator(services);
         configure?.Invoke(cfg);
+
+        // Publications and subscriptions without a message mapper fall back to the JSON mapper.
+        foreach (var gateway in cfg.Gateways)
+        {
+            foreach (var publication in gateway.Publications)
+            {
+                publication.MessageMapperType ??= typeof(JsonMessageMapper);
+            }
+
+            foreach (var subscription in gateway.Subscriptions)
+            {
+                subscription.MessageMapperType ??= typeof(JsonMessageMapper);
+            }
+        }
+
+        cfg.AddRoutingKey("Amanhecer.Messaging.Post", routing => routing.UseHandler<PostMessageHandler>());
 
         var routing = cfg.RoutingConfigurators
             .GroupBy(x => x.RoutingKey)

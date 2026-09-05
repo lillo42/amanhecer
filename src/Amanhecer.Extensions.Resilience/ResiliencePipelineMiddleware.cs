@@ -26,20 +26,29 @@ public class ResiliencePipelineAttribute(string pipelineName, int order)
 }
 
 /// <summary>
+/// The middleware metadata that carries the resilience pipeline name when
+/// <see cref="ResiliencePipelineMiddleware"/> is registered fluently, for example
+/// <c>Use&lt;ResiliencePipelineMiddleware&gt;(order, new ResiliencePipelineMetadata("myPipeline"))</c>.
+/// </summary>
+/// <param name="PipelineName">The name of the resilience pipeline to execute, as registered in
+/// the <see cref="ResiliencePipelineProvider{TKey}"/>.</param>
+public record ResiliencePipelineMetadata(string PipelineName);
+
+/// <summary>
 /// Middleware that executes the remainder of the pipeline inside a Polly
 /// <see cref="ResiliencePipeline"/> resolved by name from a
 /// <see cref="ResiliencePipelineProvider{TKey}"/>.
 /// </summary>
 /// <remarks>
-/// The pipeline name is supplied via the middleware metadata: either as a string when registering
-/// the middleware fluently (for example, <c>Use&lt;ResiliencePipelineMiddleware&gt;(order, "myPipeline")</c>),
+/// The pipeline name is supplied via the middleware metadata: either as a
+/// <see cref="ResiliencePipelineMetadata"/> when registering the middleware fluently,
 /// or via <see cref="ResiliencePipelineAttribute"/> on the handler class or method.
-/// If <see cref="AmanhecerPipelineContext.Metadata"/> contains a Polly <see cref="Polly.ResilienceContext"/>
+/// If <see cref="AmanhecerContext.Metadata"/> contains a Polly <see cref="Polly.ResilienceContext"/>
 /// under the key <see cref="ResilienceContext"/>, that context is used; otherwise a context is
 /// rented from the pool, carrying the pipeline context's cancellation token. The execution is
 /// enriched with <see cref="RequestMetadata"/> (the request type name) so that resilience telemetry
 /// registered via <c>AddResilienceEnricher()</c> includes it. The cancellation token provided by
-/// Polly replaces the token carried by the cloned pipeline context passed to the next middleware.
+/// Polly replaces the token carried by the pipeline context passed to the next middleware.
 /// </remarks>
 public class ResiliencePipelineMiddleware(ResiliencePipelineProvider<string> provider) : IMiddleware
 {
@@ -49,9 +58,6 @@ public class ResiliencePipelineMiddleware(ResiliencePipelineProvider<string> pro
     /// </summary>
     public const string ResilienceContext = "Amanhecer.Extensions.Resilience.ResilienceContext";
 
-
-    public const string PipelineName = "Amanhecer.Extensions.Resilience.PipelineName";
-
     /// <summary>
     /// Executes the rest of the pipeline inside the configured resilience pipeline.
     /// </summary>
@@ -59,16 +65,17 @@ public class ResiliencePipelineMiddleware(ResiliencePipelineProvider<string> pro
     /// <param name="next">The next middleware in the pipeline.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the resilience pipeline execution,
     /// including any retries, completes.</returns>
-    /// <exception cref="InvalidOperationException">The middleware was not initialised with a
-    /// resilience pipeline name.</exception>
+    /// <exception cref="InvalidOperationException">No resilience pipeline name was supplied via
+    /// middleware metadata or <see cref="ResiliencePipelineAttribute"/>.</exception>
     public async ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
     {
         var pipelineName = GetPipelineName(context);
         if (string.IsNullOrEmpty(pipelineName))
         {
             throw new InvalidOperationException(
-                $"The middleware '{nameof(ResiliencePipelineMiddleware)}' was not initialised with a resilience pipeline name. " +
-                "Ensure Initialize was called with the pipeline name before executing the middleware.");
+                $"The middleware '{nameof(ResiliencePipelineMiddleware)}' requires a resilience pipeline name: " +
+                $"register it with a '{nameof(ResiliencePipelineMetadata)}' as metadata (for example, Use<{nameof(ResiliencePipelineMiddleware)}>(order, new {nameof(ResiliencePipelineMetadata)}(\"myPipeline\"))) " +
+                $"or annotate the handler with '{nameof(ResiliencePipelineAttribute)}'.");
         }
 
         var pipeline = provider.GetPipeline(pipelineName!);
@@ -106,13 +113,7 @@ public class ResiliencePipelineMiddleware(ResiliencePipelineProvider<string> pro
             return attribute.PipelineName;
         }
 
-        attribute = context.GetMetadata<ResiliencePipelineAttribute>(PipelineName);
-        if (attribute != null)
-        {
-            return attribute.PipelineName;
-        }
-
-        return context.GetMetadata<string>(PipelineName);
+        return context.GetMetadata<ResiliencePipelineMetadata>()?.PipelineName;
     }
 
     private static async ValueTask ExecuteNextAsync(
@@ -121,7 +122,6 @@ public class ResiliencePipelineMiddleware(ResiliencePipelineProvider<string> pro
         CancellationToken cancellationToken)
     {
         var tmp = context.CancellationToken;
-
         try
         {
             context.CancellationToken = cancellationToken;

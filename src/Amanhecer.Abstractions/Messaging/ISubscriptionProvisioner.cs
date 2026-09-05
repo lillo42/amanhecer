@@ -6,7 +6,7 @@ namespace Amanhecer.Abstractions.Messaging;
 /// Provisions the transport resources (queues, bindings, ...) a subscription needs
 /// before messages can be consumed from it.
 /// </summary>
-public interface ISubscriptionProvisoner
+public interface ISubscriptionProvisioner
 {
    /// <summary>
    /// Provisions the transport resources required by the subscription.

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Threading;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Metadatas;
 using Amanhecer.Abstractions.Options;
 using Amanhecer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,7 +28,8 @@ public class AmanhecerRoutingConfigurator(string routingKey, IServiceCollection 
     /// </summary>
     /// <typeparam name="TMiddleware">The middleware type.</typeparam>
     /// <param name="order">The execution order within the pipeline; lower values run first.</param>
-    /// <param name="metadata">Optional metadata passed to the middleware on initialisation.</param>
+    /// <param name="metadata">Optional metadata stored in the pipeline context's
+    /// <see cref="AmanhecerContext.Metadata"/> when the middleware is created.</param>
     /// <returns>The current <see cref="AmanhecerRoutingConfigurator"/>, for chaining.</returns>
     public AmanhecerRoutingConfigurator Use<
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
@@ -43,7 +45,8 @@ public class AmanhecerRoutingConfigurator(string routingKey, IServiceCollection 
     /// </summary>
     /// <param name="middlewareType">The middleware type.</param>
     /// <param name="order">The execution order within the pipeline; lower values run first.</param>
-    /// <param name="metadata">Optional metadata passed to the middleware on initialisation.</param>
+    /// <param name="metadata">Optional metadata stored in the pipeline context's
+    /// <see cref="AmanhecerContext.Metadata"/> when the middleware is created.</param>
     /// <returns>The current <see cref="AmanhecerRoutingConfigurator"/>, for chaining.</returns>
     public AmanhecerRoutingConfigurator Use(
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
@@ -160,7 +163,7 @@ public class AmanhecerRoutingConfigurator(string routingKey, IServiceCollection 
     /// <returns>The routing options for this pipeline.</returns>
     public AmanhecerRoutingOptions ToOptions()
     {
-        Use<ExecuteHandlerMiddleware>(int.MaxValue, _handlerType);
+        Use<ExecuteHandlerMiddleware>(int.MaxValue, new HandleTypeMetadata(_handlerType!));
         return new AmanhecerRoutingOptions(routingKey, _middlewareOption
             .OrderBy(x => x.Order));
     }

@@ -1,13 +1,13 @@
 using System.Threading;
 using System.Threading.Tasks;
-using Amanhecer.Abstractions;
-using Amanhecer.Abstractions.Messaging;
 
-namespace Amanhecer.Messaging;
+namespace Amanhecer.Abstractions.Messaging;
 
 /// <summary>
 /// A <see cref="IResolvingConsumerAction"/> that reposts the message to the subscription's
-/// dead-letter queue routing key and then acknowledges it.
+/// dead-letter queue routing key and then acknowledges it. When the subscription has no
+/// <see cref="ISubscription.DeadLetterQueueRoutingKey"/> configured, the message cannot be
+/// moved and the action degrades to a <see cref="Defer"/>.
 /// </summary>
 public class MoveToDeadLetterQueueConsumerAction : IResolvingConsumerAction
 {
@@ -22,13 +22,15 @@ public class MoveToDeadLetterQueueConsumerAction : IResolvingConsumerAction
         IDispatcher dispatcher,
         CancellationToken cancellationToken = default)
     {
-        if (subscription.DeadLetterQueueRoutingKey != null)
+        if (subscription.DeadLetterQueueRoutingKey == null)
         {
-            await dispatcher.PostAsync(message, new AmanhecerContext
-            {
-                RoutingKey = subscription.DeadLetterQueueRoutingKey
-            }, cancellationToken);
+            return Defer.Instance;
         }
+
+        await dispatcher.PostAsync(message, new AmanhecerContext
+        {
+            RoutingKey = subscription.DeadLetterQueueRoutingKey
+        }, cancellationToken);
 
         return Ack.Instance;
     }

@@ -54,11 +54,6 @@ public class AmanhecerTelemetryMiddleware : IMiddleware
             unit: "s",
             description: "Duration of request processing, in seconds.");
 
-    /// <inheritdoc />
-    public void Initialize(object? metadata)
-    {
-    }
-
     /// <summary>
     /// Starts a span named <c>{routing key} process</c>, tags it and the metrics with the routing key,
     /// request type, executing strategy and <see cref="AmanhecerContext.TelemetryTags"/>, then invokes

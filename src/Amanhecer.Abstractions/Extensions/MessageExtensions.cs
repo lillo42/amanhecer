@@ -33,6 +33,19 @@ public static class MessageExtensions
             message.TraceParent = activity.Id;
         }
 
-        message.Baggage ??= new Baggage(activity.Baggage);
+        if (message.Baggage == null)
+        {
+            message.Baggage = new Baggage(activity.Baggage);
+        }
+        else
+        {
+            foreach (var item in activity.Baggage)
+            {
+                if (!message.Baggage.ContainsKey(item.Key))
+                {
+                    message.Baggage.Add(item.Key, item.Value);
+                }
+            }
+        }
     }
 }

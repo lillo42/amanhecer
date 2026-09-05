@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Mime;
 
 namespace Amanhecer.Abstractions.Messaging;
@@ -46,6 +47,7 @@ public abstract class Publication : IPublication
     public string? DefaultType { get; set; }
 
     /// <inheritdoc cref="IPublication.MessageMapperType"/>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     public Type? MessageMapperType { get; set; }
 
     /// <inheritdoc cref="IPublication.Provisioner"/>

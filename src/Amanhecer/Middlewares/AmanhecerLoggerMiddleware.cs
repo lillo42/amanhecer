@@ -20,11 +20,6 @@ public class RequestLoggingAttribute(int order) : MiddlewareAttribute<AmanhecerL
 /// <param name="logger">The logger to write the request logs to.</param>
 public partial class AmanhecerLoggerMiddleware(ILogger<AmanhecerLoggerMiddleware> logger) : IMiddleware
 {
-    /// <inheritdoc />
-    public void Initialize(object? metadata)
-    {
-    }
-
     /// <summary>
     /// Logs <c>Processing</c>/<c>Processed</c>/<c>Cancelled</c>/<c>Failed</c> for the request,
     /// scoped with the routing key and request type, then invokes the rest of the pipeline.

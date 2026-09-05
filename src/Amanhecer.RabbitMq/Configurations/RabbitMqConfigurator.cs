@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Amanhecer.Abstractions.Messaging;
-using RabbitMQ.Client;
 
 namespace Amanhecer.RabbitMq.Configurations;
 
@@ -11,7 +11,7 @@ namespace Amanhecer.RabbitMq.Configurations;
 /// </summary>
 public class RabbitMqConfigurator
 {
-    private ConnectionFactory? _connectionFactory;
+    private RabbitMqConnectionConfigurator? _connection;
 
     /// <summary>
     /// Configures the connection to the RabbitMQ broker.
@@ -23,8 +23,7 @@ public class RabbitMqConfigurator
         var cfg = new RabbitMqConnectionConfigurator();
         configure.Invoke(cfg);
 
-        _connectionFactory = new ConnectionFactory();
-        cfg.ApplyTo(_connectionFactory);
+        _connection = cfg;
         return this;
     }
 
@@ -61,6 +60,7 @@ public class RabbitMqConfigurator
         return this;
     }
 
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     private Type? _defaultMessageMapperType;
 
     /// <summary>
@@ -71,7 +71,9 @@ public class RabbitMqConfigurator
     /// <returns>The configurator instance for method chaining.</returns>
     /// <exception cref="ArgumentException">Thrown when <paramref name="messageMapper"/> does
     /// not implement <see cref="IMessageMapper"/>.</exception>
-    public RabbitMqConfigurator DefaultMessageMapper(Type messageMapper)
+    public RabbitMqConfigurator DefaultMessageMapper(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+        Type messageMapper)
     {
         if (!typeof(IMessageMapper).IsAssignableFrom(messageMapper))
         {
@@ -90,7 +92,9 @@ public class RabbitMqConfigurator
     /// </summary>
     /// <typeparam name="TMapper">The default message mapper implementation type.</typeparam>
     /// <returns>The configurator instance for method chaining.</returns>
-    public RabbitMqConfigurator DefaultMessageMapper<TMapper>() where TMapper : IMessageMapper
+    public RabbitMqConfigurator DefaultMessageMapper<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+        TMapper>() where TMapper : IMessageMapper
     {
         _defaultMessageMapperType = typeof(TMapper);
         return this;
@@ -100,11 +104,18 @@ public class RabbitMqConfigurator
     {
         ApplyDefaultMessageMapper();
 
-        return new RabbitMqGateway
+        var gateway = new RabbitMqGateway
         {
             Publications = _publications,
             Subscriptions = _subscriptions
         };
+
+        if (_connection is not null)
+        {
+            gateway.Configure = _connection.ApplyTo;
+        }
+
+        return gateway;
     }
 
     private void ApplyDefaultMessageMapper()

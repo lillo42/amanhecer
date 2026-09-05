@@ -43,7 +43,7 @@ internal sealed class DynamicallyAccessedMembersAttribute : Attribute
     }
 
     /// <summary>
-    /// Gets the <see cref="DynamicallyAccessedMemberTypes"/> which specifies the type
+    /// Gets the <c>DynamicallyAccessedMemberTypes</c> which specifies the type
     /// of members dynamically accessed.
     /// </summary>
     public DynamicallyAccessedMemberTypes MemberTypes { get; }

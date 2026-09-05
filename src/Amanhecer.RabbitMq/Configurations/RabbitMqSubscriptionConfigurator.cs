@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
 using Amanhecer.RabbitMq.Provisioners;
@@ -67,6 +68,7 @@ public class RabbitMqSubscriptionConfigurator
         return this;
     }
 
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     private Type? _messageMapperType;
 
     /// <summary>
@@ -75,7 +77,9 @@ public class RabbitMqSubscriptionConfigurator
     /// </summary>
     /// <param name="mapper">The message mapper implementation type.</param>
     /// <returns>The configurator instance for method chaining.</returns>
-    public RabbitMqSubscriptionConfigurator MessageMapper(Type mapper)
+    public RabbitMqSubscriptionConfigurator MessageMapper(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+        Type mapper)
     {
         _messageMapperType = mapper;
         return this;
@@ -87,35 +91,37 @@ public class RabbitMqSubscriptionConfigurator
     /// </summary>
     /// <typeparam name="TMapper">The message mapper implementation type.</typeparam>
     /// <returns>The configurator instance for method chaining.</returns>
-    public RabbitMqSubscriptionConfigurator MessageMapper<TMapper>() where TMapper : IMessageMapper
+    public RabbitMqSubscriptionConfigurator MessageMapper<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+        TMapper>() where TMapper : IMessageMapper
     {
         _messageMapperType = typeof(TMapper);
         return this;
     }
 
-    private int _numberOfConsumer;
+    private int _numberOfConsumers = 1;
 
     /// <summary>
-    /// Sets the number of consumers reading from the subscription's queue.
+    /// Sets the number of consumers reading from the subscription's queue. Defaults to <c>1</c>.
     /// </summary>
-    /// <param name="numberOfConsumer">The number of consumers.</param>
+    /// <param name="numberOfConsumers">The number of consumers.</param>
     /// <returns>The configurator instance for method chaining.</returns>
-    public RabbitMqSubscriptionConfigurator NumberOfConsumer(int numberOfConsumer)
+    public RabbitMqSubscriptionConfigurator NumberOfConsumers(int numberOfConsumers)
     {
-        if (numberOfConsumer < 0)
+        if (numberOfConsumers < 0)
         {
-            throw new ArgumentOutOfRangeException(nameof(numberOfConsumer),
+            throw new ArgumentOutOfRangeException(nameof(numberOfConsumers),
                 "Number of consumers cannot be negative.");
         }
 
-        _numberOfConsumer = numberOfConsumer;
+        _numberOfConsumers = numberOfConsumers;
         return this;
     }
 
-    private int _bufferSize;
+    private int _bufferSize = 1;
 
     /// <summary>
-    /// Sets the size of the buffer of messages prefetched by each consumer.
+    /// Sets the size of the buffer of messages prefetched by each consumer. Defaults to <c>1</c>.
     /// </summary>
     /// <param name="bufferSize">The buffer size.</param>
     /// <returns>The configurator instance for method chaining.</returns>
@@ -248,7 +254,7 @@ public class RabbitMqSubscriptionConfigurator
         return this;
     }
 
-    private ISubscriptionProvisoner? _provisioner;
+    private ISubscriptionProvisioner? _provisioner;
 
     /// <summary>
     /// Sets the provisioner that creates the transport resources (queue, bindings, ...) this
@@ -256,7 +262,7 @@ public class RabbitMqSubscriptionConfigurator
     /// </summary>
     /// <param name="provisioner">The subscription provisioner.</param>
     /// <returns>The configurator instance for method chaining.</returns>
-    public RabbitMqSubscriptionConfigurator Provisioner(ISubscriptionProvisoner provisioner)
+    public RabbitMqSubscriptionConfigurator Provisioner(ISubscriptionProvisioner provisioner)
     {
         _provisioner = provisioner;
         return this;
@@ -315,7 +321,7 @@ public class RabbitMqSubscriptionConfigurator
         {
             Name = _name ?? Uuid.NewGuid().ToString(),
             MessageMapperType = _messageMapperType,
-            NumberOfConsumer = _numberOfConsumer,
+            NumberOfConsumers = _numberOfConsumers,
             BufferSize = _bufferSize,
             PrefetchSize = (uint)_prefetchSize,
             DefaultSpecVersion = _defaultSpecVersion,

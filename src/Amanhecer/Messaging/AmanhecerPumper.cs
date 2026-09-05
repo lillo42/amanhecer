@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
@@ -13,10 +14,32 @@ using Microsoft.Extensions.Logging;
 namespace Amanhecer.Messaging;
 
 /// <summary>
-/// 
+/// The default <see cref="IMessagePumper"/>: polls an <see cref="IConsumer"/> for messages,
+/// dispatches each one through the pipeline of the consumer's subscription and settles it
+/// (ack, nack or defer) according to the result, until cancellation is requested.
 /// </summary>
-public class AmanhecerPumper(IServiceProvider provider, ILogger<AmanhecerPumper> logger) : IMessagePumper
+/// <param name="provider">The service provider used to create a scope per received batch.</param>
+/// <param name="logger">The logger used to record pump failures.</param>
+public partial class AmanhecerPumper(IServiceProvider provider, ILogger<AmanhecerPumper> logger) : IMessagePumper
 {
+    /// <summary>Counts consumed messages whose processing settled successfully.</summary>
+    private static readonly Counter<int> ConsumerSuccessCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
+        "amanhecer.message.process.success",
+        unit: "{message}",
+        description: "Number of consumed messages whose processing settled successfully.");
+
+    /// <summary>Counts consumed messages whose processing failed with an exception.</summary>
+    private static readonly Counter<int> ConsumerFailedCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
+        "amanhecer.message.process.failed",
+        unit: "{message}",
+        description: "Number of consumed messages whose processing failed with an exception.");
+
+    /// <summary>Records how long processing a consumed message took, in seconds.</summary>
+    private static readonly Histogram<double> ConsumerDuration = AmanhecerDiagnostics.Meter.CreateHistogram<double>(
+        "amanhecer.message.process.duration",
+        unit: "s",
+        description: "Duration of consumed message processing, in seconds.");
+    
     /// <inheritdoc/>
     public async Task ExecuteAsync(IConsumer consumer, CancellationToken cancellationToken = default)
     {
@@ -34,16 +57,22 @@ public class AmanhecerPumper(IServiceProvider provider, ILogger<AmanhecerPumper>
                     cts.CancelAfter(subscription.ReceiveMessageTimeout);
                 }
 
-                var messages = await ReceiveMessagesAsync(consumer, cancellationToken);
+                var messages = await ReceiveMessagesAsync(consumer, cts.Token);
                 if (messages.Length == 0 && subscription.NoMessageDelay != TimeSpan.Zero)
                 {
                     await Task.Delay(subscription.NoMessageDelay, cancellationToken);
                 }
 
-                await ProcessesAsync(consumer, messages, cancellationToken);
+                await ProcessesAsync(consumer, subscription, messages, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                break;
             }
             catch (Exception e)
             {
+                Logger.PumpFailed(logger, subscription.Name, e);
+
                 if (subscription.FailureDelay != TimeSpan.Zero)
                 {
                     await Task.Delay(subscription.FailureDelay, cancellationToken);
@@ -52,18 +81,40 @@ public class AmanhecerPumper(IServiceProvider provider, ILogger<AmanhecerPumper>
         }
     }
 
-    private async Task ProcessesAsync(IConsumer consumer, IEnumerable<Message> messages,
+    private async Task ProcessesAsync(IConsumer consumer,
+        ISubscription subscription,
+        IEnumerable<Message> messages,
         CancellationToken cancellationToken)
     {
+        // Low-cardinality tags shared by the metrics instruments (OTel messaging conventions).
+        var metricTags = new List<KeyValuePair<string, object?>>
+        {
+            new("messaging.system", "amanhecer"),
+            new("messaging.operation.type", "process"),
+            new("messaging.destination.name", subscription.Name),
+        }.ToArray();
+
         foreach (var message in messages)
         {
-            var subscription = GetSubscription(message);
+            var parentContext = ActivityContext.TryParse(message.TraceParent, message.TraceState?.ToString(),
+                out var parsed)
+                ? parsed
+                : default;
 
-            var gateway = message.Metadata[MetadataName.MessagingGateway];
-            var activity = AmanhecerDiagnostics.ActivitySource.CreateActivity(
-                "",
+            // Per-message values are high-cardinality, so they go on the span only, never on metrics.
+            var spanTags = new List<KeyValuePair<string, object?>>(metricTags)
+            {
+                new("messaging.message.id", message.Id),
+                new("messaging.message.conversation_id", message.CorrelationId),
+            };
+
+            var activity = AmanhecerDiagnostics.ActivitySource.StartActivity(
+                $"{subscription.Name} process",
                 ActivityKind.Consumer,
-                parentId: message.TraceParent);
+                parentContext,
+                tags: spanTags);
+
+            var duration = Stopwatch.StartNew();
 
             await using var scope = provider.CreateAsyncScope();
             var serviceProvider = scope.ServiceProvider;
@@ -83,6 +134,7 @@ public class AmanhecerPumper(IServiceProvider provider, ILogger<AmanhecerPumper>
                     .ConfigureAwait(subscription.ContinueOnCapturedContext);
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
+                ConsumerSuccessCounter.Add(1, metricTags);
             }
             catch (DeferException deferException)
             {
@@ -90,6 +142,7 @@ public class AmanhecerPumper(IServiceProvider provider, ILogger<AmanhecerPumper>
                     .ConfigureAwait(subscription.ContinueOnCapturedContext);
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
+                ConsumerSuccessCounter.Add(1, metricTags);
             }
             catch (NackException)
             {
@@ -97,6 +150,7 @@ public class AmanhecerPumper(IServiceProvider provider, ILogger<AmanhecerPumper>
                     .ConfigureAwait(subscription.ContinueOnCapturedContext);
 
                 activity?.SetStatus(ActivityStatusCode.Ok);
+                ConsumerSuccessCounter.Add(1, metricTags);
             }
             catch (Exception e)
             {
@@ -110,9 +164,12 @@ public class AmanhecerPumper(IServiceProvider provider, ILogger<AmanhecerPumper>
                 activity?.AddException(e);
 #endif
                 activity?.SetStatus(ActivityStatusCode.Error);
+                ConsumerFailedCounter.Add(1, metricTags);
             }
             finally
             {
+                duration.Stop();
+                ConsumerDuration.Record(duration.Elapsed.TotalSeconds, metricTags);
                 activity?.Stop();
             }
         }
@@ -187,16 +244,6 @@ public class AmanhecerPumper(IServiceProvider provider, ILogger<AmanhecerPumper>
         }
     }
 
-    private static ISubscription GetSubscription(Message message)
-    {
-        if (message.Headers.TryGetValue(MetadataName.Subscription, out var obj) && obj is ISubscription subscription)
-        {
-            return subscription;
-        }
-
-        throw new InvalidOperationException();
-    }
-
     private static async ValueTask<Message[]> ReceiveMessagesAsync(IConsumer consumer,
         CancellationToken cancellationToken)
     {
@@ -208,5 +255,12 @@ public class AmanhecerPumper(IServiceProvider provider, ILogger<AmanhecerPumper>
         {
             return [];
         }
+    }
+
+    private static partial class Logger
+    {
+        [LoggerMessage(LogLevel.Error,
+            "An error occurred while receiving messages from subscription {SubscriptionName}; retrying after the failure delay.")]
+        public static partial void PumpFailed(ILogger logger, string subscriptionName, Exception exception);
     }
 }

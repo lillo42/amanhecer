@@ -130,7 +130,8 @@ public class RabbitMqExchangeConfigurator
         {
             if (string.IsNullOrEmpty(_type))
             {
-                throw new NotImplementedException();
+                throw new InvalidOperationException(
+                    "An exchange type is required to declare the exchange. Call Type to configure it.");
             }
 
             return new CreateIfNotExchange

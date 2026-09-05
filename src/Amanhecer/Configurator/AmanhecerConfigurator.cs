@@ -124,7 +124,7 @@ public class AmanhecerConfigurator(IServiceCollection services)
     /// </summary>
     /// <param name="configure">An action that configures the messaging gateways and transformers.</param>
     /// <returns>The current <see cref="AmanhecerConfigurator"/>, for chaining.</returns>
-    /// <exception cref="NotImplementedException">
+    /// <exception cref="InvalidOperationException">
     /// Thrown when two gateways share the same name or a transformer pipeline name is registered twice.
     /// </exception>
     public AmanhecerConfigurator UsingMessagingGateway(Action<AmanhecerMessagingConfigurator> configure)
@@ -133,16 +133,19 @@ public class AmanhecerConfigurator(IServiceCollection services)
         configure.Invoke(cfg);
         Gateways.AddRange(cfg.Gateways);
 
-        if (HasDuplicated(Gateways))
+        var duplicatedGatewayName = FindDuplicatedName(Gateways);
+        if (duplicatedGatewayName != null)
         {
-            throw new NotImplementedException();
+            throw new InvalidOperationException(
+                $"A gateway named '{duplicatedGatewayName}' is already registered; gateway names must be unique.");
         }
 
         foreach (var keyPairValue in cfg.TransformerPipeline)
         {
             if (TransformerPipelineConfiguration.ContainsKey(keyPairValue.Key))
             {
-                throw new NotImplementedException();
+                throw new InvalidOperationException(
+                    $"A transformer pipeline named '{keyPairValue.Key}' is already registered; pipeline names must be unique.");
             }
 
             TransformerPipelineConfiguration[keyPairValue.Key] = keyPairValue.Value;
@@ -152,18 +155,18 @@ public class AmanhecerConfigurator(IServiceCollection services)
 
         return this;
 
-        static bool HasDuplicated(List<IGateway> gateways)
+        static string? FindDuplicatedName(List<IGateway> gateways)
         {
             var hash = new HashSet<string>();
             foreach (var gateway in gateways)
             {
                 if (!hash.Add(gateway.Name))
                 {
-                    return true;
+                    return gateway.Name;
                 }
             }
 
-            return false;
+            return null;
         }
     }
 

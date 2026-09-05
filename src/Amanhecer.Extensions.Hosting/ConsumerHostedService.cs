@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
@@ -15,15 +16,17 @@ namespace Amanhecer.Extensions.Hosting;
 /// </summary>
 /// <param name="provider">The service provider used to resolve the registered gateways and to
 /// start the consumers.</param>
+/// <param name="pumperFactory">The factory that creates the message pumper driving each consumer.</param>
 public class ConsumerHostedService(IServiceProvider provider, IMessagePumperFactory pumperFactory) : IHostedService
 {
     private CancellationTokenSource? _cancellationTokenSource;
 
     private readonly List<Task> _tasks = [];
-    private readonly List<IMessagePumper> _messagePumpers = [];
 
     /// <summary>
     /// Creates the consumers for all subscriptions of all registered gateways and starts them.
+    /// The gateways are re-resolved on every start, so a service restarted after
+    /// <see cref="StopAsync"/> does not reuse disposed gateway instances.
     /// </summary>
     /// <param name="cancellationToken">A token that signals the start should be aborted.</param>
     /// <returns>A <see cref="Task"/> that completes when all consumers have started.</returns>
@@ -32,25 +35,25 @@ public class ConsumerHostedService(IServiceProvider provider, IMessagePumperFact
         await StopAsync(cancellationToken);
 
         _cancellationTokenSource = new CancellationTokenSource();
-        var gateways = provider.GetServices<IGateway>();
+        var gateways = provider.GetServices<IGateway>().ToArray();
         foreach (var gateway in gateways)
         {
             foreach (var subscription in gateway.Subscriptions)
             {
-                for (var i = 0; i < subscription.NumberOfConsumer; i++)
+                for (var i = 0; i < subscription.NumberOfConsumers; i++)
                 {
                     var consumer = gateway.CreateConsumer(subscription);
                     var pump = pumperFactory.Create();
 
-                    _tasks.Add(pump.ExecuteAsync(consumer, cancellationToken));
-                    _messagePumpers.Add(pump);
+                    _tasks.Add(pump.ExecuteAsync(consumer, _cancellationTokenSource.Token));
                 }
             }
         }
     }
 
     /// <summary>
-    /// Stops all consumers started by this hosted service.
+    /// Stops all consumers started by this hosted service, then disposes the gateways that
+    /// implement <see cref="IDisposable"/> (or <see cref="IAsyncDisposable"/> where available).
     /// </summary>
     /// <param name="cancellationToken">A token that signals the stop should be aborted.</param>
     /// <returns>A <see cref="Task"/> that completes when all consumers have stopped.</returns>
@@ -62,10 +65,16 @@ public class ConsumerHostedService(IServiceProvider provider, IMessagePumperFact
         }
 
         await _cancellationTokenSource.CancelAsync();
-        await Task.WhenAll(_tasks);
+
+        try
+        {
+            await Task.WhenAll(_tasks);
+        }
+        catch (OperationCanceledException)
+        {
+        }
 
         _tasks.Clear();
-        _messagePumpers.Clear();
 
         _cancellationTokenSource.Dispose();
         _cancellationTokenSource = null;

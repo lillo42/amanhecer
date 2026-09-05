@@ -5,10 +5,10 @@ using Amanhecer.Abstractions.Messaging;
 namespace Amanhecer.RabbitMq.Provisioners;
 
 /// <summary>
-/// An <see cref="ISubscriptionProvisoner"/> that declares a queue and binds it to an exchange,
+/// An <see cref="ISubscriptionProvisioner"/> that declares a queue and binds it to an exchange,
 /// creating them if they do not exist yet.
 /// </summary>
-public class CreateQueue : ISubscriptionProvisoner
+public class CreateQueue : ISubscriptionProvisioner
 {
     /// <summary>
     /// Gets or sets the <see cref="RabbitMq.Exchange"/> the queue is bound to.
@@ -50,18 +50,22 @@ public class CreateQueue : ISubscriptionProvisoner
     {
         if (gateway is not RabbitMqGateway rabbitMqGateway)
         {
-            throw new System.NotImplementedException();
+            throw new System.ArgumentException(
+                $"The gateway must be a {nameof(RabbitMqGateway)}.",
+                nameof(gateway));
         }
 
         if (subscription is not RabbitMqSubscription rabbitMqSubscription)
         {
-            throw new System.NotImplementedException();
+            throw new System.ArgumentException(
+                $"The subscription must be a {nameof(RabbitMqSubscription)}.",
+                nameof(subscription));
         }
 
         var connection = await rabbitMqGateway.GetOrCreateAsync();
 
 #if NETFRAMEWORK
-        var channel = connection.CreateModel();
+        using var channel = connection.CreateModel();
         await Exchange.Provisioner.ExecuteAsync(channel, Exchange);
 
         channel.QueueDeclare(rabbitMqSubscription.QueueName,
@@ -72,7 +76,7 @@ public class CreateQueue : ISubscriptionProvisoner
 
         channel.QueueBind(rabbitMqSubscription.QueueName, Exchange.Name, RoutingKey, BindArguments);
 #else
-        var channel = await connection.CreateChannelAsync();
+        await using var channel = await connection.CreateChannelAsync();
         await Exchange.Provisioner.ExecuteAsync(channel, Exchange);
 
         await channel.QueueDeclareAsync(rabbitMqSubscription.QueueName,

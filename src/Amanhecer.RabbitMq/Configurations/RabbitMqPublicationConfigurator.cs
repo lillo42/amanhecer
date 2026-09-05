@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Mime;
 using Amanhecer.Abstractions;
@@ -91,6 +92,7 @@ public class RabbitMqPublicationConfigurator
         return this;
     }
 
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     private Type? _messageMapperType;
 
 
@@ -100,7 +102,9 @@ public class RabbitMqPublicationConfigurator
     /// </summary>
     /// <param name="mapper">The message mapper implementation type.</param>
     /// <returns>The configurator instance for method chaining.</returns>
-    public RabbitMqPublicationConfigurator MessageMapper(Type mapper)
+    public RabbitMqPublicationConfigurator MessageMapper(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+        Type mapper)
     {
         _messageMapperType = mapper;
         return this;
@@ -112,7 +116,9 @@ public class RabbitMqPublicationConfigurator
     /// </summary>
     /// <typeparam name="TMapper">The message mapper implementation type.</typeparam>
     /// <returns>The configurator instance for method chaining.</returns>
-    public RabbitMqPublicationConfigurator MessageMapper<TMapper>() where TMapper : IMessageMapper
+    public RabbitMqPublicationConfigurator MessageMapper<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+        TMapper>() where TMapper : IMessageMapper
     {
         _messageMapperType = typeof(TMapper);
         return this;
@@ -126,7 +132,8 @@ public class RabbitMqPublicationConfigurator
     /// </summary>
     /// <typeparam name="TTransformer">The transformer implementation type.</typeparam>
     /// <param name="order">The position of the transformer in the pipeline; lower values run first.</param>
-    /// <param name="metadata">Optional metadata passed to the transformer on initialisation.</param>
+    /// <param name="metadata">Optional metadata stored in the pipeline context's
+    /// <see cref="AmanhecerContext.Metadata"/> when the transformer is created.</param>
     /// <returns>The configurator instance for method chaining.</returns>
     public RabbitMqPublicationConfigurator Transformer<TTransformer>(int order = 0, object? metadata = null)
         where TTransformer : IEncodeTransformer
@@ -140,7 +147,8 @@ public class RabbitMqPublicationConfigurator
     /// </summary>
     /// <param name="transformerType">The transformer implementation type.</param>
     /// <param name="order">The position of the transformer in the pipeline; lower values run first.</param>
-    /// <param name="metadata">Optional metadata passed to the transformer on initialisation.</param>
+    /// <param name="metadata">Optional metadata stored in the pipeline context's
+    /// <see cref="AmanhecerContext.Metadata"/> when the transformer is created.</param>
     /// <returns>The configurator instance for method chaining.</returns>
     public RabbitMqPublicationConfigurator Transformer(Type transformerType, int order = 0, object? metadata = null)
     {

@@ -14,8 +14,8 @@ public static class ActivityExtensions
     /// </summary>
     /// <remarks>
     /// The trace parent is deliberately not set here: parenting only takes effect when passed to
-    /// <see cref="ActivitySource.StartActivity(ActivityKind, string, ActivityContext, ...)"/> at
-    /// start time, so setting it afterwards would be a silent no-op.
+    /// <c>ActivitySource.StartActivity</c> at start time, so setting it afterwards would be a
+    /// silent no-op.
     /// </remarks>
     /// <param name="activity">The activity to enrich.</param>
     /// <param name="message">The message whose baggage is copied onto the activity.</param>

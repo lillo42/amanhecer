@@ -10,12 +10,12 @@ using Microsoft.Extensions.Logging;
 namespace Amanhecer.Messaging.Transformers;
 
 /// <summary>
-/// Declares that the <see cref="SetCloudEventTransformer"/> applies to the handler method or
-/// class the attribute is placed on, setting the configured CloudEvents attributes on the
-/// outgoing messages.
+/// Declares that the <see cref="SetCloudEventTransformer"/> applies to the messages mapped
+/// by the message mapper type the attribute is placed on, setting the configured CloudEvents
+/// attributes on them.
 /// </summary>
 /// <param name="order">The position of the transformer in the pipeline.</param>
-public class CloudEventAttribute(int order) : TransformeAttribute<SetCloudEventTransformer>(order)
+public class CloudEventAttribute(int order) : TransformerAttribute<SetCloudEventTransformer>(order)
 {
     /// <summary>
     /// Gets or sets the content type set on messages that do not specify one.
@@ -129,13 +129,13 @@ public partial class SetCloudEventTransformer(ILogger<SetCloudEventTransformer> 
 
         if (!string.IsNullOrEmpty(attribute.Source) && message.Source == null)
         {
-            if (Uri.TryCreate(attribute.Source, UriKind.RelativeOrAbsolute, out var dataSchemaUri))
+            if (Uri.TryCreate(attribute.Source, UriKind.RelativeOrAbsolute, out var sourceUri))
             {
-                message.Source = dataSchemaUri;
+                message.Source = sourceUri;
             }
             else
             {
-                Logger.InvalidDataSchema(logger, attribute.Source ?? "null");
+                Logger.InvalidSource(logger, attribute.Source ?? "null");
             }
         }
 
@@ -189,5 +189,8 @@ public partial class SetCloudEventTransformer(ILogger<SetCloudEventTransformer> 
     {
         [LoggerMessage(LogLevel.Warning, "Invalid data schema {DataSchema}")]
         public static partial void InvalidDataSchema(ILogger logger, string dataSchema);
+
+        [LoggerMessage(LogLevel.Warning, "Invalid source {Source}")]
+        public static partial void InvalidSource(ILogger logger, string source);
     }
 }

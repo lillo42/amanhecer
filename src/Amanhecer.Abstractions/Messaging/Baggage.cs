@@ -50,20 +50,28 @@ public class Baggage : Dictionary<string, string?>
 
     /// <summary>
     /// Parses a W3C Baggage header value into a <see cref="Baggage"/> instance. Entries
-    /// that are not in the <c>key=value</c> form are ignored.
+    /// are split on the first <c>=</c> (values may contain <c>=</c>), entries that are not
+    /// in the <c>key=value</c> form are ignored, and when a key appears more than once the
+    /// last value wins.
     /// </summary>
     /// <param name="baggage">The serialized baggage, as a comma-separated list of
     /// <c>key=value</c> pairs.</param>
     /// <returns>The parsed <see cref="Baggage"/>.</returns>
     public static Baggage FromString(string baggage)
     {
-        var dict = baggage
-            .Split(',')
-            .Select(x => x.Split('='))
-            .Where(x => x.Length == 2)
-            .ToDictionary(x => x[0], x => x[1]);
+        var result = new Baggage();
+        foreach (var entry in baggage.Split(','))
+        {
+            var separatorIndex = entry.IndexOf('=');
+            if (separatorIndex <= 0)
+            {
+                continue;
+            }
 
-        return new Baggage(dict!);
+            result[entry.Substring(0, separatorIndex)] = entry.Substring(separatorIndex + 1);
+        }
+
+        return result;
     }
 
 

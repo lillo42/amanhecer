@@ -10,6 +10,12 @@ using RabbitMQ.Client;
 
 namespace Amanhecer.RabbitMq;
 
+/// <summary>
+/// An <see cref="AsyncDefaultBasicConsumer"/> that maps RabbitMQ deliveries to
+/// <see cref="Message"/>s and buffers them for the message pumper. The buffer is bounded by
+/// the subscription's <see cref="Subscription.BufferSize"/>, which is also used as the QoS
+/// prefetch count, providing end-to-end backpressure.
+/// </summary>
 public class RabbitMqMessagePoller(
     RabbitMqSubscription subscription,
 #if NETFRAMEWORK
@@ -19,19 +25,27 @@ public class RabbitMqMessagePoller(
 #endif
 ) : AsyncDefaultBasicConsumer(channel)
 {
-    private readonly Channel<Message> _buffer = System.Threading.Channels.Channel.CreateUnbounded<Message>(
-        new UnboundedChannelOptions
+    private readonly Channel<Message> _buffer = System.Threading.Channels.Channel.CreateBounded<Message>(
+        new BoundedChannelOptions(subscription.BufferSize)
         {
             SingleReader = false,
-            SingleWriter = true
+            SingleWriter = true,
+            FullMode = BoundedChannelFullMode.Wait
         });
 
+    // RabbitMQ.Client channels are not thread-safe: every operation on the channel goes
+    // through this lock.
+    private readonly SemaphoreSlim _channelLock = new(1, 1);
+
+    /// <summary>
+    /// Gets the reader over the buffered messages waiting to be pumped through the pipeline.
+    /// </summary>
     public ChannelReader<Message> Messages => _buffer.Reader;
 
 #if NETFRAMEWORK
     /// <summary>
-    /// Handles a delivered message: maps it to a <see cref="Message"/>, dispatches it through
-    /// the pipeline, and acks or nacks the delivery according to the response.
+    /// Handles a delivered message: maps it to a <see cref="Message"/> and buffers it for the
+    /// message pumper. A message that cannot be mapped is nacked without requeue (poison message).
     /// </summary>
     /// <param name="consumerTag">The tag identifying this consumer.</param>
     /// <param name="deliveryTag">The tag identifying the delivery to acknowledge.</param>
@@ -49,8 +63,8 @@ public class RabbitMqMessagePoller(
         IBasicProperties properties, ReadOnlyMemory<byte> body)
 #else
     /// <summary>
-    /// Handles a delivered message: maps it to a <see cref="Message"/>, dispatches it through
-    /// the pipeline, and acks or nacks the delivery according to the response.
+    /// Handles a delivered message: maps it to a <see cref="Message"/> and buffers it for the
+    /// message pumper. A message that cannot be mapped is nacked without requeue (poison message).
     /// </summary>
     /// <param name="consumerTag">The tag identifying this consumer.</param>
     /// <param name="deliveryTag">The tag identifying the delivery to acknowledge.</param>
@@ -71,148 +85,72 @@ public class RabbitMqMessagePoller(
         CancellationToken cancellationToken = default)
 #endif
     {
-        var message = ToMessage(consumerTag, deliveryTag, redelivered, exchange, routingKey, body, properties);
+        Message message;
+        try
+        {
+            message = ToMessage(consumerTag, deliveryTag, redelivered, exchange, routingKey, body, properties);
+        }
+        catch
+        {
+            // The delivery cannot be mapped to a message: nack without requeue so the poison
+            // message is dead-lettered instead of being redelivered forever.
+            await NackAsync(deliveryTag, requeue: false);
+            return;
+        }
+
         await _buffer.Writer.WriteAsync(message);
-
-        /*    if (_serviceProvider == null)
-            {
-                throw new NotImplementedException();
-            }
-
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var dispatcher = scope.ServiceProvider.GetRequiredService<IDispatcher>();
-
-    #if NETFRAMEWORK
-            var cancellationToken = CancellationToken.None;
-    #endif
-            // Low-cardinality tags shared by the metrics instruments (OTel messaging conventions).
-            // The routing key is span-only: on topic exchanges it can take unbounded values.
-            var metricTags = new List<KeyValuePair<string, object?>>
-            {
-                new("messaging.system", "rabbitmq"),
-                new("messaging.operation.type", "process"),
-                new("messaging.destination.name", subscription.QueueName),
-            }.ToArray();
-
-
-            Message? message = null;
-            Activity? activity = null;
-            var duration = Stopwatch.StartNew();
-            try
-            {
-                message = ToMessage(consumerTag, deliveryTag, redelivered, exchange, routingKey, body, properties);
-
-                // Per-message values are high-cardinality, so they go on the span only, never on metrics.
-                var spanTags = new List<KeyValuePair<string, object?>>(metricTags)
-                {
-                    new("messaging.rabbitmq.destination.routing_key", routingKey),
-                    new("messaging.message.id", message.Id),
-                    new("messaging.message.conversation_id", message.CorrelationId),
-                    new("cloudevents.event_id", message.Id),
-                    new("cloudevents.event_source", message.Source?.ToString()),
-                    new("cloudevents.event_spec_version", message.SpecVersion),
-                    new("cloudevents.event_type", message.Type),
-                }.ToArray();
-
-                // The trace parent must be passed at start time: setting it after the activity
-                // has started has no effect and the span would begin a new trace.
-                ActivityContext parentContext = default;
-                if (ActivityContext.TryParse(message.TraceParent, message.TraceState?.ToString(), out var parsedContext))
-                {
-                    parentContext = parsedContext;
-                }
-
-                activity = AmanhecerDiagnostics.ActivitySource.StartActivity(
-                    ActivityKind.Consumer,
-                    name: $"{subscription.QueueName} process",
-                    parentContext: parentContext,
-                    tags: spanTags);
-
-                // Copies the message baggage onto the span.
-                activity?.Enrich(message);
-
-                var resp = await dispatcher.QueryAsync(
-                    message,
-                    new AmanhecerContext
-                    {
-                        RoutingKey = "Amanhecer.External.Message",
-                        Activity = activity,
-                        Metadata = new Dictionary<string, object>
-                        {
-                            [Amanhecer.Abstractions.MetadataName.MessagingGateway] = "RabbitMQ",
-                            [Amanhecer.Abstractions.MetadataName.Subscription] = subscription,
-                        }
-                    },
-                    cancellationToken);
-
-                if (resp is Nack)
-                {
-                    await NackAsync(deliveryTag);
-
-                    duration.Stop();
-
-                    FailedCounter.Add(1, metricTags);
-                    activity?.SetStatus(ActivityStatusCode.Error, "Message negatively acknowledged");
-                }
-                else if (resp is Defer)
-                {
-                    await DeferAsync(deliveryTag);
-                    duration.Stop();
-
-                    FailedCounter.Add(1, metricTags);
-                    activity?.SetStatus(ActivityStatusCode.Error, "Message negatively acknowledged");
-                }
-                else
-                {
-                    if (resp is Ack or null)
-                    {
-                        await AckAsync(deliveryTag);
-                    }
-
-                    duration.Stop();
-
-                    SuccessCounter.Add(1, metricTags);
-                    activity?.SetStatus(ActivityStatusCode.Ok);
-                }
-            }
-            catch (NackException)
-            {
-                await NackAsync(deliveryTag);
-
-                duration.Stop();
-
-                FailedCounter.Add(1, metricTags);
-                activity?.SetStatus(ActivityStatusCode.Error, "Message negatively acknowledged");
-            }
-            catch (DeferException)
-            {
-                await DeferAsync(deliveryTag);
-
-                duration.Stop();
-
-                FailedCounter.Add(1, metricTags);
-                activity?.SetStatus(ActivityStatusCode.Error, "Message negatively acknowledged");
-            }
-            catch (Exception ex)
-            {
-                await DeferAsync(deliveryTag);
-
-                duration.Stop();
-                FailedCounter.Add(1, metricTags);
-
-    #if !NET8_0
-                activity?.AddException(ex);
-    #endif
-                activity?.SetStatus(ActivityStatusCode.Error);
-            }
-            finally
-            {
-                ConsumerDuration.Record(duration.Elapsed.TotalSeconds, metricTags);
-                activity?.Stop();
-            }
-     */
     }
 
+    /// <summary>
+    /// Acks the delivery identified by <paramref name="deliveryTag"/>.
+    /// </summary>
+    internal async Task AckAsync(ulong deliveryTag, CancellationToken cancellationToken = default)
+    {
+        await _channelLock.WaitAsync(cancellationToken);
+        try
+        {
+#if NETFRAMEWORK
+            Model.BasicAck(deliveryTag, false);
+#else
+            await Channel.BasicAckAsync(deliveryTag, false, cancellationToken);
+#endif
+        }
+        finally
+        {
+            _channelLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Nacks the delivery identified by <paramref name="deliveryTag"/>.
+    /// </summary>
+    /// <param name="deliveryTag">The tag identifying the delivery to nack.</param>
+    /// <param name="requeue">Whether the broker should requeue the delivery.</param>
+    /// <param name="cancellationToken">A token that signals the operation should be aborted.</param>
+    internal async Task NackAsync(ulong deliveryTag, bool requeue, CancellationToken cancellationToken = default)
+    {
+        await _channelLock.WaitAsync(cancellationToken);
+        try
+        {
+#if NETFRAMEWORK
+            Model.BasicNack(deliveryTag, false, requeue);
+#else
+            await Channel.BasicNackAsync(deliveryTag, false, requeue, cancellationToken);
+#endif
+        }
+        finally
+        {
+            _channelLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Completes the message buffer, releasing any pending readers.
+    /// </summary>
+    internal void Complete()
+    {
+        _buffer.Writer.TryComplete();
+    }
 
     private Message ToMessage(string consumerTag,
         ulong deliveryTag,
@@ -233,12 +171,12 @@ public class RabbitMqMessagePoller(
 
         var metadata = new Dictionary<string, object?>
         {
-            ["MessageId"] = properties.MessageId,
-            ["ConsumerTag"] = consumerTag,
-            ["DeliveryTag"] = deliveryTag,
-            ["Redelivered"] = redelivered,
-            ["Exchange"] = exchange,
-            ["RoutingKey"] = routingKey
+            [MetadataName.MessageId] = properties.MessageId,
+            [MetadataName.ConsumerTag] = consumerTag,
+            [MetadataName.DeliveryTag] = deliveryTag,
+            [MetadataName.Redelivered] = redelivered,
+            [MetadataName.Exchange] = exchange,
+            [MetadataName.RoutingKey] = routingKey
         };
 
         return new Message
@@ -371,7 +309,10 @@ public class RabbitMqMessagePoller(
             return time;
         }
 
-        return DateTimeOffset.FromUnixTimeSeconds(timestamp.UnixTime);
+        // The publisher did not set a timestamp: fall back to now rather than epoch 0.
+        return timestamp.UnixTime == 0
+            ? DateTimeOffset.UtcNow
+            : DateTimeOffset.FromUnixTimeSeconds(timestamp.UnixTime);
     }
 
     private static string? GetTraceParent(Dictionary<string, object?> properties)

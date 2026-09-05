@@ -16,5 +16,5 @@ public interface IProducer
     /// the routing key and the default CloudEvents attributes to apply.</param>
     /// <param name="context">The context of the pipeline being executed.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the message has been published.</returns>
-    ValueTask ProducerAsync(Message message, IPublication publication, AmanhecerContext context);
+    ValueTask ProduceAsync(Message message, IPublication publication, AmanhecerContext context);
 }

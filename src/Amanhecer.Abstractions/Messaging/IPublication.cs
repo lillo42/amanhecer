@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Mime;
 
 namespace Amanhecer.Abstractions.Messaging;
@@ -66,6 +67,7 @@ public interface IPublication
     /// Gets or sets the <see cref="IMessageMapper"/> implementation used to map between
     /// application requests and the messages published through this publication.
     /// </summary>
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     Type? MessageMapperType { get; set; }
 
     /// <summary>

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Net.Mime;
 
 namespace Amanhecer.Abstractions.Messaging;
@@ -14,10 +15,21 @@ public interface ISubscription
     /// </summary>
     string ToRoutingKey { get; }
 
+    /// <summary>
+    /// Gets the content type (the CloudEvents <c>datacontenttype</c> attribute) expected on
+    /// consumed messages.
+    /// </summary>
     ContentType DefaultContentType { get; }
 
+    /// <summary>
+    /// Gets the schema (the CloudEvents <c>dataschema</c> attribute) expected on consumed
+    /// message payloads, if any.
+    /// </summary>
     Uri? DefaultDataSchema { get; }
 
+    /// <summary>
+    /// Gets the address replies should be sent to, expected on consumed messages, if any.
+    /// </summary>
     string? DefaultReplyTo { get; }
 
     /// <summary>
@@ -30,6 +42,10 @@ public interface ISubscription
     /// </summary>
     string DefaultSpecVersion { get; }
 
+    /// <summary>
+    /// Gets the subject (the CloudEvents <c>subject</c> attribute) expected on consumed
+    /// messages, if any.
+    /// </summary>
     string? DefaultSubject { get; }
     
     /// <summary>
@@ -45,30 +61,40 @@ public interface ISubscription
     /// <summary>
     /// Gets the number of consumers reading from the subscription.
     /// </summary>
-    int NumberOfConsumer { get; }
+    int NumberOfConsumers { get; }
 
     /// <summary>
     /// Gets the size of the buffer of messages prefetched by each consumer.
     /// </summary>
     int BufferSize { get; }
 
+    /// <summary>
+    /// Gets the delay the consumer waits before polling again when no message was received.
+    /// </summary>
     TimeSpan NoMessageDelay { get; }
 
+    /// <summary>
+    /// Gets the delay the consumer waits before polling again after receiving messages failed.
+    /// </summary>
     TimeSpan FailureDelay { get; }
 
+    /// <summary>
+    /// Gets the maximum time the consumer waits for messages on each poll.
+    /// </summary>
     TimeSpan ReceiveMessageTimeout { get; }
 
     /// <summary>
-    /// Gets the <see cref="IMessageMapper"/> implementation used to map between the
+    /// Gets or sets the <see cref="IMessageMapper"/> implementation used to map between the
     /// consumed messages and application requests.
     /// </summary>
-    Type? MessageMapperType { get; }
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+    Type? MessageMapperType { get; set; }
 
     /// <summary>
     /// Gets the provisioner that creates the transport resources this subscription
     /// needs, if any.
     /// </summary>
-    ISubscriptionProvisoner? Provisioner { get; }
+    ISubscriptionProvisioner? Provisioner { get; }
 
     /// <summary>
     /// Gets the routing key messages are reposted to when they are moved to the
@@ -82,6 +108,10 @@ public interface ISubscription
     /// </summary>
     string? InvalidMessageRoutingKey { get; }
     
+    /// <summary>
+    /// Gets a value indicating whether awaits while processing the consumed messages should
+    /// continue on the captured synchronization context.
+    /// </summary>
     bool ContinueOnCapturedContext { get; }
 
     /// <summary>

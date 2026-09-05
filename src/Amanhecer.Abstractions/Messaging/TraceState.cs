@@ -26,21 +26,28 @@ public class TraceState : Dictionary<string, string>
 
     /// <summary>
     /// Parses a W3C Trace Context <c>tracestate</c> header value into a
-    /// <see cref="TraceState"/> instance. Entries that are not in the <c>key=value</c>
-    /// form are ignored.
+    /// <see cref="TraceState"/> instance. Entries are split on the first <c>=</c> (values
+    /// may contain <c>=</c>), entries that are not in the <c>key=value</c> form are ignored,
+    /// and when a key appears more than once the last value wins.
     /// </summary>
-    /// <param name="baggage">The serialized trace state, as a comma-separated list of
+    /// <param name="traceState">The serialized trace state, as a comma-separated list of
     /// <c>key=value</c> pairs.</param>
     /// <returns>The parsed <see cref="TraceState"/>.</returns>
-    public static TraceState FromString(string baggage)
+    public static TraceState FromString(string traceState)
     {
-        var dict = baggage
-            .Split(',')
-            .Select(x => x.Split('='))
-            .Where(x => x.Length == 2)
-            .ToDictionary(x => x[0], x => x[1]);
+        var result = new TraceState();
+        foreach (var entry in traceState.Split(','))
+        {
+            var separatorIndex = entry.IndexOf('=');
+            if (separatorIndex <= 0)
+            {
+                continue;
+            }
 
-        return new TraceState(dict);
+            result[entry.Substring(0, separatorIndex)] = entry.Substring(separatorIndex + 1);
+        }
+
+        return result;
     }
 
     /// <summary>

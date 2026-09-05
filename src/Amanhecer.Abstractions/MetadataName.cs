@@ -34,20 +34,26 @@ public static class MetadataName
     public const string Subscription = "Amanhecer.Messaging.Subscription";
 
     /// <summary>
-    /// The name of the metadata entry holding the <see cref="Messaging.IMessageMapper"/> used
-    /// to map the consumed message.
-    /// </summary>
-    public const string SubscriptionMessageMapper = "Amanhecer.Messaging.Subscription";
-
-    /// <summary>
     /// The name of the metadata entry holding the request <see cref="System.Type"/> the pipeline
     /// handling the consumed message expects.
     /// </summary>
     public const string RequestType = "Amanhecer.Messaging.RequestType";
-    
-    public const string OriginalRequest= "Amanhecer.Messaging.Request";
 
+    /// <summary>
+    /// The name of the metadata entry holding the original application request the message
+    /// being published was mapped from.
+    /// </summary>
+    public const string OriginalRequest = "Amanhecer.Messaging.Request";
+
+    /// <summary>
+    /// The name of the metadata entry holding the <see cref="Messaging.IMessageMapper"/>
+    /// <see cref="System.Type"/> used to map the message.
+    /// </summary>
     public const string MessageMapperType = "Amanhecer.Messaging.Mapper";
-    
+
+    /// <summary>
+    /// The name of the metadata entry holding the original <see cref="Messaging.Message"/>
+    /// consumed from the transport.
+    /// </summary>
     public const string OriginalMessage = "Amanhecer.Messaging.Message";
 }

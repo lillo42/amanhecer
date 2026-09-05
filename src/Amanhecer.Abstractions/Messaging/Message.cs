@@ -14,7 +14,7 @@ public class Message
     /// <summary>
     /// Gets or sets the W3C Baggage propagated with the message.
     /// </summary>
-    public Baggage? Baggage { get; set; } = [];
+    public Baggage? Baggage { get; set; }
 
     /// <summary>
     /// Gets or sets the content type of the payload (the CloudEvents <c>datacontenttype</c>
@@ -46,8 +46,8 @@ public class Message
     public Dictionary<string, object?> Headers { get; set; } = [];
 
     /// <summary>
-    /// Gets or sets the message metadata.
-    /// Not send during publishing
+    /// Gets or sets the message metadata. Metadata is local to the process and is not sent
+    /// when the message is published.
     /// </summary>
     public Dictionary<string, object?> Metadata { get; set; } = [];
 
@@ -108,5 +108,5 @@ public class Message
     /// <summary>
     /// Gets or sets the W3C Trace Context trace state propagated with the message.
     /// </summary>
-    public TraceState? TraceState { get; set; } = [];
+    public TraceState? TraceState { get; set; }
 }

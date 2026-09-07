@@ -9,11 +9,7 @@ namespace Middleware;
 /// </summary>
 public class TimingMiddleware : IMiddleware
 {
-    public void Initialize(object? metadata)
-    {
-    }
-
-    public async ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next)
+    public async ValueTask ExecuteAsync(AmanhecerContext  context, Func<AmanhecerContext, ValueTask> next)
     {
         var stopwatch = Stopwatch.StartNew();
         try

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Metadatas;
 using Amanhecer.Configurator;
 using Amanhecer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,11 +21,11 @@ public class AmanhecerRoutingConfiguratorTests
         configurator.UseHandler<SomeRequestHandler>();
         var options = configurator.ToOptions();
 
-        var last = options.MiddlewareOptions.Last();
+        var last = options.Middlewares.Last();
         await Assert.That(last)
             .Member(x => x.MiddlewareType, y => y.IsEqualTo(typeof(ExecuteHandlerMiddleware)))
             .And.Member(x => x.Order, y => y.IsEqualTo(int.MaxValue))
-            .And.Member(x => x.Metadata, y => y.IsEqualTo(typeof(SomeRequestHandler)));
+            .And.Member(x => x.Metadata, y => y.IsEqualTo(new HandleTypeMetadata(typeof(SomeRequestHandler))));
     }
 
     [Test]
@@ -49,7 +50,7 @@ public class AmanhecerRoutingConfiguratorTests
         configurator.UseHandler<SomeRequestHandler>();
         var options = configurator.ToOptions();
 
-        var middlewares = options.MiddlewareOptions.ToArray();
+        var middlewares = options.Middlewares.ToArray();
         await Assert.That(middlewares).Count().IsEqualTo(3);
         await Assert.That(middlewares[0])
             .Member(x => x.MiddlewareType, y => y.IsEqualTo(typeof(SomeMiddleware)))
@@ -72,7 +73,7 @@ public class AmanhecerRoutingConfiguratorTests
         configurator.UseHandler<SomeRequestHandler>();
         var options = configurator.ToOptions();
 
-        var middleware = options.MiddlewareOptions
+        var middleware = options.Middlewares
             .Single(x => x.MiddlewareType == typeof(SomeMiddleware));
         await Assert.That(middleware)
             .Member(x => x.Order, y => y.IsEqualTo(3))
@@ -114,28 +115,20 @@ public class AmanhecerRoutingConfiguratorTests
         configurator.UseHandler(typeof(SomeRequestHandler));
         var options = configurator.ToOptions();
 
-        var last = options.MiddlewareOptions.Last();
+        var last = options.Middlewares.Last();
         await Assert.That(last)
             .Member(x => x.MiddlewareType, y => y.IsEqualTo(typeof(ExecuteHandlerMiddleware)))
-            .And.Member(x => x.Metadata, y => y.IsEqualTo(typeof(SomeRequestHandler)));
+            .And.Member(x => x.Metadata, y => y.IsEqualTo(new HandleTypeMetadata(typeof(SomeRequestHandler))));
     }
 
     private class SomeMiddleware : IMiddleware
     {
-        public void Initialize(object? metadata)
-        {
-        }
-
         public ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
             => next(context);
     }
 
     private class AnotherMiddleware : IMiddleware
     {
-        public void Initialize(object? metadata)
-        {
-        }
-
         public ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
             => next(context);
     }

@@ -20,6 +20,8 @@ Test projects can also be run directly as executables:
 
 ```bash
 dotnet run --project tests/Amanhecer.Tests -f net10.0
+dotnet run --project tests/Amanhecer.Abstractions.Tests -f net10.0
+dotnet run --project tests/Amanhecer.Extensions.Hosting.Tests -f net10.0
 dotnet run --project tests/Amanhecer.IntegrationTests -f net10.0
 dotnet run --project tests/Amanhecer.Polly.Tests -f net10.0
 dotnet run --project tests/Amanhecer.Extensions.Resilience.Tests -f net10.0

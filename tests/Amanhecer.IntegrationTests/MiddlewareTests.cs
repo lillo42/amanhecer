@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Configurator;
 using Microsoft.Extensions.DependencyInjection;
 using TUnit.Assertions.Enums;
@@ -22,17 +23,17 @@ public class MiddlewareTests : BaseTests
     {
         configurator
             .AddRequestHandler<OrderedRequestHandler>(routing => routing
-                .Use<RecordingMiddleware>(order: 3, metadata: "inner")
-                .Use<RecordingMiddleware>(order: 1, metadata: "outer")
-                .Use<RecordingMiddleware>(order: 2, metadata: "middle"))
+                .Use<InnerMiddleware>(order: 3)
+                .Use<OuterMiddleware>(order: 1)
+                .Use<MiddleMiddleware>(order: 2))
             .AddRequestHandler<MetadataRequestHandler>(routing => routing
-                .Use<RecordingMiddleware>(order: 1, metadata: "custom-name"))
+                .Use<RecordingMiddleware>(order: 1, metadata: new RecordingMetadata("custom-name")))
             .AddRequestHandler<ShortCircuitRequestHandler>(routing => routing
                 .Use<ShortCircuitMiddleware>(order: 1)
-                .Use<RecordingMiddleware>(order: 2, metadata: "unreachable"))
+                .Use<RecordingMiddleware>(order: 2, metadata: new RecordingMetadata("unreachable")))
             .AddRequestHandler<AttributedRequestHandler>()
             .AddRequestHandler<MergedRequestHandler>(routing => routing
-                .Use<RecordingMiddleware>(order: 0, metadata: "fluent"))
+                .Use<RecordingMiddleware>(order: 0, metadata: new RecordingMetadata("fluent")))
             .AddRequestHandler<MethodAttributedRequestHandler>();
     }
 
@@ -61,7 +62,7 @@ public class MiddlewareTests : BaseTests
     [RequiresUnreferencedCode(
         "Collection equivalency uses structural comparison for complex objects, " +
         "which requires reflection and is not compatible with AOT.")]
-    public async Task When_Send_Should_PassMetadataToMiddlewareInitialize()
+    public async Task When_Send_Should_PassMetadataToMiddlewareThroughContext()
     {
         var dispatcher = ServiceProvider.GetRequiredService<IDispatcher>();
 
@@ -157,34 +158,39 @@ public class MiddlewareTests : BaseTests
         public void Add(string entry) => _entries.Enqueue(entry);
     }
 
-    private class RecordingMiddleware(ExecutionLog log) : IMiddleware
+    private abstract class NamedMiddleware(ExecutionLog log, string name) : IMiddleware
     {
-        private string _name = string.Empty;
-
-        public void Initialize(object? metadata)
-        {
-            _name = metadata switch
-            {
-                RecordingAttribute attribute => attribute.Name,
-                _ => metadata?.ToString() ?? string.Empty
-            };
-        }
-
         public async ValueTask ExecuteAsync(AmanhecerContext context,
             Func<AmanhecerContext, ValueTask> next)
         {
-            log.Add($"{_name}:before");
+            log.Add($"{name}:before");
             await next(context);
-            log.Add($"{_name}:after");
+            log.Add($"{name}:after");
+        }
+    }
+
+    private class OuterMiddleware(ExecutionLog log) : NamedMiddleware(log, "outer");
+
+    private class MiddleMiddleware(ExecutionLog log) : NamedMiddleware(log, "middle");
+
+    private class InnerMiddleware(ExecutionLog log) : NamedMiddleware(log, "inner");
+
+    private record RecordingMetadata(string Name);
+
+    private class RecordingMiddleware(ExecutionLog log) : IMiddleware
+    {
+        public async ValueTask ExecuteAsync(AmanhecerContext context,
+            Func<AmanhecerContext, ValueTask> next)
+        {
+            var name = context.GetMetadata<RecordingMetadata>()?.Name ?? string.Empty;
+            log.Add($"{name}:before");
+            await next(context);
+            log.Add($"{name}:after");
         }
     }
 
     private class ShortCircuitMiddleware(ExecutionLog log) : IMiddleware
     {
-        public void Initialize(object? metadata)
-        {
-        }
-
         public ValueTask ExecuteAsync(AmanhecerContext context,
             Func<AmanhecerContext, ValueTask> next)
         {
@@ -193,17 +199,40 @@ public class MiddlewareTests : BaseTests
         }
     }
 
-    private abstract class RecordingAttribute(int order, string name) : MiddlewareAttribute(order)
+    private abstract class RecordingAttribute<TMiddleware>(int order, string name)
+        : MiddlewareAttribute<TMiddleware>(order)
+        where TMiddleware : IMiddleware
     {
         public string Name { get; } = name;
-
-        [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
-        public override Type GetMiddlewareType() => typeof(RecordingMiddleware);
     }
 
-    private sealed class AlphaAttribute(int order) : RecordingAttribute(order, "alpha");
+    private sealed class AlphaAttribute(int order) : RecordingAttribute<AlphaMiddleware>(order, "alpha");
 
-    private sealed class BetaAttribute(int order) : RecordingAttribute(order, "beta");
+    private sealed class BetaAttribute(int order) : RecordingAttribute<BetaMiddleware>(order, "beta");
+
+    private class AlphaMiddleware(ExecutionLog log) : IMiddleware
+    {
+        public async ValueTask ExecuteAsync(AmanhecerContext context,
+            Func<AmanhecerContext, ValueTask> next)
+        {
+            var name = context.GetMetadata<AlphaAttribute>()?.Name ?? "alpha";
+            log.Add($"{name}:before");
+            await next(context);
+            log.Add($"{name}:after");
+        }
+    }
+
+    private class BetaMiddleware(ExecutionLog log) : IMiddleware
+    {
+        public async ValueTask ExecuteAsync(AmanhecerContext context,
+            Func<AmanhecerContext, ValueTask> next)
+        {
+            var name = context.GetMetadata<BetaAttribute>()?.Name ?? "beta";
+            log.Add($"{name}:before");
+            await next(context);
+            log.Add($"{name}:after");
+        }
+    }
 
     private record OrderedRequest;
 

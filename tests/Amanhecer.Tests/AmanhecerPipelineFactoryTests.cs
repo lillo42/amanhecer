@@ -5,6 +5,7 @@ using System.Collections.Immutable;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Options;
 using Amanhecer.Configurator;
 using NSubstitute;
 
@@ -20,21 +21,21 @@ public class AmanhecerPipelineFactoryTests
         "which requires reflection and is not compatible with AOT.")]
     public async Task When_Create_Should_ReturnEmpty()
     {
-        var options = new Dictionary<string, ImmutableList<ImmutableList<AmanhecerMiddlewareOptions>>>()
+        var options = new Dictionary<string, List<IEnumerable<AmanhecerMiddlewareOptions>>>()
             .ToFrozenDictionary();
-        
+
         var pipelineFactory = new AmanhecerPipelineFactory(
-            new AmanhecerPipelineOptions(options), 
+            new AmanhecerPipelineOptions(options),
             _middlewareFactory);
-        
-        var context = Substitute.For<AmanhecerContext >();
+
+        var context = new AmanhecerContext();
         await Assert.That(() => pipelineFactory.Create(context))
             .ThrowsNothing()
             .And.IsEquivalentTo(ImmutableList<IPipeline>.Empty);
-        
+
         _middlewareFactory
             .DidNotReceive()
-            .Create(Arg.Any<Type>(), Arg.Any<object?>());
+            .Create(Arg.Any<Type>(), Arg.Any<object?>(), Arg.Any<AmanhecerContext>());
     }
 
     [Test]
@@ -42,7 +43,7 @@ public class AmanhecerPipelineFactoryTests
     {
         var middlewareType = typeof(AmanhecerPipelineFactoryTests);
         object? metadata = new { Key = "value" };
-        var options = new Dictionary<string, ImmutableList<ImmutableList<AmanhecerMiddlewareOptions>>>
+        var options = new Dictionary<string, List<IEnumerable<AmanhecerMiddlewareOptions>>>
             {
                 ["key"] =
                 [
@@ -55,8 +56,7 @@ public class AmanhecerPipelineFactoryTests
             new AmanhecerPipelineOptions(options),
             _middlewareFactory);
 
-        var context = Substitute.For<AmanhecerContext>();
-        context.RoutingKey.Returns("key");
+        var context = new AmanhecerContext { RoutingKey = "key" };
 
         var pipelines = pipelineFactory.Create(context);
 
@@ -64,13 +64,13 @@ public class AmanhecerPipelineFactoryTests
 
         _middlewareFactory
             .Received(1)
-            .Create(middlewareType, metadata);
+            .Create(middlewareType, metadata, Arg.Is<AmanhecerContext>(c => !ReferenceEquals(c, context)));
     }
 
     [Test]
     public async Task When_Create_Should_ReturnOnePipelinePerMiddlewareList()
     {
-        var options = new Dictionary<string, ImmutableList<ImmutableList<AmanhecerMiddlewareOptions>>>
+        var options = new Dictionary<string, List<IEnumerable<AmanhecerMiddlewareOptions>>>
             {
                 ["key"] =
                 [
@@ -84,8 +84,7 @@ public class AmanhecerPipelineFactoryTests
             new AmanhecerPipelineOptions(options),
             _middlewareFactory);
 
-        var context = Substitute.For<AmanhecerContext>();
-        context.RoutingKey.Returns("key");
+        var context = new AmanhecerContext { RoutingKey = "key" };
 
         var pipelines = pipelineFactory.Create(context);
 
@@ -93,11 +92,17 @@ public class AmanhecerPipelineFactoryTests
 
         _middlewareFactory
             .Received(1)
-            .Create(typeof(string), null);
+            .Create(
+                Arg.Is<Type>(t => t == typeof(string)),
+                Arg.Is<object?>(m => m == null),
+                Arg.Is<AmanhecerContext>(c => !ReferenceEquals(c, context)));
 
         _middlewareFactory
             .Received(1)
-            .Create(typeof(int), "meta");
+            .Create(
+                Arg.Is<Type>(t => t == typeof(int)),
+                Arg.Is<object?>(m => Equals(m, "meta")),
+                Arg.Is<AmanhecerContext>(c => !ReferenceEquals(c, context)));
     }
 
     [Test]
@@ -106,7 +111,7 @@ public class AmanhecerPipelineFactoryTests
         "which requires reflection and is not compatible with AOT.")]
     public async Task When_Create_Should_ReturnEmptyWhenRoutingKeyDoesNotMatch()
     {
-        var options = new Dictionary<string, ImmutableList<ImmutableList<AmanhecerMiddlewareOptions>>>
+        var options = new Dictionary<string, List<IEnumerable<AmanhecerMiddlewareOptions>>>
             {
                 ["other"] =
                 [
@@ -119,25 +124,24 @@ public class AmanhecerPipelineFactoryTests
             new AmanhecerPipelineOptions(options),
             _middlewareFactory);
 
-        var context = Substitute.For<AmanhecerContext>();
-        context.RoutingKey.Returns("key");
+        var context = new AmanhecerContext { RoutingKey = "key" };
 
         await Assert.That(pipelineFactory.Create(context))
             .IsEquivalentTo(ImmutableList<IPipeline>.Empty);
 
         _middlewareFactory
             .DidNotReceive()
-            .Create(Arg.Any<Type>(), Arg.Any<object?>());
+            .Create(Arg.Any<Type>(), Arg.Any<object?>(), Arg.Any<AmanhecerContext>());
     }
 
     [Test]
     public async Task When_Create_Should_ReturnPipelineWithNoMiddlewaresWhenListIsEmpty()
     {
-        var options = new Dictionary<string, ImmutableList<ImmutableList<AmanhecerMiddlewareOptions>>>
+        var options = new Dictionary<string, List<IEnumerable<AmanhecerMiddlewareOptions>>>
             {
                 ["key"] =
                 [
-                    ImmutableList<AmanhecerMiddlewareOptions>.Empty
+                    []
                 ]
             }
             .ToFrozenDictionary();
@@ -146,8 +150,7 @@ public class AmanhecerPipelineFactoryTests
             new AmanhecerPipelineOptions(options),
             _middlewareFactory);
 
-        var context = Substitute.For<AmanhecerContext>();
-        context.RoutingKey.Returns("key");
+        var context = new AmanhecerContext { RoutingKey = "key" };
 
         var pipelines = pipelineFactory.Create(context);
 
@@ -155,6 +158,6 @@ public class AmanhecerPipelineFactoryTests
 
         _middlewareFactory
             .DidNotReceive()
-            .Create(Arg.Any<Type>(), Arg.Any<object?>());
+            .Create(Arg.Any<Type>(), Arg.Any<object?>(), Arg.Any<AmanhecerContext>());
     }
 }

@@ -21,7 +21,7 @@ public class ParallelExecutingStrategyTests
     [Test]
     public async Task When_ExecuteAsync_WithEmptyPipelineList_Should_DoNothing()
     {
-        var context = Substitute.For<AmanhecerContext>();
+        var context = new AmanhecerContext();
         var pipeline = Substitute.For<IPipeline>();
 
         await Assert.That(async () => await _strategy.ExecuteAsync(context, ImmutableList<IPipeline>.Empty))
@@ -35,7 +35,7 @@ public class ParallelExecutingStrategyTests
     [Test]
     public async Task When_ExecuteAsync_Should_ExecuteWhenHasOnlyPipeline()
     {
-        var context = Substitute.For<AmanhecerContext>();
+        var context = new AmanhecerContext();
         var pipeline = Substitute.For<IPipeline>();
         var pipelines = ImmutableList<IPipeline>.Empty.Add(pipeline);
 
@@ -50,7 +50,7 @@ public class ParallelExecutingStrategyTests
     [Test]
     public async Task When_ExecuteAsync_Should_OnePipelineNotSilentFail()
     {
-        var context = Substitute.For<AmanhecerContext>();
+        var context = new AmanhecerContext();
         var pipeline = Substitute.For<IPipeline>();
 
         pipeline
@@ -70,7 +70,7 @@ public class ParallelExecutingStrategyTests
     [Test]
     public async Task When_ExecuteAsync_Should_PropagateOriginalExceptionWhenSinglePipelineFails()
     {
-        var context = Substitute.For<AmanhecerContext>();
+        var context = new AmanhecerContext();
         var pipeline = Substitute.For<IPipeline>();
 
         pipeline
@@ -87,7 +87,7 @@ public class ParallelExecutingStrategyTests
     [Test]
     public async Task When_ExecuteAsync_Should_ExecuteInSequenceWhenExecuteInPipeline()
     {
-        var context = Substitute.For<AmanhecerContext>();
+        var context = new AmanhecerContext();
         var pipelines = Enumerable.Range(0, 10)
             .Select(_ =>
             {
@@ -120,8 +120,7 @@ public class ParallelExecutingStrategyTests
     [Test]
     public async Task When_ExecuteAsync_WithMultiplePipelines_Should_ExecuteEachWithDistinctClonedContext()
     {
-        var context = Substitute.For<AmanhecerContext>();
-        context.DeepClone().Returns(_ => Substitute.For<AmanhecerContext>());
+        var context = new AmanhecerContext { RoutingKey = "some.key" };
 
         var usedContexts = new ConcurrentBag<AmanhecerContext>();
         var pipelines = Enumerable.Range(0, 3)
@@ -142,8 +141,6 @@ public class ParallelExecutingStrategyTests
         await Assert.That(async () => await _strategy.ExecuteAsync(context, pipelines))
             .ThrowsNothing();
 
-        context.Received(pipelines.Count).DeepClone();
-
         await Assert.That(usedContexts)
             .Count().IsEqualTo(pipelines.Count)
             .And.DoesNotContain(context);
@@ -160,8 +157,7 @@ public class ParallelExecutingStrategyTests
     [Test]
     public async Task When_ExecuteAsync_WithOneFailingPipeline_Should_ExecuteAllPipelinesAndThrowAggregateException()
     {
-        var context = Substitute.For<AmanhecerContext>();
-        context.DeepClone().Returns(_ => Substitute.For<AmanhecerContext>());
+        var context = new AmanhecerContext();
 
         var expected = new InvalidOperationException("boom");
         var pipelines = Enumerable.Range(0, 3)
@@ -195,7 +191,7 @@ public class ParallelExecutingStrategyTests
     [Test]
     public async Task When_ExecuteAsync_Should_NotSilentFailWithMultiplePipelines()
     {
-        var context = Substitute.For<AmanhecerContext>();
+        var context = new AmanhecerContext();
 
         var pipelines = Enumerable.Range(0, 2)
             .Select(_ =>

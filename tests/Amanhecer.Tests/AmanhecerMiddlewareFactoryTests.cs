@@ -1,6 +1,7 @@
 using System;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Extensions;
 using NSubstitute;
 
 namespace Amanhecer.Tests;
@@ -23,26 +24,43 @@ public class AmanhecerMiddlewareFactoryTests
         var middleware = new CustomMiddleware();
         _serviceProvider.GetService(middlewareType).Returns(middleware);
 
-        var metadata = new object(); 
-        await Assert.That(() => _factory.Create(middlewareType, metadata))
+        var context = new AmanhecerContext();
+
+        await Assert.That(() => _factory.Create(middlewareType, new CustomMetadata("some-metadata"), context))
             .ThrowsNothing()
-            .And.IsAssignableTo<CustomMiddleware>()
-            .And.Member(x => x.Metadata, y => y.IsEqualTo(metadata))
-            .And.Member(x => x.Executed, y => y.IsFalse());
+            .And.IsSameReferenceAs(middleware);
     }
 
     [Test]
-    public async Task When_CreateWithNullMetadata_Should_InitializeMiddlewareWithNull()
+    public async Task When_Create_Should_StoreMetadataInTheContext()
+    {
+        var middlewareType = typeof(CustomMiddleware);
+        var middleware = new CustomMiddleware();
+        _serviceProvider.GetService(middlewareType).Returns(middleware);
+
+        var metadata = new CustomMetadata("some-metadata");
+        var context = new AmanhecerContext();
+
+        _factory.Create(middlewareType, metadata, context);
+
+        await Assert.That(context.GetMetadata<CustomMetadata>()).IsSameReferenceAs(metadata);
+    }
+
+    [Test]
+    public async Task When_CreateWithNullMetadata_Should_NotStoreMetadataInTheContext()
     {
         var middlewareType = typeof(CustomMiddleware);
         var middleware = new CustomMiddleware();
 
         _serviceProvider.GetService(middlewareType).Returns(middleware);
 
-        await Assert.That(() => _factory.Create(middlewareType, null))
+        var context = new AmanhecerContext();
+
+        await Assert.That(() => _factory.Create(middlewareType, null, context))
             .ThrowsNothing()
-            .And.IsAssignableTo<CustomMiddleware>()
-            .And.Member(x => x.Metadata, y => y.IsNull());
+            .And.IsSameReferenceAs(middleware);
+
+        await Assert.That(context.Metadata).IsEmpty();
     }
 
     [Test]
@@ -50,7 +68,7 @@ public class AmanhecerMiddlewareFactoryTests
     {
         var middlewareType = typeof(CustomMiddleware);
 
-        await Assert.That(() => _factory.Create(middlewareType, new object()))
+        await Assert.That(() => _factory.Create(middlewareType, new object(), new AmanhecerContext()))
             .Throws<InvalidOperationException>();
     }
 
@@ -61,17 +79,15 @@ public class AmanhecerMiddlewareFactoryTests
 
         _serviceProvider.GetService(middlewareType).Returns(new object());
 
-        await Assert.That(() => _factory.Create(middlewareType, new object()))
+        await Assert.That(() => _factory.Create(middlewareType, new object(), new AmanhecerContext()))
             .Throws<InvalidCastException>();
     }
+
+    private record CustomMetadata(string Value);
+
     private class CustomMiddleware : IMiddleware
     {
-        public object? Metadata { get; set; }
         public bool Executed { get; private set; }
-        public void Initialize(object? metadata)
-        {
-            Metadata = metadata;
-        }
 
         public ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
         {

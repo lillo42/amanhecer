@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Abstractions.Messaging;
 
 namespace Amanhecer.Tests.Messaging;
@@ -11,17 +12,10 @@ internal sealed class EncodeOnlyTransformer : IEncodeTransformer
 {
     public const string Name = "encode-only";
 
-    private List<string>? _recorder;
-
-    public void Initialize(object? metadata)
-    {
-        _recorder = metadata as List<string>;
-    }
-
     public ValueTask EncodeAsync(Message message, AmanhecerContext context,
         Func<Message, AmanhecerContext, ValueTask> next)
     {
-        _recorder?.Add(Name);
+        context.GetMetadata<List<string>>()?.Add(Name);
         return next(message, context);
     }
 }
@@ -30,17 +24,10 @@ internal sealed class AnotherEncodeTransformer : IEncodeTransformer
 {
     public const string Name = "another-encode";
 
-    private List<string>? _recorder;
-
-    public void Initialize(object? metadata)
-    {
-        _recorder = metadata as List<string>;
-    }
-
     public ValueTask EncodeAsync(Message message, AmanhecerContext context,
         Func<Message, AmanhecerContext, ValueTask> next)
     {
-        _recorder?.Add(Name);
+        context.GetMetadata<List<string>>()?.Add(Name);
         return next(message, context);
     }
 }
@@ -49,17 +36,10 @@ internal sealed class DecodeOnlyTransformer : IDecodeTransformer
 {
     public const string Name = "decode-only";
 
-    private List<string>? _recorder;
-
-    public void Initialize(object? metadata)
-    {
-        _recorder = metadata as List<string>;
-    }
-
     public ValueTask DecodeAsync(Message message, AmanhecerContext context,
         Func<Message, AmanhecerContext, ValueTask> next)
     {
-        _recorder?.Add(Name);
+        context.GetMetadata<List<string>>()?.Add(Name);
         return next(message, context);
     }
 }
@@ -69,24 +49,17 @@ internal sealed class BothWaysTransformer : ITransformer
     public const string EncodeName = "both-encode";
     public const string DecodeName = "both-decode";
 
-    private List<string>? _recorder;
-
-    public void Initialize(object? metadata)
-    {
-        _recorder = metadata as List<string>;
-    }
-
     public ValueTask EncodeAsync(Message message, AmanhecerContext context,
         Func<Message, AmanhecerContext, ValueTask> next)
     {
-        _recorder?.Add(EncodeName);
+        context.GetMetadata<List<string>>()?.Add(EncodeName);
         return next(message, context);
     }
 
     public ValueTask DecodeAsync(Message message, AmanhecerContext context,
         Func<Message, AmanhecerContext, ValueTask> next)
     {
-        _recorder?.Add(DecodeName);
+        context.GetMetadata<List<string>>()?.Add(DecodeName);
         return next(message, context);
     }
 }
@@ -138,3 +111,5 @@ internal sealed class InvalidAttributedMapper : IMessageMapper
 }
 
 internal sealed class TestPublication : Publication;
+
+internal sealed class TestSubscription(string toRoutingKey) : Subscription(toRoutingKey);

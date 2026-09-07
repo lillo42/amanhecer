@@ -42,6 +42,11 @@ public class AmanhecerPipelineFactory(
             .. pipelines
                 .Select(cfg =>
                 {
+                    // Middlewares are created against a per-pipeline metadata bag so pipelines
+                    // sharing the caller's context don't overwrite each other's metadata; the
+                    // pipeline merges the bag into the context it executes with.
+                    var metadataBag = new AmanhecerContext();
+
                     var middlewares = cfg;
                     if (context.Middlewares != null)
                     {
@@ -52,8 +57,8 @@ public class AmanhecerPipelineFactory(
                     return new AmanhecerPipeline([
                         .. middlewares
                             .OrderBy(x => x.Order)
-                            .Select(opt => middlewareFactory.Create(opt.MiddlewareType, opt.Metadata, context))
-                    ]);
+                            .Select(opt => middlewareFactory.Create(opt.MiddlewareType, opt.Metadata, metadataBag))
+                    ], metadataBag.Metadata);
                 })
         ];
     }

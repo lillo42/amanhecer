@@ -34,7 +34,7 @@ public class AmanhecerPipelineTests
         
         var pipeline = new AmanhecerPipeline(middlewares);
 
-        var context = Substitute.For<AmanhecerContext>();
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
             .ThrowsNothing();
@@ -71,8 +71,7 @@ public class AmanhecerPipelineTests
         var cts = new CancellationTokenSource();
         await cts.CancelAsync();
         
-        var context = Substitute.For<AmanhecerContext>();
-        context.CancellationToken.Returns(cts.Token);
+        var context = new AmanhecerContext { CancellationToken = cts.Token };
 
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
             .Throws<OperationCanceledException>();
@@ -111,7 +110,7 @@ public class AmanhecerPipelineTests
 
         var pipeline = new AmanhecerPipeline(middlewares);
 
-        var context = Substitute.For<AmanhecerContext>();
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
             .ThrowsNothing();
@@ -133,7 +132,7 @@ public class AmanhecerPipelineTests
 
         var pipeline = new AmanhecerPipeline([first, second, third]);
 
-        var context = Substitute.For<AmanhecerContext>();
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
             .ThrowsNothing();
@@ -156,7 +155,7 @@ public class AmanhecerPipelineTests
     {
         var pipeline = new AmanhecerPipeline(ImmutableList<IMiddleware>.Empty);
 
-        var context = Substitute.For<AmanhecerContext>();
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
             .ThrowsNothing();
@@ -174,7 +173,7 @@ public class AmanhecerPipelineTests
 
         var pipeline = new AmanhecerPipeline([first, second]);
 
-        var context = Substitute.For<AmanhecerContext>();
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await pipeline.ExecuteAsync(context))
             .Throws<InvalidOperationException>();

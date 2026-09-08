@@ -27,6 +27,25 @@ dotnet run --project tests/Amanhecer.Polly.Tests -f net10.0
 dotnet run --project tests/Amanhecer.Extensions.Resilience.Tests -f net10.0
 ```
 
+## RabbitMQ tests
+
+`tests/Amanhecer.RabbitMq.Tests` runs the transport-agnostic messaging gateway contract tests
+from `tests/Amanhecer.Messaging.Base.Tests` against a real broker. Start one with the compose file at the
+repository root (works with both Docker and Podman):
+
+```bash
+podman compose -f docker-compose-rabbitmq.yaml up -d
+# or: docker compose -f docker-compose-rabbitmq.yaml up -d
+```
+
+The tests connect to `amqp://guest:guest@localhost:5672` by default; set the
+`AMANHECER_RABBITMQ_URI` environment variable to point at a different broker. The management UI
+is exposed on <http://localhost:15672> (guest/guest).
+
+```bash
+dotnet run --project tests/Amanhecer.RabbitMq.Tests -f net10.0
+```
+
 ## Project layout
 
 - `src/Amanhecer.Abstractions` — interfaces, base classes, attributes and contexts.
@@ -35,4 +54,5 @@ dotnet run --project tests/Amanhecer.Extensions.Resilience.Tests -f net10.0
 - `src/Amanhecer.Polly` — Polly resilience middleware.
 - `src/Amanhecer.Extensions.Resilience` — `Microsoft.Extensions.Resilience` middleware with telemetry enrichment.
 - `samples/Simple`, `samples/Middleware` — console examples.
+- `tests/Amanhecer.Messaging.Base.Tests` — transport-agnostic messaging gateway contract tests; new transports inherit them.
 - `tests/*` — unit and integration tests (TUnit).

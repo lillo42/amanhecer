@@ -14,9 +14,11 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Amanhecer.Abstractions.Tests/Amanhecer.Abstractions.Tests.csproj" />
+    <Project Path="tests/Amanhecer.Messaging.Base.Tests/Amanhecer.Messaging.Base.Tests.csproj" />
     <Project Path="tests/Amanhecer.Extensions.Hosting.Tests/Amanhecer.Extensions.Hosting.Tests.csproj" />
     <Project Path="tests/Amanhecer.Extensions.Resilience.Tests/Amanhecer.Extensions.Resilience.Tests.csproj" />
     <Project Path="tests/Amanhecer.Polly.Tests/Amanhecer.Polly.Tests.csproj" />
+    <Project Path="tests/Amanhecer.RabbitMq.Tests/Amanhecer.RabbitMq.Tests.csproj" />
     <Project Path="tests/Amanhecer.IntegrationTests/Amanhecer.IntegrationTests.csproj" />
     <Project Path="tests/Amanhecer.OpenTelemetry.Tests/Amanhecer.OpenTelemetry.Tests.csproj" />
     <Project Path="tests/Amanhecer.Tests/Amanhecer.Tests.csproj" />

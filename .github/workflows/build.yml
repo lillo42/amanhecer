@@ -10,6 +10,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    services:
+      rabbitmq:
+        image: rabbitmq:4-management
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,5 +33,17 @@ jobs:
       - name: Restore
         run: dotnet restore Amanhecer.slnx
 
-      - name: Build and test
-        run: dotnet test --solution Amanhecer.slnx --configuration Release
+      - name: Build and test (no external dependencies)
+        run: |
+          set -e
+          for project in tests/*/*.csproj; do
+            case "$project" in
+              # Shared contract-test library (not runnable) and the RabbitMQ
+              # tests, which need the broker and run in the next step.
+              *Messaging.Base.Tests*|*RabbitMq.Tests*) continue ;;
+            esac
+            dotnet test "$project" --configuration Release
+          done
+
+      - name: Test RabbitMQ (requires the broker service)
+        run: dotnet test tests/Amanhecer.RabbitMq.Tests/Amanhecer.RabbitMq.Tests.csproj --configuration Release

@@ -161,4 +161,24 @@ public abstract class MessagingGatewayTests
 
         await fixture.Consumer.AckAsync(redelivered);
     }
+
+    [Test]
+    public async Task When_Producing_A_Message_With_Trace_Context_Should_Propagate()
+    {
+        await using var fixture = await CreateFixtureAsync();
+        var message = CreateMessage();
+        message.TraceParent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
+        message.TraceState = TraceState.FromString("congo=t61rcWkgMzE");
+        message.Baggage = Baggage.FromString("userId=alice,serverNode=DF28");
+
+        await fixture.Producer.ProduceAsync(message, fixture.Publication, new AmanhecerContext());
+
+        var received = await ReceiveOneAsync(fixture, ReceiveTimeout);
+
+        await Assert.That(received.TraceParent).IsEqualTo(message.TraceParent);
+        await Assert.That(received.TraceState?.ToString()).IsEqualTo(message.TraceState.ToString());
+        await Assert.That(received.Baggage?.ToString()).IsEqualTo(message.Baggage.ToString());
+
+        await fixture.Consumer.AckAsync(received);
+    }
 }

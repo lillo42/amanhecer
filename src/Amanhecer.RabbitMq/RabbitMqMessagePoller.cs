@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Mime;
+using System.Text;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -201,11 +202,28 @@ public class RabbitMqMessagePoller(
         };
     }
 
+    // RabbitMQ.Client delivers AMQP long-string header values as byte[], not string.
+    private static string? GetHeaderValue(IDictionary<string, object?> properties, string key)
+    {
+        if (!properties.TryGetValue(key, out var obj))
+        {
+            return null;
+        }
+
+        return obj switch
+        {
+            string val => val,
+            byte[] bytes => Encoding.UTF8.GetString(bytes),
+            _ => null
+        };
+    }
+
     private static string GetId(IDictionary<string, object?> properties, string? messageId)
     {
-        if (properties.TryGetValue("cloudEvents:id", out var obj) && obj is string val)
+        var id = GetHeaderValue(properties, "cloudEvents:id");
+        if (!string.IsNullOrWhiteSpace(id))
         {
-            return val;
+            return id;
         }
 
         if (!string.IsNullOrWhiteSpace(messageId))
@@ -228,83 +246,50 @@ public class RabbitMqMessagePoller(
 
     private static string? GetDataRef(Dictionary<string, object?> properties)
     {
-        if (properties.TryGetValue("cloudEvents:dataref", out var obj) && obj is string val)
-        {
-            return val;
-        }
-
-        return null;
+        return GetHeaderValue(properties, "cloudEvents:dataref");
     }
 
     private static Uri? GetDataSchema(Dictionary<string, object?> properties)
     {
-        if (properties.TryGetValue("cloudEvents:dataschema", out var obj)
-            && obj is string val
-            && Uri.TryCreate(val, UriKind.RelativeOrAbsolute, out var uri))
-        {
-            return uri;
-        }
-
-        return null;
+        var val = GetHeaderValue(properties, "cloudEvents:dataschema");
+        return val != null && Uri.TryCreate(val, UriKind.RelativeOrAbsolute, out var uri)
+            ? uri
+            : null;
     }
 
     private static string? GetSubject(Dictionary<string, object?> properties)
     {
-        if (properties.TryGetValue("cloudEvents:subject", out var obj) && obj is string val)
-        {
-            return val;
-        }
-
-        return null;
+        return GetHeaderValue(properties, "cloudEvents:subject");
     }
 
     private string GetSpecVersion(Dictionary<string, object?> properties)
     {
-        if (properties.TryGetValue("cloudEvents:specversion", out var obj) && obj is string val)
-        {
-            return val;
-        }
-
-        return subscription.DefaultSpecVersion;
+        return GetHeaderValue(properties, "cloudEvents:specversion") ?? subscription.DefaultSpecVersion;
     }
 
     private Uri GetSource(Dictionary<string, object?> properties)
     {
-        if (properties.TryGetValue("cloudEvents:source", out var obj)
-            && obj is string val
-            && Uri.TryCreate(val, UriKind.RelativeOrAbsolute, out var uri))
-        {
-            return uri;
-        }
-
-        return subscription.DefaultSource;
+        var val = GetHeaderValue(properties, "cloudEvents:source");
+        return val != null && Uri.TryCreate(val, UriKind.RelativeOrAbsolute, out var uri)
+            ? uri
+            : subscription.DefaultSource;
     }
 
     private string GetType(Dictionary<string, object?> properties)
     {
-        if (properties.TryGetValue("cloudEvents:type", out var obj) && obj is string val)
-        {
-            return val;
-        }
-
-        return subscription.DefaultType;
+        return GetHeaderValue(properties, "cloudEvents:type") ?? subscription.DefaultType;
     }
 
     private static Baggage? GetBaggage(Dictionary<string, object?> properties)
     {
-        if (properties.TryGetValue("cloudEvents:baggage", out var obj) && obj is string val)
-        {
-            return Baggage.FromString(val);
-        }
-
-        return null;
+        var val = GetHeaderValue(properties, "cloudEvents:baggage");
+        return val != null ? Baggage.FromString(val) : null;
     }
 
     private static DateTimeOffset GetTime(AmqpTimestamp timestamp, Dictionary<string, object?> properties)
     {
-        if (properties.TryGetValue("cloudEvents:time", out var obj)
-            && obj is string val
-            && DateTimeOffset.TryParse(val, out var time))
+        var val = GetHeaderValue(properties, "cloudEvents:time");
+        if (val != null && DateTimeOffset.TryParse(val, out var time))
         {
             return time;
         }
@@ -317,21 +302,12 @@ public class RabbitMqMessagePoller(
 
     private static string? GetTraceParent(Dictionary<string, object?> properties)
     {
-        if (properties.TryGetValue("cloudEvents:traceparent", out var obj) && obj is string val)
-        {
-            return val;
-        }
-
-        return null;
+        return GetHeaderValue(properties, "cloudEvents:traceparent");
     }
 
     private static TraceState? GetTraceState(Dictionary<string, object?> properties)
     {
-        if (properties.TryGetValue("cloudEvents:tracestate", out var obj) && obj is string val)
-        {
-            return TraceState.FromString(val);
-        }
-
-        return null;
+        var val = GetHeaderValue(properties, "cloudEvents:tracestate");
+        return val != null ? TraceState.FromString(val) : null;
     }
 }

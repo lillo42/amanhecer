@@ -29,9 +29,19 @@ dotnet run --project tests/Amanhecer.Extensions.Resilience.Tests -f net10.0
 
 ## RabbitMQ tests
 
-`tests/Amanhecer.RabbitMq.Tests` runs the transport-agnostic messaging gateway contract tests
-from `tests/Amanhecer.Messaging.Base.Tests` against a real broker. Start one with the compose file at the
-repository root (works with both Docker and Podman):
+`tests/Amanhecer.RabbitMq.Tests` contains two kinds of tests:
+
+- **Broker-free unit tests** — configurator validation, producer properties, exchange
+  provisioners and the unreachable-broker connection test run against mocks or an unused
+  port, so they pass anywhere with no broker running.
+- **Broker-backed integration tests** — the transport-agnostic messaging gateway contract
+  tests from `tests/Amanhecer.Messaging.Base.Tests`, plus provisioning, dead-lettering,
+  routing and redelivery tests, all run against a real broker.
+
+In CI, the build workflow runs the broker-free test projects first and, once they pass, runs
+`tests/Amanhecer.RabbitMq.Tests` against a `rabbitmq:4-management` service container.
+Locally, start one with the compose file at the repository root (works with both Docker and
+Podman):
 
 ```bash
 podman compose -f docker-compose-rabbitmq.yaml up -d

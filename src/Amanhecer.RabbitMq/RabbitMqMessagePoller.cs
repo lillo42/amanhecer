@@ -13,7 +13,7 @@ namespace Amanhecer.RabbitMq;
 
 /// <summary>
 /// An <see cref="AsyncDefaultBasicConsumer"/> that maps RabbitMQ deliveries to
-/// <see cref="Message"/>s and buffers them for the message pumper. The buffer is bounded by
+/// <see cref="Message"/>s and buffers them for the message pump. The buffer is bounded by
 /// the subscription's <see cref="Subscription.BufferSize"/>, which is also used as the QoS
 /// prefetch count, providing end-to-end backpressure.
 /// </summary>
@@ -46,7 +46,7 @@ public class RabbitMqMessagePoller(
 #if NETFRAMEWORK
     /// <summary>
     /// Handles a delivered message: maps it to a <see cref="Message"/> and buffers it for the
-    /// message pumper. A message that cannot be mapped is nacked without requeue (poison message).
+    /// message pump. A message that cannot be mapped is nacked without requeue (poison message).
     /// </summary>
     /// <param name="consumerTag">The tag identifying this consumer.</param>
     /// <param name="deliveryTag">The tag identifying the delivery to acknowledge.</param>
@@ -65,7 +65,7 @@ public class RabbitMqMessagePoller(
 #else
     /// <summary>
     /// Handles a delivered message: maps it to a <see cref="Message"/> and buffers it for the
-    /// message pumper. A message that cannot be mapped is nacked without requeue (poison message).
+    /// message pump. A message that cannot be mapped is nacked without requeue (poison message).
     /// </summary>
     /// <param name="consumerTag">The tag identifying this consumer.</param>
     /// <param name="deliveryTag">The tag identifying the delivery to acknowledge.</param>

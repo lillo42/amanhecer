@@ -47,7 +47,7 @@ public class ServiceCollectionExtensionsTests
     public async Task When_AddAmanhecerHost_Should_ResolveConsumerHostedService()
     {
         var services = new ServiceCollection();
-        services.AddSingleton(Substitute.For<IMessagePumperFactory>());
+        services.AddSingleton(Substitute.For<IMessagePumpFactory>());
         services.AddAmanhecerHost();
         using var provider = services.BuildServiceProvider();
 

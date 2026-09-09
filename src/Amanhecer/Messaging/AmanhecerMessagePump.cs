@@ -14,13 +14,13 @@ using Microsoft.Extensions.Logging;
 namespace Amanhecer.Messaging;
 
 /// <summary>
-/// The default <see cref="IMessagePumper"/>: polls an <see cref="IConsumer"/> for messages,
+/// The default <see cref="IMessagePump"/>: polls an <see cref="IConsumer"/> for messages,
 /// dispatches each one through the pipeline of the consumer's subscription and settles it
 /// (ack, nack or defer) according to the result, until cancellation is requested.
 /// </summary>
 /// <param name="provider">The service provider used to create a scope per received batch.</param>
 /// <param name="logger">The logger used to record pump failures.</param>
-public partial class AmanhecerPumper(IServiceProvider provider, ILogger<AmanhecerPumper> logger) : IMessagePumper
+public partial class AmanhecerMessagePump(IServiceProvider provider, ILogger<AmanhecerMessagePump> logger) : IMessagePump
 {
     /// <summary>Counts consumed messages whose processing settled successfully.</summary>
     private static readonly Counter<int> ConsumerSuccessCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
@@ -39,7 +39,7 @@ public partial class AmanhecerPumper(IServiceProvider provider, ILogger<Amanhece
         "amanhecer.message.process.duration",
         unit: "s",
         description: "Duration of consumed message processing, in seconds.");
-    
+
     /// <inheritdoc/>
     public async Task ExecuteAsync(IConsumer consumer, CancellationToken cancellationToken = default)
     {
@@ -67,6 +67,11 @@ public partial class AmanhecerPumper(IServiceProvider provider, ILogger<Amanhece
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
+                if (subscription.NoMessageDelay != TimeSpan.Zero)
+                {
+                    await Task.Delay(subscription.NoMessageDelay, cancellationToken);
+                }
+
                 break;
             }
             catch (Exception e)
@@ -89,7 +94,7 @@ public partial class AmanhecerPumper(IServiceProvider provider, ILogger<Amanhece
         // Low-cardinality tags shared by the metrics instruments (OTel messaging conventions).
         var metricTags = new List<KeyValuePair<string, object?>>
         {
-            new("messaging.system", "amanhecer"),
+            new("messaging.system", subscription.MessagingSystem),
             new("messaging.operation.type", "process"),
             new("messaging.destination.name", subscription.Name),
         }.ToArray();

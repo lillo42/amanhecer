@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
@@ -11,18 +12,18 @@ using NSubstitute;
 
 namespace Amanhecer.Tests.Messaging;
 
-public class AmanhecerPumperTests
+public class AmanhecerMessagePumpTests
 {
     private readonly IDispatcher _dispatcher;
-    private readonly AmanhecerPumper _pumper;
+    private readonly AmanhecerMessagePump _pump;
 
-    public AmanhecerPumperTests()
+    public AmanhecerMessagePumpTests()
     {
         _dispatcher = Substitute.For<IDispatcher>();
         var provider = new ServiceCollection()
             .AddSingleton(_dispatcher)
             .BuildServiceProvider();
-        _pumper = new AmanhecerPumper(provider, Substitute.For<ILogger<AmanhecerPumper>>());
+        _pump = new AmanhecerMessagePump(provider, Substitute.For<ILogger<AmanhecerMessagePump>>());
     }
 
     [Test]
@@ -48,7 +49,7 @@ public class AmanhecerPumperTests
                 return ValueTask.CompletedTask;
             });
 
-        await _pumper.ExecuteAsync(consumer, cts.Token);
+        await _pump.ExecuteAsync(consumer, cts.Token);
 
         await consumer.Received(1).AckAsync(message);
         await consumer.DidNotReceive().NackAsync(Arg.Any<Message>());
@@ -79,7 +80,7 @@ public class AmanhecerPumperTests
                 return ValueTask.CompletedTask;
             });
 
-        await _pumper.ExecuteAsync(consumer, cts.Token);
+        await _pump.ExecuteAsync(consumer, cts.Token);
 
         await _dispatcher.Received(1).QueryAsync<object?>(
             message,
@@ -91,6 +92,52 @@ public class AmanhecerPumperTests
                 c.CorrelationId == message.CorrelationId &&
                 c.RequestId == message.Id),
             Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task When_ProcessingMessage_Should_TagTheActivityWithTheMessagingSystem()
+    {
+        var subscription = CreateSubscription();
+        subscription.Name = $"messaging-system-{Guid.NewGuid():N}";
+        subscription.MessagingSystem = "rabbitmq";
+        var consumer = Substitute.For<IConsumer>();
+        consumer.Subscription.Returns(subscription);
+
+        var message = new Message();
+        consumer.GetMessagesAsync(Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<Message[]>([message]));
+
+        _dispatcher
+            .QueryAsync<object?>(Arg.Any<object>(), Arg.Any<AmanhecerContext>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<object?>((object?)null));
+
+        Activity? processed = null;
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == AmanhecerDiagnostics.ActivitySource.Name,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activity =>
+            {
+                if (activity.DisplayName == $"{subscription.Name} process")
+                {
+                    processed = activity;
+                }
+            }
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        using var cts = new CancellationTokenSource();
+        consumer.AckAsync(Arg.Any<Message>())
+            .Returns(_ =>
+            {
+                cts.Cancel();
+                return ValueTask.CompletedTask;
+            });
+
+        await _pump.ExecuteAsync(consumer, cts.Token);
+
+        await Assert.That(processed).IsNotNull();
+        await Assert.That(processed!.GetTagItem("messaging.system")).IsEqualTo("rabbitmq");
     }
 
     [Test]
@@ -116,7 +163,7 @@ public class AmanhecerPumperTests
                 return ValueTask.CompletedTask;
             });
 
-        await _pumper.ExecuteAsync(consumer, cts.Token);
+        await _pump.ExecuteAsync(consumer, cts.Token);
 
         await consumer.Received(1).NackAsync(message);
         await consumer.DidNotReceive().AckAsync(Arg.Any<Message>());
@@ -147,7 +194,7 @@ public class AmanhecerPumperTests
                 return ValueTask.CompletedTask;
             });
 
-        await _pumper.ExecuteAsync(consumer, cts.Token);
+        await _pump.ExecuteAsync(consumer, cts.Token);
 
         await consumer.Received(1).DeferAsync(message, delay);
         await consumer.DidNotReceive().AckAsync(Arg.Any<Message>());
@@ -182,7 +229,7 @@ public class AmanhecerPumperTests
                 return ValueTask.CompletedTask;
             });
 
-        await _pumper.ExecuteAsync(consumer, cts.Token);
+        await _pump.ExecuteAsync(consumer, cts.Token);
 
         await resolving.Received(1)
             .ExecuteAsync(message, subscription, _dispatcher, Arg.Any<CancellationToken>());
@@ -213,7 +260,7 @@ public class AmanhecerPumperTests
                 return ValueTask.CompletedTask;
             });
 
-        await _pumper.ExecuteAsync(consumer, cts.Token);
+        await _pump.ExecuteAsync(consumer, cts.Token);
 
         await consumer.Received(1).NackAsync(message);
         await consumer.DidNotReceive().AckAsync(Arg.Any<Message>());
@@ -243,7 +290,7 @@ public class AmanhecerPumperTests
                 return ValueTask.CompletedTask;
             });
 
-        await _pumper.ExecuteAsync(consumer, cts.Token);
+        await _pump.ExecuteAsync(consumer, cts.Token);
 
         await consumer.Received(1).DeferAsync(message, delay);
         await consumer.DidNotReceive().AckAsync(Arg.Any<Message>());
@@ -283,7 +330,7 @@ public class AmanhecerPumperTests
                 return ValueTask.CompletedTask;
             });
 
-        await _pumper.ExecuteAsync(consumer, cts.Token);
+        await _pump.ExecuteAsync(consumer, cts.Token);
 
         await consumer.Received(1).NackAsync(message);
         await Assert.That(failedMessage).IsEqualTo(message);
@@ -315,7 +362,7 @@ public class AmanhecerPumperTests
                 return ValueTask.CompletedTask;
             });
 
-        await _pumper.ExecuteAsync(consumer, cts.Token);
+        await _pump.ExecuteAsync(consumer, cts.Token);
 
         await consumer.Received(2).GetMessagesAsync(Arg.Any<CancellationToken>());
         await consumer.Received(1).AckAsync(message);
@@ -336,7 +383,7 @@ public class AmanhecerPumperTests
                 return new ValueTask<Message[]>([]);
             });
 
-        await _pumper.ExecuteAsync(consumer, cts.Token);
+        await _pump.ExecuteAsync(consumer, cts.Token);
 
         await _dispatcher.DidNotReceive()
             .QueryAsync<object?>(Arg.Any<object>(), Arg.Any<AmanhecerContext>(), Arg.Any<CancellationToken>());
@@ -353,7 +400,7 @@ public class AmanhecerPumperTests
         using var cts = new CancellationTokenSource();
         await cts.CancelAsync();
 
-        await _pumper.ExecuteAsync(consumer, cts.Token);
+        await _pump.ExecuteAsync(consumer, cts.Token);
 
         await consumer.DidNotReceive().GetMessagesAsync(Arg.Any<CancellationToken>());
         await _dispatcher.DidNotReceive()

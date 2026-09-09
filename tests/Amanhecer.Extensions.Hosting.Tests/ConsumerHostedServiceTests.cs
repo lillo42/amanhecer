@@ -35,9 +35,9 @@ public class ConsumerHostedServiceTests
         return services.BuildServiceProvider();
     }
 
-    private static IMessagePumper CreatePump(Func<IConsumer, CancellationToken, Task>? execute = null)
+    private static IMessagePump CreatePump(Func<IConsumer, CancellationToken, Task>? execute = null)
     {
-        var pump = Substitute.For<IMessagePumper>();
+        var pump = Substitute.For<IMessagePump>();
         pump.ExecuteAsync(Arg.Any<IConsumer>(), Arg.Any<CancellationToken>())
             .Returns(callInfo =>
                 execute?.Invoke(callInfo.Arg<IConsumer>(), callInfo.Arg<CancellationToken>())
@@ -48,14 +48,14 @@ public class ConsumerHostedServiceTests
     [Test]
     public async Task When_StartAsync_WhenNoGatewayIsRegistered_Should_NotCreateAnyPump()
     {
-        var pumperFactory = Substitute.For<IMessagePumperFactory>();
+        var pumpFactory = Substitute.For<IMessagePumpFactory>();
         using var provider = CreateProvider();
-        var service = new ConsumerHostedService(provider, pumperFactory);
+        var service = new ConsumerHostedService(provider, pumpFactory);
 
         await service.StartAsync(CancellationToken.None);
         await service.StopAsync(CancellationToken.None);
 
-        pumperFactory.DidNotReceive().Create();
+        pumpFactory.DidNotReceive().Create();
     }
 
     [Test]
@@ -66,14 +66,14 @@ public class ConsumerHostedServiceTests
         var firstGateway = CreateGateway(firstSubscription, secondSubscription);
         var thirdSubscription = CreateSubscription(numberOfConsumers: 1);
         var secondGateway = CreateGateway(thirdSubscription);
-        var pumperFactory = Substitute.For<IMessagePumperFactory>();
-        pumperFactory.Create().Returns(_ => CreatePump());
+        var pumpFactory = Substitute.For<IMessagePumpFactory>();
+        pumpFactory.Create().Returns(_ => CreatePump());
         using var provider = CreateProvider(firstGateway, secondGateway);
-        var service = new ConsumerHostedService(provider, pumperFactory);
+        var service = new ConsumerHostedService(provider, pumpFactory);
 
         await service.StartAsync(CancellationToken.None);
 
-        pumperFactory.Received(6).Create();
+        pumpFactory.Received(6).Create();
         firstGateway.Received(2).CreateConsumer(firstSubscription);
         firstGateway.Received(3).CreateConsumer(secondSubscription);
         secondGateway.Received(1).CreateConsumer(thirdSubscription);
@@ -84,13 +84,13 @@ public class ConsumerHostedServiceTests
     {
         var subscription = CreateSubscription(numberOfConsumers: 0);
         var gateway = CreateGateway(subscription);
-        var pumperFactory = Substitute.For<IMessagePumperFactory>();
+        var pumpFactory = Substitute.For<IMessagePumpFactory>();
         using var provider = CreateProvider(gateway);
-        var service = new ConsumerHostedService(provider, pumperFactory);
+        var service = new ConsumerHostedService(provider, pumpFactory);
 
         await service.StartAsync(CancellationToken.None);
 
-        pumperFactory.DidNotReceive().Create();
+        pumpFactory.DidNotReceive().Create();
         gateway.DidNotReceive().CreateConsumer(Arg.Any<ISubscription>());
     }
 
@@ -111,10 +111,10 @@ public class ConsumerHostedServiceTests
             pumpedToken = token;
             return Task.CompletedTask;
         });
-        var pumperFactory = Substitute.For<IMessagePumperFactory>();
-        pumperFactory.Create().Returns(pump);
+        var pumpFactory = Substitute.For<IMessagePumpFactory>();
+        pumpFactory.Create().Returns(pump);
         using var provider = CreateProvider(gateway);
-        var service = new ConsumerHostedService(provider, pumperFactory);
+        var service = new ConsumerHostedService(provider, pumpFactory);
 
         await service.StartAsync(CancellationToken.None);
 
@@ -126,13 +126,13 @@ public class ConsumerHostedServiceTests
     [Test]
     public async Task When_StopAsync_WhenNeverStarted_Should_CompleteWithoutCreatingPumps()
     {
-        var pumperFactory = Substitute.For<IMessagePumperFactory>();
+        var pumpFactory = Substitute.For<IMessagePumpFactory>();
         using var provider = CreateProvider(CreateGateway(CreateSubscription(numberOfConsumers: 1)));
-        var service = new ConsumerHostedService(provider, pumperFactory);
+        var service = new ConsumerHostedService(provider, pumpFactory);
 
         await service.StopAsync(CancellationToken.None);
 
-        pumperFactory.DidNotReceive().Create();
+        pumpFactory.DidNotReceive().Create();
     }
 
     [Test]
@@ -152,10 +152,10 @@ public class ConsumerHostedServiceTests
             });
             return completion.Task;
         });
-        var pumperFactory = Substitute.For<IMessagePumperFactory>();
-        pumperFactory.Create().Returns(pump);
+        var pumpFactory = Substitute.For<IMessagePumpFactory>();
+        pumpFactory.Create().Returns(pump);
         using var provider = CreateProvider(gateway);
-        var service = new ConsumerHostedService(provider, pumperFactory);
+        var service = new ConsumerHostedService(provider, pumpFactory);
 
         await service.StartAsync(CancellationToken.None);
         await service.StopAsync(CancellationToken.None);
@@ -171,10 +171,10 @@ public class ConsumerHostedServiceTests
 
         var pumpCompletion = new TaskCompletionSource();
         var pump = CreatePump((_, _) => pumpCompletion.Task);
-        var pumperFactory = Substitute.For<IMessagePumperFactory>();
-        pumperFactory.Create().Returns(pump);
+        var pumpFactory = Substitute.For<IMessagePumpFactory>();
+        pumpFactory.Create().Returns(pump);
         using var provider = CreateProvider(gateway);
-        var service = new ConsumerHostedService(provider, pumperFactory);
+        var service = new ConsumerHostedService(provider, pumpFactory);
 
         await service.StartAsync(CancellationToken.None);
 
@@ -191,10 +191,10 @@ public class ConsumerHostedServiceTests
         var subscription = CreateSubscription(numberOfConsumers: 1);
         var gateway = CreateGateway(subscription);
         var pump = CreatePump((_, _) => Task.FromCanceled(new CancellationToken(canceled: true)));
-        var pumperFactory = Substitute.For<IMessagePumperFactory>();
-        pumperFactory.Create().Returns(pump);
+        var pumpFactory = Substitute.For<IMessagePumpFactory>();
+        pumpFactory.Create().Returns(pump);
         using var provider = CreateProvider(gateway);
-        var service = new ConsumerHostedService(provider, pumperFactory);
+        var service = new ConsumerHostedService(provider, pumpFactory);
 
         await service.StartAsync(CancellationToken.None);
         await service.StopAsync(CancellationToken.None);
@@ -205,10 +205,10 @@ public class ConsumerHostedServiceTests
     {
         var subscription = CreateSubscription(numberOfConsumers: 1);
         var gateway = CreateGateway(subscription);
-        var pumperFactory = Substitute.For<IMessagePumperFactory>();
-        pumperFactory.Create().Returns(_ => CreatePump());
+        var pumpFactory = Substitute.For<IMessagePumpFactory>();
+        pumpFactory.Create().Returns(_ => CreatePump());
         using var provider = CreateProvider(gateway);
-        var service = new ConsumerHostedService(provider, pumperFactory);
+        var service = new ConsumerHostedService(provider, pumpFactory);
 
         await service.StartAsync(CancellationToken.None);
         await service.StopAsync(CancellationToken.None);
@@ -220,16 +220,16 @@ public class ConsumerHostedServiceTests
     {
         var subscription = CreateSubscription(numberOfConsumers: 1);
         var gateway = CreateGateway(subscription);
-        var pumperFactory = Substitute.For<IMessagePumperFactory>();
-        pumperFactory.Create().Returns(_ => CreatePump());
+        var pumpFactory = Substitute.For<IMessagePumpFactory>();
+        pumpFactory.Create().Returns(_ => CreatePump());
         using var provider = CreateProvider(gateway);
-        var service = new ConsumerHostedService(provider, pumperFactory);
+        var service = new ConsumerHostedService(provider, pumpFactory);
 
         await service.StartAsync(CancellationToken.None);
         await service.StopAsync(CancellationToken.None);
         await service.StartAsync(CancellationToken.None);
 
-        pumperFactory.Received(2).Create();
+        pumpFactory.Received(2).Create();
         gateway.Received(2).CreateConsumer(subscription);
     }
 }

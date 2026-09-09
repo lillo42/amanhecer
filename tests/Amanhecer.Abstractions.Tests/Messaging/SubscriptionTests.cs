@@ -29,6 +29,7 @@ public class SubscriptionTests
         await Assert.That(subscription.DefaultSpecVersion).IsEqualTo("1.0");
         await Assert.That(subscription.DefaultSource.ToString()).IsEqualTo("amanhecer");
         await Assert.That(subscription.DefaultType).IsEqualTo("default");
+        await Assert.That(subscription.MessagingSystem).IsEqualTo("amanhecer");
         await Assert.That(subscription.DefaultSubject).IsNull();
         await Assert.That(subscription.DefaultReplyTo).IsNull();
         await Assert.That(subscription.DefaultDataSchema).IsNull();

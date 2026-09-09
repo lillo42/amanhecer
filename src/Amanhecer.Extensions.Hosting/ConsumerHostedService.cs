@@ -16,8 +16,8 @@ namespace Amanhecer.Extensions.Hosting;
 /// </summary>
 /// <param name="provider">The service provider used to resolve the registered gateways and to
 /// start the consumers.</param>
-/// <param name="pumperFactory">The factory that creates the message pumper driving each consumer.</param>
-public class ConsumerHostedService(IServiceProvider provider, IMessagePumperFactory pumperFactory) : IHostedService
+/// <param name="pumpFactory">The factory that creates the message pump driving each consumer.</param>
+public class ConsumerHostedService(IServiceProvider provider, IMessagePumpFactory pumpFactory) : IHostedService
 {
     private CancellationTokenSource? _cancellationTokenSource;
 
@@ -43,7 +43,7 @@ public class ConsumerHostedService(IServiceProvider provider, IMessagePumperFact
                 for (var i = 0; i < subscription.NumberOfConsumers; i++)
                 {
                     var consumer = gateway.CreateConsumer(subscription);
-                    var pump = pumperFactory.Create();
+                    var pump = pumpFactory.Create();
 
                     _tasks.Add(pump.ExecuteAsync(consumer, _cancellationTokenSource.Token));
                 }

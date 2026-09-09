@@ -10,7 +10,7 @@ namespace Amanhecer.RabbitMq;
 /// <summary>
 /// An <see cref="IConsumer"/> that settles (acks, nacks or defers) RabbitMQ deliveries and
 /// hands the messages buffered by the underlying <see cref="RabbitMqMessagePoller"/> to the
-/// message pumper.
+/// message pump.
 /// </summary>
 /// <param name="poller">The poller buffering the messages received from the queue.</param>
 /// <param name="subscription">The subscription this consumer consumes for.</param>

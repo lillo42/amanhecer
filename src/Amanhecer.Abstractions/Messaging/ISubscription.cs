@@ -59,6 +59,14 @@ public interface ISubscription
     string Name { get; }
 
     /// <summary>
+    /// Gets the name of the messaging system messages are consumed from, following the
+    /// OpenTelemetry <c>messaging.system</c> semantic convention (for example
+    /// <c>rabbitmq</c>, <c>kafka</c> or <c>aws_sqs</c>). Used to tag the metrics and
+    /// activities recorded while processing consumed messages.
+    /// </summary>
+    string MessagingSystem { get; }
+
+    /// <summary>
     /// Gets the number of consumers reading from the subscription.
     /// </summary>
     int NumberOfConsumers { get; }

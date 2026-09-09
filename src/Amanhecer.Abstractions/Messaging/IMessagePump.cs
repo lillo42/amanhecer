@@ -7,7 +7,7 @@ namespace Amanhecer.Abstractions.Messaging;
 /// Pumps messages from an <see cref="IConsumer"/>: polls it for messages and dispatches each
 /// one through the pipeline of the consumer's subscription until cancellation is requested.
 /// </summary>
-public interface IMessagePumper
+public interface IMessagePump
 {
     /// <summary>
     /// Starts pumping messages from the consumer. The returned task completes when

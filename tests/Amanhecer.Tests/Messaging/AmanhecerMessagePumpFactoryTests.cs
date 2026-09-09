@@ -7,25 +7,25 @@ using NSubstitute;
 
 namespace Amanhecer.Tests.Messaging;
 
-public class AmanhecerMessagePumperFactoryTests
+public class AmanhecerMessagePumpFactoryTests
 {
     [Test]
-    public async Task When_MessagePumperIsRegistered_Should_ReturnTheResolvedPumper()
+    public async Task When_MessagePumpIsRegistered_Should_ReturnTheResolvedPump()
     {
-        var pumper = Substitute.For<IMessagePumper>();
+        var pump = Substitute.For<IMessagePump>();
         var provider = new ServiceCollection()
-            .AddSingleton(pumper)
+            .AddSingleton(pump)
             .BuildServiceProvider();
-        var factory = new AmanhecerMessagePumperFactory(provider);
+        var factory = new AmanhecerMessagePumpFactory(provider);
 
-        await Assert.That(factory.Create()).IsEqualTo(pumper);
+        await Assert.That(factory.Create()).IsEqualTo(pump);
     }
 
     [Test]
-    public async Task When_MessagePumperIsNotRegistered_Should_ThrowInvalidOperationException()
+    public async Task When_MessagePumpIsNotRegistered_Should_ThrowInvalidOperationException()
     {
         var provider = new ServiceCollection().BuildServiceProvider();
-        var factory = new AmanhecerMessagePumperFactory(provider);
+        var factory = new AmanhecerMessagePumpFactory(provider);
 
         await Assert.That(() => factory.Create())
             .Throws<InvalidOperationException>();

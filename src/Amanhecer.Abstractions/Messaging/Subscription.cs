@@ -14,6 +14,9 @@ public abstract class Subscription(string toRoutingKey) : ISubscription
     /// <inheritdoc cref="ISubscription.Name"/>
     public string Name { get; set; } = Uuid.NewGuid().ToString();
 
+    /// <inheritdoc cref="ISubscription.MessagingSystem" />
+    public string MessagingSystem { get; set; } = "amanhecer";
+
     /// <inheritdoc cref="ISubscription.NumberOfConsumers"/>
     public int NumberOfConsumers { get; set; } = 1;
 

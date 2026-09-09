@@ -49,8 +49,8 @@ public static class ServiceCollectionExtensions
         services.TryAddTransient<IEncodeTransformerFactory, AmanhecerEncodeTransformerFactory>();
         services.TryAddTransient<IDecodeTransformerFactory, AmanhecerDecodeTransformerFactory>();
         services.TryAddTransient<IMessageMapperFactory, AmanhecerMessageMapperFactory>();
-        services.TryAddTransient<IMessagePumper, AmanhecerPumper>();
-        services.TryAddSingleton<IMessagePumperFactory, AmanhecerMessagePumperFactory>();
+        services.TryAddTransient<IMessagePump, AmanhecerMessagePump>();
+        services.TryAddSingleton<IMessagePumpFactory, AmanhecerMessagePumpFactory>();
         services.TryAddTransient<JsonMessageMapper>();
 
         var cfg = new AmanhecerConfigurator(services);

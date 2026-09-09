@@ -10,6 +10,34 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Amanhecer.slnx
+
+      - name: Build and test (no external dependencies)
+        run: |
+          set -e
+          for project in tests/*/*.csproj; do
+            case "$project" in
+              # Shared contract-test library (not runnable) and the RabbitMQ
+              # tests, which need the broker and run in their own job.
+              *Messaging.Base.Tests*|*RabbitMq.Tests*) continue ;;
+            esac
+            dotnet test "$project" --configuration Release
+          done
+
+  rabbitmq:
+    needs: build
+    runs-on: ubuntu-latest
+
     services:
       rabbitmq:
         image: rabbitmq:4-management
@@ -32,18 +60,6 @@ jobs:
 
       - name: Restore
         run: dotnet restore Amanhecer.slnx
-
-      - name: Build and test (no external dependencies)
-        run: |
-          set -e
-          for project in tests/*/*.csproj; do
-            case "$project" in
-              # Shared contract-test library (not runnable) and the RabbitMQ
-              # tests, which need the broker and run in the next step.
-              *Messaging.Base.Tests*|*RabbitMq.Tests*) continue ;;
-            esac
-            dotnet test "$project" --configuration Release
-          done
 
       - name: Test RabbitMQ (requires the broker service)
         run: dotnet test tests/Amanhecer.RabbitMq.Tests/Amanhecer.RabbitMq.Tests.csproj --configuration Release

@@ -223,7 +223,7 @@ public class RabbitMqMessagePoller(
         var id = GetHeaderValue(properties, "cloudEvents:id");
         if (!string.IsNullOrWhiteSpace(id))
         {
-            return id;
+            return id!;
         }
 
         if (!string.IsNullOrWhiteSpace(messageId))

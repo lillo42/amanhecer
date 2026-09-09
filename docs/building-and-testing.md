@@ -38,10 +38,10 @@ dotnet run --project tests/Amanhecer.Extensions.Resilience.Tests -f net10.0
   tests from `tests/Amanhecer.Messaging.Base.Tests`, plus provisioning, dead-lettering,
   routing and redelivery tests, all run against a real broker.
 
-In CI, the build workflow runs the broker-free test projects first and, once they pass, runs
-`tests/Amanhecer.RabbitMq.Tests` against a `rabbitmq:4-management` service container.
-Locally, start one with the compose file at the repository root (works with both Docker and
-Podman):
+In CI, the build workflow runs the broker-free test projects in a `build` job first and, once
+it passes, a dependent `rabbitmq` job runs `tests/Amanhecer.RabbitMq.Tests` against a
+`rabbitmq:4-management` service container. Locally, start one with the compose file at the
+repository root (works with both Docker and Podman):
 
 ```bash
 podman compose -f docker-compose-rabbitmq.yaml up -d

@@ -108,10 +108,10 @@ public class RabbitMqSubscriptionConfigurator
     /// <returns>The configurator instance for method chaining.</returns>
     public RabbitMqSubscriptionConfigurator NumberOfConsumers(int numberOfConsumers)
     {
-        if (numberOfConsumers < 0)
+        if (numberOfConsumers <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(numberOfConsumers),
-                "Number of consumers cannot be negative.");
+                "Number of consumers must be greater than zero.");
         }
 
         _numberOfConsumers = numberOfConsumers;
@@ -127,10 +127,10 @@ public class RabbitMqSubscriptionConfigurator
     /// <returns>The configurator instance for method chaining.</returns>
     public RabbitMqSubscriptionConfigurator BufferSize(int bufferSize)
     {
-        if (bufferSize < 0)
+        if (bufferSize <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(bufferSize),
-                "Buffer size cannot be negative.");
+                "Buffer size must be greater than zero.");
         }
 
         _bufferSize = bufferSize;

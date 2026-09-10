@@ -78,5 +78,24 @@ public class ConsumerHostedService(IServiceProvider provider, IMessagePumpFactor
 
         _cancellationTokenSource.Dispose();
         _cancellationTokenSource = null;
+
+        foreach (var gateway in provider.GetServices<IGateway>())
+        {
+            switch (gateway)
+            {
+#if NETFRAMEWORK || NETSTANDARD2_0
+                case IDisposable disposable:
+                    disposable.Dispose();
+                    break;
+#else
+                case IAsyncDisposable asyncDisposable:
+                    await asyncDisposable.DisposeAsync();
+                    break;
+                case IDisposable disposable:
+                    disposable.Dispose();
+                    break;
+#endif
+            }
+        }
     }
 }

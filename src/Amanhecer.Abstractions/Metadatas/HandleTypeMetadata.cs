@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Amanhecer.Abstractions.Metadatas;
 
@@ -7,4 +8,6 @@ namespace Amanhecer.Abstractions.Metadatas;
 /// handler-executing middleware is registered in a pipeline.
 /// </summary>
 /// <param name="HandlerType">The handler <see cref="Type"/> to execute.</param>
-public record HandleTypeMetadata(Type HandlerType);
+public record HandleTypeMetadata(
+    [property: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)]
+    Type HandlerType);

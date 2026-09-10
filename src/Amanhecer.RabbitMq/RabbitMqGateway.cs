@@ -47,6 +47,11 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
 
     internal async ValueTask<IConnection> GetOrCreateAsync()
     {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(RabbitMqGateway));
+        }
+
         if (_connection != null)
         {
             return _connection;
@@ -55,6 +60,11 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
         await _connectionLock.WaitAsync();
         try
         {
+            if (_disposed)
+            {
+                throw new ObjectDisposedException(nameof(RabbitMqGateway));
+            }
+
             if (_connection != null)
             {
                 return _connection;
@@ -82,13 +92,27 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
     }
 
     /// <summary>
-    /// Provisions the gateway <see cref="Exchange"/>, if one is set, then the provisioners
-    /// declared by the publications and subscriptions.
+    /// Provisions the gateway <see cref="Exchange"/> and the exchange of every publication,
+    /// then the provisioners declared by the publications and subscriptions.
     /// </summary>
     /// <returns>A <see cref="ValueTask"/> that completes when all provisioners have run.</returns>
     public override async ValueTask ProvisionerAsync()
     {
+        var exchanges = new List<Exchange>();
         if (Exchange != null)
+        {
+            exchanges.Add(Exchange);
+        }
+
+        foreach (var publication in Publications)
+        {
+            if (publication.Exchange != null)
+            {
+                exchanges.Add(publication.Exchange);
+            }
+        }
+
+        if (exchanges.Count > 0)
         {
             var connection = await GetOrCreateAsync();
 
@@ -98,9 +122,16 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
             await using var channel = await connection.CreateChannelAsync(ChannelOptions);
 #endif
 
-            await Exchange
-                .Provisioner
-                .ExecuteAsync(channel, Exchange);
+            var provisioned = new HashSet<string>();
+            foreach (var exchange in exchanges)
+            {
+                if (provisioned.Add(exchange.Name))
+                {
+                    await exchange
+                        .Provisioner
+                        .ExecuteAsync(channel, exchange);
+                }
+            }
         }
 
         await base.ProvisionerAsync();

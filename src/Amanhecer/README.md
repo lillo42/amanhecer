@@ -1,6 +1,6 @@
 # Amanhecer
 
-A lightweight request dispatcher (mediator) for .NET, inspired by [Paramore Brighter](https://github.com/BrighterCommand/Brighter). Send commands, publish events and execute queries through configurable middleware pipelines — with no external broker required.
+A lightweight request dispatcher (mediator) for .NET. Send commands, publish events and execute queries through configurable middleware pipelines — with no external broker required.
 
 ## Quick start
 
@@ -13,7 +13,7 @@ public record Greeting(string Name);
 
 public class GreetingHandler : RequestHandler<Greeting>
 {
-    public override ValueTask HandleAsync(Greeting request, IPipelineContext context,
+    public override ValueTask HandleAsync(Greeting request, AmanhecerContext context,
         CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"Hello {request.Name}!");
@@ -42,7 +42,7 @@ dispatcher.Publish(new OrderShipped(id));                   // any number of han
 var answer = dispatcher.Query<Ask, string>(new Ask("?"));   // returns a response
 ```
 
-All three operations have `async` overloads (`SendAsync`, `PublishAsync`, `QueryAsync`) and accept an optional `IContext` carrying a routing-key override, metadata, an `Activity` and a per-dispatch executing strategy.
+All operations have `async` overloads (`SendAsync`, `PublishAsync`, `QueryAsync`, `PostAsync`) and accept an optional `AmanhecerContext` carrying a routing-key override, metadata, an `Activity` and a per-dispatch executing strategy.
 
 ## Features
 
@@ -55,13 +55,15 @@ All three operations have `async` overloads (`SendAsync`, `PublishAsync`, `Query
 
 ## Companion packages
 
+- `Amanhecer.RabbitMq` — RabbitMQ transport for the messaging gateway (publications, subscriptions, provisioning).
+- `Amanhecer.Extensions.Hosting` — generic-host integration that runs the message consumers as a hosted service.
 - `Amanhecer.Polly` — execute pipelines inside named Polly resilience pipelines.
 - `Amanhecer.Extensions.Resilience` — the same, built on `Microsoft.Extensions.Resilience` with telemetry enrichment.
 - `Amanhecer.OpenTelemetry` — OpenTelemetry tracing and metrics instrumentation.
 
 ## Documentation
 
-Full documentation lives in the [repository docs](https://github.com/lillo42/amanhecer/tree/main/docs): middleware, routing, executing strategies, resilience and observability.
+Full documentation lives in the [repository docs](https://github.com/lillo42/amanhecer/tree/main/docs): middleware, transformers, routing, RabbitMQ, executing strategies, resilience and observability.
 
 ## Licence
 

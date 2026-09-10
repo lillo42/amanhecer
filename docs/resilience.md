@@ -23,12 +23,12 @@ services.AddResiliencePipeline("order-processing", builder => builder
 
 ## Fluent usage
 
-Pass the pipeline name as the middleware metadata:
+Pass the pipeline name as the middleware metadata, wrapped in `PollyPipelineMetadata`:
 
 ```csharp
 services.AddAmanhecer(a => a
     .AddRequestHandler<PlaceOrderHandler>(cfg => cfg
-        .Use<PollyResiliencePipelineMiddleware>(order: 1, metadata: "order-processing")));
+        .Use<PollyResiliencePipelineMiddleware>(order: 1, metadata: new PollyPipelineMetadata("order-processing"))));
 ```
 
 or, with the `Amanhecer.Extensions.Resilience` package:
@@ -36,7 +36,7 @@ or, with the `Amanhecer.Extensions.Resilience` package:
 ```csharp
 services.AddAmanhecer(a => a
     .AddRequestHandler<PlaceOrderHandler>(cfg => cfg
-        .Use<ResiliencePipelineMiddleware>(order: 1, metadata: "order-processing")));
+        .Use<ResiliencePipelineMiddleware>(order: 1, metadata: new ResiliencePipelineMetadata("order-processing"))));
 ```
 
 ## Attribute usage
@@ -54,7 +54,7 @@ public class PlaceOrderHandler : RequestHandler<PlaceOrder> { ... }
 ## Behaviour
 
 - The dispatch's `CancellationToken` flows into the resilience execution, so cancelling a dispatch aborts retries, and a timeout strategy replaces the token seen by the rest of the pipeline.
-- A custom Polly `ResilienceContext` can be supplied per dispatch through the pipeline-context metadata, under the key `PollyResiliencePipelineMiddleware.ResilienceContext` (or `ResiliencePipelineMiddleware.ResilienceContextKey`).
+- A custom Polly `ResilienceContext` can be supplied per dispatch through the pipeline-context metadata, under the key `PollyResiliencePipelineMiddleware.ResilienceContext` (or `ResiliencePipelineMiddleware.ResilienceContext`).
 
 ## Telemetry enrichment
 

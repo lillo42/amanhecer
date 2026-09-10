@@ -65,7 +65,7 @@ public class EncodeMiddleware(
         }
 
         publication = publicationFinder.Find(publicationRoutingKey!);
-        context.SetMetadata(publication);
+        context.SetMetadata(publication, MetadataName.Publication);
 
         return publication;
     }

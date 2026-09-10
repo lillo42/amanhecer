@@ -23,6 +23,7 @@ dotnet run --project tests/Amanhecer.Tests -f net10.0
 dotnet run --project tests/Amanhecer.Abstractions.Tests -f net10.0
 dotnet run --project tests/Amanhecer.Extensions.Hosting.Tests -f net10.0
 dotnet run --project tests/Amanhecer.IntegrationTests -f net10.0
+dotnet run --project tests/Amanhecer.OpenTelemetry.Tests -f net10.0
 dotnet run --project tests/Amanhecer.Polly.Tests -f net10.0
 dotnet run --project tests/Amanhecer.Extensions.Resilience.Tests -f net10.0
 ```
@@ -59,10 +60,13 @@ dotnet run --project tests/Amanhecer.RabbitMq.Tests -f net10.0
 ## Project layout
 
 - `src/Amanhecer.Abstractions` — interfaces, base classes, attributes and contexts.
-- `src/Amanhecer` — the dispatcher, pipeline, factories, configurators and DI extensions.
+- `src/Amanhecer` — the dispatcher, pipeline, factories, configurators, messaging abstractions and DI extensions.
+- `src/Amanhecer.RabbitMq` — RabbitMQ transport for the messaging gateway.
+- `src/Amanhecer.Extensions.Hosting` — generic-host integration running the message consumers.
 - `src/Amanhecer.OpenTelemetry` — OpenTelemetry instrumentation.
 - `src/Amanhecer.Polly` — Polly resilience middleware.
 - `src/Amanhecer.Extensions.Resilience` — `Microsoft.Extensions.Resilience` middleware with telemetry enrichment.
 - `samples/Simple`, `samples/Middleware` — console examples.
+- `samples/RabbitMqQuorum` — RabbitMQ example using a quorum queue.
 - `tests/Amanhecer.Messaging.Base.Tests` — transport-agnostic messaging gateway contract tests; new transports inherit them.
 - `tests/*` — unit and integration tests (TUnit).

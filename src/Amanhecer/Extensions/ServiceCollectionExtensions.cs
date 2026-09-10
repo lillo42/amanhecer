@@ -9,6 +9,7 @@ using Amanhecer.Configurator;
 using Amanhecer.ExecutingStrategies;
 using Amanhecer.Messaging;
 using Amanhecer.Messaging.Handlers;
+using Amanhecer.Messaging.Middlewares;
 using Amanhecer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -51,6 +52,8 @@ public static class ServiceCollectionExtensions
         services.TryAddTransient<IMessageMapperFactory, AmanhecerMessageMapperFactory>();
         services.TryAddTransient<IMessagePump, AmanhecerMessagePump>();
         services.TryAddSingleton<IMessagePumpFactory, AmanhecerMessagePumpFactory>();
+        services.TryAddTransient<EncodeMiddleware>();
+        services.TryAddTransient<DecodeMiddleware>();
         services.TryAddTransient<JsonMessageMapper>();
 
         var cfg = new AmanhecerConfigurator(services);

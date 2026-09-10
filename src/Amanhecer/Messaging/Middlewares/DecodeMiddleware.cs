@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Abstractions.Metadatas;
 
 namespace Amanhecer.Messaging.Middlewares;
 
@@ -58,6 +59,15 @@ public class DecodeMiddleware(
         var pipeline = transformerPipelineFactory.Create(transformerPipeline, context);
         await pipeline.DecodeAsync(message, context).ConfigureAwait(context.ContinueOnCapturedContext);
 
+        // The mapper needs to know the request type expected by the pipeline's handler; it is
+        // resolved from the handler type stored in the metadata when the pipeline was built,
+        // unless the caller already set it explicitly.
+        if (context.GetMetadata<Type>(MetadataName.RequestType) == null &&
+            ResolveRequestType(context) is { } requestType)
+        {
+            context.SetMetadata(requestType, MetadataName.RequestType);
+        }
+
         var mapper = messageMapperFactory.Create(mapperType);
         var request = await mapper.ToRequestAsync(message, context).ConfigureAwait(context.ContinueOnCapturedContext);
 
@@ -65,5 +75,31 @@ public class DecodeMiddleware(
         context.Request = request;
 
         await next(context).ConfigureAwait(context.ContinueOnCapturedContext);
+    }
+
+    private static Type? ResolveRequestType(AmanhecerContext context)
+    {
+        var handlerType = context.GetMetadata<HandleTypeMetadata>()?.HandlerType;
+        if (handlerType == null)
+        {
+            return null;
+        }
+
+        foreach (var @interface in handlerType.GetInterfaces())
+        {
+            if (!@interface.IsGenericType)
+            {
+                continue;
+            }
+
+            var genericTypeDefinition = @interface.GetGenericTypeDefinition();
+            if (genericTypeDefinition == typeof(IRequestHandler<>) ||
+                genericTypeDefinition == typeof(IQueryHandler<,>))
+            {
+                return @interface.GetGenericArguments()[0];
+            }
+        }
+
+        return null;
     }
 }

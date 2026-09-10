@@ -14,12 +14,10 @@ using Amanhecer.Abstractions.Messaging;
 // Runs only when publishing.
 public class CompressTransformer : IEncodeTransformer
 {
-    public void Initialize(object? metadata) { }
-
-    public async ValueTask EncodeAsync(Message message, IPipelineContext context,
-        Func<Message, IPipelineContext, ValueTask> next)
+    public async ValueTask EncodeAsync(Message message, AmanhecerContext context,
+        Func<Message, AmanhecerContext, ValueTask> next)
     {
-        message.Body = Compress(message.Body);
+        message.Payload = Compress(message.Payload);
         await next(message, context);
     }
 }
@@ -32,8 +30,8 @@ public class ValidateTransformer : IDecodeTransformer { /* DecodeAsync ... */ }
 public class GZipTransformer : ITransformer { /* EncodeAsync and DecodeAsync ... */ }
 ```
 
-`Initialize` is called once when the transformer is created and receives the metadata supplied
-at registration time.
+The metadata supplied at registration time is stored in `AmanhecerContext.Metadata` when the
+transformer is created; read it with `context.GetMetadata<T>()`.
 
 ## Per-publication registration
 
@@ -46,7 +44,7 @@ publications.AddPublication(p => p
     .RabbitMqRoutingKey("orders.created")
     .Exchange(ex => ex.Name("orders"))
     .MessageMapper<OrderMapper>()
-    .Transformer<CloudeventTransformer>(order: 0)
+    .Transformer<SetCloudEventTransformer>(order: 0)
     .Transformer<CompressTransformer>(order: 10));
 ```
 
@@ -59,7 +57,7 @@ Register a transformer once for every publication and subscription:
 ```csharp
 services.AddAmanhecer(cfg => cfg
     .UsingMessagingGateway(m => m
-        .AddGlobalTransformer<CloudeventTransformer>(order: 0)
+        .AddGlobalTransformer<SetCloudEventTransformer>(order: 0)
         .AddGlobalTransformer<LoggingTransformer>(order: 100)
         .AddGateway(/* ... */)));
 ```
@@ -82,9 +80,9 @@ public class CompressAttribute(int order) : TransformerAttribute(order)
 public class OrderMapper : IMessageMapper<OrderCreated> { ... }
 ```
 
-With attribute registration, the attribute instance itself is passed to `Initialize` as the
+With attribute registration, the attribute instance itself is stored as the transformer's
 metadata, so the attribute can carry configuration to the transformer — see
-`CloudeventAttribute` / `CloudeventTransformer` in the `Amanhecer` package for an example.
+`CloudEventAttribute` / `SetCloudEventTransformer` in the `Amanhecer` package for an example.
 
 ## Ordering and merging
 

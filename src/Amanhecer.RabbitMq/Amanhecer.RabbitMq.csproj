@@ -1,8 +1,10 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
         <IsPackable>true</IsPackable>
+        <Description>RabbitMQ transport for Amanhecer: publish messages to exchanges and consume them from queues through the messaging gateway, with CloudEvents mapping and pluggable provisioning.</Description>
+        <PackageTags>mediator;cqrs;messaging;dispatcher;rabbitmq;amqp;queue;cloudevents;middleware;pipeline</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>

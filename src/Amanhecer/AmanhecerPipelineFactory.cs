@@ -23,16 +23,7 @@ public class AmanhecerPipelineFactory(
     /// <returns>The pipelines configured for the routing key, or an empty list when none is configured.</returns>
     public IReadOnlyList<IPipeline> Create(AmanhecerContext context)
     {
-        if (!options.Configuration.TryGetValue(context.RoutingKey, out var pipelines))
-        {
-            pipelines = [];
-            if (context.Middlewares != null)
-            {
-                pipelines.Add([]);
-            }
-        }
-
-        if (pipelines.Count == 0)
+        if (!options.Configuration.TryGetValue(context.RoutingKey, out var pipelines) || pipelines.Count == 0)
         {
             return [];
         }

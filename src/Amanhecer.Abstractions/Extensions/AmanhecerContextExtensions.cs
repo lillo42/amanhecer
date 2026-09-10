@@ -17,11 +17,13 @@ public static class AmanhecerContextExtensions
     /// <param name="metadata">The metadata to store; ignored when null.</param>
     public static void SetMetadata(this AmanhecerContext context, object? metadata)
     {
-        if (metadata != null)
+        if (metadata == null)
         {
-            var metadataName = metadata.GetType().FullName ?? metadata.GetType().Name;
-            context.SetMetadata(metadata, metadataName);
+            throw new ArgumentNullException(nameof(metadata));
         }
+
+        var metadataName = metadata.GetType().FullName ?? metadata.GetType().Name;
+        context.SetMetadata(metadata, metadataName);
     }
 
     /// <summary>

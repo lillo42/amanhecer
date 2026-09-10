@@ -123,7 +123,7 @@ public static class ServiceCollectionExtensions
         // get the global transformers.
         if (globalTransformers.Count > 0)
         {
-            foreach (var pipelineName in transformerPipelines.Keys)
+            foreach (var pipelineName in transformerPipelines.Keys.ToList())
             {
                 if (mergedPipelines.Add(pipelineName))
                 {

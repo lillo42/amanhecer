@@ -32,4 +32,17 @@ public class RabbitMqSubscription : Subscription
     /// prefetches.
     /// </summary>
     public uint PrefetchSize { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum number of times a message is delivered before a deferred
+    /// message is nacked without requeue, so the broker dead-letters it (when a dead-letter
+    /// exchange is configured) instead of redelivering it forever. Defaults to <c>0</c>
+    /// (disabled): deferred messages are always requeued, deferring to the broker's
+    /// redelivery policy (e.g. a quorum queue's <c>delivery-limit</c> with a dead-letter
+    /// exchange), and a warning is logged when the consumer starts, because a persistently
+    /// failing handler otherwise spins a hot receive/fail/requeue loop. Set a positive
+    /// value to bound redeliveries client-side; with both configured, whichever limit is
+    /// reached first dead-letters the message.
+    /// </summary>
+    public int MaxDeliveryAttempts { get; set; }
 }

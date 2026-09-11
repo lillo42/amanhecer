@@ -88,7 +88,14 @@ metadata, so the attribute can carry configuration to the transformer — see
 
 Lower `Order` values run earlier. Transformers from all sources — global registration,
 mapper attributes and per-publication configuration — are merged into a single ordered
-pipeline for each direction.
+pipeline for each direction. Subscriptions expose the same per-instance `Transformers`
+list as publications, applied to the decode pipeline.
+
+The `Amanhecer` package ships two built-in transformers: `SetCloudEventTransformer`, which
+applies the configured CloudEvents attributes and the publication/subscription defaults, and
+`StructuredCloudEventTransformer`, which wraps and unwraps the CloudEvents structured (JSON)
+envelope — the RabbitMQ configurators register it automatically when structured content mode
+is used (see [RabbitMQ](rabbitmq.md#cloudevents-content-modes)).
 
 ## Named pipelines
 

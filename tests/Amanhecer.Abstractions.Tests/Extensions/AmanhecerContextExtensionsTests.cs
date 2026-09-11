@@ -19,13 +19,12 @@ public class AmanhecerContextExtensionsTests
     }
 
     [Test]
-    public async Task SetMetadata_Null_Should_BeIgnored()
+    public async Task SetMetadata_Null_Should_ThrowArgumentNullException()
     {
         var context = new AmanhecerContext();
 
-        context.SetMetadata(null);
-
-        await Assert.That(context.Metadata).IsEmpty();
+        await Assert.That(() => context.SetMetadata(null))
+            .ThrowsExactly<ArgumentNullException>();
     }
 
     [Test]
@@ -134,5 +133,46 @@ public class AmanhecerContextExtensionsTests
         await Assert.That(result).IsEqualTo("stored");
     }
 
-    private sealed record SampleMetadata(string Value);
+    [Test]
+    public async Task GetMetadata_ByInterface_Should_ReturnMetadataStoredByRuntimeType()
+    {
+        var context = new AmanhecerContext();
+        var metadata = new SampleMetadata("value");
+        context.SetMetadata(metadata);
+
+        var result = context.GetMetadata<ISampleMetadata>();
+
+        await Assert.That(ReferenceEquals(result, metadata)).IsTrue();
+    }
+
+    [Test]
+    public async Task GetMetadata_ByBaseType_Should_ReturnMetadataStoredByRuntimeType()
+    {
+        var context = new AmanhecerContext();
+        var metadata = new SampleMetadata("value");
+        context.SetMetadata(metadata);
+
+        var result = context.GetMetadata<object>();
+
+        await Assert.That(ReferenceEquals(result, metadata)).IsTrue();
+    }
+
+    [Test]
+    public async Task GetRequiredMetadata_ByInterface_Should_ReturnMetadataStoredByRuntimeType()
+    {
+        var context = new AmanhecerContext();
+        var metadata = new SampleMetadata("value");
+        context.SetMetadata(metadata);
+
+        var result = context.GetRequiredMetadata<ISampleMetadata>();
+
+        await Assert.That(ReferenceEquals(result, metadata)).IsTrue();
+    }
+
+    private interface ISampleMetadata
+    {
+        string Value { get; }
+    }
+
+    private sealed record SampleMetadata(string Value) : ISampleMetadata;
 }

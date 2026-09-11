@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Extensions;
 using NSubstitute;
 using TUnit.Assertions.Enums;
 
@@ -181,5 +182,39 @@ public class AmanhecerPipelineTests
         await second
             .DidNotReceive()
             .ExecuteAsync(Arg.Any<AmanhecerContext>(), Arg.Any<Func<AmanhecerContext, ValueTask>>());
+    }
+
+    [Test]
+    [RequiresUnreferencedCode(
+        "Collection equivalency uses structural comparison for complex objects, " +
+        "which requires reflection and is not compatible with AOT.")]
+    public async Task When_ExecuteAsync_Should_ExposeEachMiddlewareItsOwnMetadata()
+    {
+        var seen = new List<string>();
+        var middleware = new TagMiddleware(seen);
+
+        var pipeline = new AmanhecerPipeline([middleware, middleware],
+            middlewaresMetadata: [new Tag("first"), new Tag("second")]);
+
+        var context = new AmanhecerContext();
+
+        await Assert.That(async () => await pipeline.ExecuteAsync(context))
+            .ThrowsNothing();
+
+        await Assert.That(seen)
+            .IsEquivalentTo(["first", "second"], CollectionOrdering.Matching);
+
+        await Assert.That(context.GetMetadata<Tag>()).IsNull();
+    }
+
+    private sealed record Tag(string Name);
+
+    private sealed class TagMiddleware(List<string> seen) : IMiddleware
+    {
+        public async ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
+        {
+            seen.Add(context.GetMetadata<Tag>()!.Name);
+            await next(context);
+        }
     }
 }

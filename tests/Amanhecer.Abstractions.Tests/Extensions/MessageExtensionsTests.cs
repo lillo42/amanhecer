@@ -98,6 +98,24 @@ public class MessageExtensionsTests
         await Assert.That(message.Baggage["tenant"]).IsEqualTo("acme");
     }
 
+    [Test]
+    public async Task Enrich_DuplicateBaggageKeysAcrossTheActivityChain_Should_KeepTheMostLocalValue()
+    {
+        using var parent = new Activity("parent");
+        parent.AddBaggage("userId", "parent-value");
+        parent.Start();
+
+        using var activity = new Activity("child");
+        activity.AddBaggage("userId", "child-value");
+        activity.Start();
+
+        var message = new Message();
+
+        await Assert.That(() => message.Enrich(activity)).ThrowsNothing();
+        await Assert.That(message.Baggage).IsNotNull();
+        await Assert.That(message.Baggage!["userId"]).IsEqualTo("child-value");
+    }
+
     private static Activity CreateActivity()
     {
         var activity = new Activity("test");

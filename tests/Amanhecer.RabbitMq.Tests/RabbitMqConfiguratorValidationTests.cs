@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Amanhecer.Abstractions.Messaging;
 using Amanhecer.RabbitMq.Configurations;
 
 namespace Amanhecer.RabbitMq.Tests;
@@ -82,6 +83,76 @@ public class RabbitMqConfiguratorValidationTests
     }
 
     [Test]
+    public async Task When_Adding_A_Publication_With_An_Empty_RabbitMq_Routing_Key_For_A_Fanout_Exchange_Should_Work()
+    {
+        var configurator = new RabbitMqPublicationsConfigurator();
+
+        await Assert.That(() => configurator.AddPublication(publication =>
+                publication
+                    .RoutingKey("tests")
+                    .RabbitMqRoutingKey("")
+                    .Exchange(exchange => exchange
+                        .Name("tests.exchange")
+                        .CreateIfNotExists(create => create.Type("fanout")))))
+            .ThrowsNothing();
+    }
+
+    [Test]
+    public async Task When_Adding_A_Publication_With_An_Empty_RabbitMq_Routing_Key_For_A_Topic_Exchange_Should_Throw()
+    {
+        var configurator = new RabbitMqPublicationsConfigurator();
+
+        await Assert.That(() => configurator.AddPublication(publication =>
+                publication
+                    .RoutingKey("tests")
+                    .RabbitMqRoutingKey("")
+                    .Exchange(exchange => exchange
+                        .Name("tests.exchange")
+                        .CreateIfNotExists(create => create.Type("topic")))))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task When_Adding_A_Publication_With_An_Empty_RabbitMq_Routing_Key_And_An_Undeclared_Exchange_Should_Throw()
+    {
+        var configurator = new RabbitMqPublicationsConfigurator();
+
+        await Assert.That(() => configurator.AddPublication(publication =>
+                publication
+                    .RoutingKey("tests")
+                    .RabbitMqRoutingKey("")
+                    .Exchange(new Exchange { Name = "tests.exchange" })))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task When_Adding_A_Publication_With_Structured_CloudEvents_Should_Not_Throw()
+    {
+        var configurator = new RabbitMqPublicationsConfigurator();
+
+        await Assert.That(() => configurator.AddPublication(publication =>
+                publication
+                    .RoutingKey("tests")
+                    .RabbitMqRoutingKey("tests")
+                    .CloudEventType(CloudEventType.Json)
+                    .Exchange(new Exchange { Name = "tests.exchange" })))
+            .ThrowsNothing();
+    }
+
+    [Test]
+    public async Task When_Adding_A_Built_Publication_Without_An_Exchange_Should_Throw()
+    {
+        var configurator = new RabbitMqPublicationsConfigurator();
+
+        await Assert.That(() => configurator.AddPublication(new RabbitMqPublication
+                {
+                    RoutingKey = "tests",
+                    RabbitMqRoutingKey = "tests"
+                }))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
     public async Task When_Setting_An_Empty_Subscription_Name_Should_Throw()
     {
         var configurator = new RabbitMqSubscriptionConfigurator();
@@ -151,5 +222,23 @@ public class RabbitMqConfiguratorValidationTests
 
         await Assert.That(() => configurator.PrefetchSize(-1))
             .ThrowsExactly<ArgumentOutOfRangeException>();
+    }
+
+    [Test]
+    public async Task When_Setting_A_Negative_Max_Delivery_Attempts_Should_Throw()
+    {
+        var configurator = new RabbitMqSubscriptionConfigurator();
+
+        await Assert.That(() => configurator.MaxDeliveryAttempts(-1))
+            .ThrowsExactly<ArgumentOutOfRangeException>();
+    }
+
+    [Test]
+    public async Task When_Setting_A_Zero_Max_Delivery_Attempts_Should_Not_Throw()
+    {
+        var configurator = new RabbitMqSubscriptionConfigurator();
+
+        await Assert.That(() => configurator.MaxDeliveryAttempts(0))
+            .ThrowsNothing();
     }
 }

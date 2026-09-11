@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Extensions;
+using Amanhecer.Abstractions.Messaging;
 using Amanhecer.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Diagnostics;
@@ -369,6 +370,77 @@ public class ResiliencePipelineMiddlewareTests
         await Assert.That(attribute.GetMiddlewareType()).IsEqualTo(typeof(ResiliencePipelineMiddleware));
         await Assert.That(attribute.Order).IsEqualTo(5);
         await Assert.That(attribute.PipelineName).IsEqualTo(RetryPipeline);
+    }
+
+    [Test]
+    public async Task When_ExecuteAsync_WhenAttemptReplacesRequest_Should_RetryWithOriginalRequest()
+    {
+        var middleware = CreateMiddleware(CreateProvider());
+        var context = CreateContext(RetryPipeline);
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
+
+        var encoded = 0;
+        var shortCircuited = 0;
+        next.Invoke(Arg.Any<AmanhecerContext>())
+            .Returns(callInfo =>
+            {
+                var attempt = callInfo.Arg<AmanhecerContext>();
+                if (attempt.Request is Message)
+                {
+                    shortCircuited++;
+                    return ValueTask.CompletedTask;
+                }
+
+                encoded++;
+                attempt.Request = new Message();
+                if (encoded == 1)
+                {
+                    throw new InvalidOperationException("Boom.");
+                }
+
+                return ValueTask.CompletedTask;
+            });
+
+        await middleware.ExecuteAsync(context, next);
+
+        await Assert.That(encoded).IsEqualTo(2);
+        await Assert.That(shortCircuited).IsEqualTo(0);
+        await Assert.That(context.Request).IsTypeOf<TestRequest>();
+    }
+
+    [Test]
+    public async Task When_ExecuteAsync_Should_IsolateAttemptMutationsAndPropagateResponse()
+    {
+        var middleware = CreateMiddleware(CreateProvider());
+        var context = CreateContext(RetryPipeline);
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
+
+        var attemptContexts = new List<AmanhecerContext>();
+        var markersSeen = new List<bool>();
+        next.Invoke(Arg.Any<AmanhecerContext>())
+            .Returns(callInfo =>
+            {
+                var attempt = callInfo.Arg<AmanhecerContext>();
+                attemptContexts.Add(attempt);
+                markersSeen.Add(attempt.Metadata.ContainsKey("attempt.marker"));
+                attempt.Metadata["attempt.marker"] = true;
+                attempt.Response = $"response-{attemptContexts.Count}";
+                if (attemptContexts.Count == 1)
+                {
+                    throw new InvalidOperationException("Boom.");
+                }
+
+                return ValueTask.CompletedTask;
+            });
+
+        await middleware.ExecuteAsync(context, next);
+
+        await Assert.That(markersSeen[0]).IsFalse();
+        await Assert.That(markersSeen[1]).IsFalse();
+        await Assert.That(attemptContexts[0]).IsNotSameReferenceAs(attemptContexts[1]);
+        await Assert.That(attemptContexts[1]).IsNotSameReferenceAs(context);
+        await Assert.That(context.Metadata.ContainsKey("attempt.marker")).IsFalse();
+        await Assert.That(context.Response).IsEqualTo("response-2");
     }
 
     public sealed record TestRequest(string Value);

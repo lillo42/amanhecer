@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Mime;
 
@@ -127,4 +128,10 @@ public interface ISubscription
     /// to the <see cref="IConsumerAction"/> used to settle it.
     /// </summary>
     Func<Message, Exception, IConsumerAction> OnError { get; }
+
+    /// <summary>
+    /// Gets the decode transformers applied to messages consumed through this subscription,
+    /// on top of any globally registered transformers.
+    /// </summary>
+    IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; }
 }

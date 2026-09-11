@@ -22,8 +22,13 @@ public class AmanhecerPipeline : IPipeline
     /// <param name="metadata">The metadata collected while the pipeline's middlewares were
     /// created; merged into the context before the chain runs, so pipelines sharing a routing
     /// key do not overwrite each other's middleware metadata.</param>
+    /// <param name="middlewaresMetadata">The registration metadata of each middleware, in the
+    /// same order as <paramref name="middlewares"/>; while a middleware runs, the context holds
+    /// its own metadata, so registrations of the same middleware type carrying different
+    /// metadata do not collide.</param>
     public AmanhecerPipeline(IReadOnlyList<IMiddleware> middlewares,
-        IReadOnlyDictionary<string, object?>? metadata = null)
+        IReadOnlyDictionary<string, object?>? metadata = null,
+        IReadOnlyList<object?>? middlewaresMetadata = null)
     {
         _metadata = metadata ?? new Dictionary<string, object?>();
 
@@ -32,8 +37,11 @@ public class AmanhecerPipeline : IPipeline
         for (var i = middlewares.Count - 1; i >= 0; i--)
         {
             var middleware = middlewares[i];
+            var middlewareMetadata = middlewaresMetadata?[i];
             var continuation = next;
-            next = context => middleware.ExecuteAsync(context, continuation);
+            next = middlewareMetadata == null
+                ? context => middleware.ExecuteAsync(context, continuation)
+                : context => ExecuteWithMetadataAsync(middleware, middlewareMetadata, context, continuation);
         }
 
         _chain = next;
@@ -54,5 +62,31 @@ public class AmanhecerPipeline : IPipeline
         }
 
         await _chain(context).ConfigureAwait(context.ContinueOnCapturedContext);
+    }
+
+    private static async ValueTask ExecuteWithMetadataAsync(IMiddleware middleware,
+        object middlewareMetadata,
+        AmanhecerContext context,
+        Func<AmanhecerContext, ValueTask> next)
+    {
+        var key = middlewareMetadata.GetType().FullName ?? middlewareMetadata.GetType().Name;
+        var replaced = context.Metadata.TryGetValue(key, out var previous);
+        context.Metadata[key] = middlewareMetadata;
+
+        try
+        {
+            await middleware.ExecuteAsync(context, next).ConfigureAwait(context.ContinueOnCapturedContext);
+        }
+        finally
+        {
+            if (replaced)
+            {
+                context.Metadata[key] = previous;
+            }
+            else
+            {
+                context.Metadata.Remove(key);
+            }
+        }
     }
 }

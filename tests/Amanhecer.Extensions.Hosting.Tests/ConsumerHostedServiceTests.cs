@@ -216,6 +216,42 @@ public class ConsumerHostedServiceTests
     }
 
     [Test]
+    public async Task When_StartAsync_Should_ProvisionEveryGatewayEvenWithoutSubscriptions()
+    {
+        var gateway = CreateGateway();
+        var pumpFactory = Substitute.For<IMessagePumpFactory>();
+        using var provider = CreateProvider(gateway);
+        var service = new ConsumerHostedService(provider, pumpFactory);
+
+        await service.StartAsync(CancellationToken.None);
+
+        await gateway.Received(1).ProvisionerAsync();
+        pumpFactory.DidNotReceive().Create();
+    }
+
+    [Test]
+    public async Task When_StartedAgainAfterStop_Should_NotDisposeTheGateways()
+    {
+        var subscription = CreateSubscription(numberOfConsumers: 1);
+        var gateway = Substitute.For<IGateway, IDisposable>();
+        gateway.Subscriptions.Returns([subscription]);
+        gateway.CreateConsumer(Arg.Any<ISubscription>()).Returns(_ => Substitute.For<IConsumer>());
+        var pumpFactory = Substitute.For<IMessagePumpFactory>();
+        pumpFactory.Create().Returns(_ => CreatePump());
+        using var provider = CreateProvider(gateway);
+        var service = new ConsumerHostedService(provider, pumpFactory);
+
+        await service.StartAsync(CancellationToken.None);
+        await service.StopAsync(CancellationToken.None);
+        await service.StartAsync(CancellationToken.None);
+        await service.StopAsync(CancellationToken.None);
+
+        ((IDisposable)gateway).DidNotReceive().Dispose();
+        pumpFactory.Received(2).Create();
+        gateway.Received(2).CreateConsumer(subscription);
+    }
+
+    [Test]
     public async Task When_StartedAgainAfterStop_Should_RecreateConsumersAndPumps()
     {
         var subscription = CreateSubscription(numberOfConsumers: 1);

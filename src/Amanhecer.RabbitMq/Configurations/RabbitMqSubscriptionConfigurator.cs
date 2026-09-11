@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Messaging.Transformers;
 using Amanhecer.RabbitMq.Provisioners;
 
 namespace Amanhecer.RabbitMq.Configurations;
@@ -240,6 +241,30 @@ public class RabbitMqSubscriptionConfigurator
         return this;
     }
 
+    private int _maxDeliveryAttempts;
+
+    /// <summary>
+    /// Sets the maximum number of times a message is delivered before a deferred message is
+    /// nacked without requeue, so the broker dead-letters it (when a dead-letter exchange is
+    /// configured) instead of redelivering it forever. Defaults to <c>0</c> (disabled):
+    /// deferred messages are always requeued, relying on the broker's redelivery policy
+    /// (e.g. a quorum queue's <c>delivery-limit</c> with a dead-letter exchange), and a
+    /// warning is logged when the consumer starts.
+    /// </summary>
+    /// <param name="maxDeliveryAttempts">The maximum number of delivery attempts.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator MaxDeliveryAttempts(int maxDeliveryAttempts)
+    {
+        if (maxDeliveryAttempts < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(maxDeliveryAttempts),
+                "Max delivery attempts cannot be negative.");
+        }
+
+        _maxDeliveryAttempts = maxDeliveryAttempts;
+        return this;
+    }
+
     private Func<Message, Exception, IConsumerAction>? _onError;
 
     /// <summary>
@@ -321,9 +346,13 @@ public class RabbitMqSubscriptionConfigurator
         {
             Name = _name ?? Uuid.NewGuid().ToString(),
             MessageMapperType = _messageMapperType,
+            // The envelope unwrap is content-type-sniffing and runs first, so it is inert
+            // for binary-mode messages.
+            Transformers = [new AmanhecerTransformerOptions(typeof(StructuredCloudEventTransformer), int.MinValue, null)],
             NumberOfConsumers = _numberOfConsumers,
             BufferSize = _bufferSize,
             PrefetchSize = (uint)_prefetchSize,
+            MaxDeliveryAttempts = _maxDeliveryAttempts,
             DefaultSpecVersion = _defaultSpecVersion,
             DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute),
             DefaultType = _defaultType ?? "default",

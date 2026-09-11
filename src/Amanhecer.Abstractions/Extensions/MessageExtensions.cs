@@ -35,7 +35,18 @@ public static class MessageExtensions
 
         if (message.Baggage == null)
         {
-            message.Baggage = new Baggage(activity.Baggage);
+            // Activity.Baggage enumerates the whole activity chain and can yield the same key
+            // twice; the most local (first enumerated) value wins, as in the merge below.
+            var baggage = new Baggage();
+            foreach (var item in activity.Baggage)
+            {
+                if (!baggage.ContainsKey(item.Key))
+                {
+                    baggage.Add(item.Key, item.Value);
+                }
+            }
+
+            message.Baggage = baggage;
         }
         else
         {

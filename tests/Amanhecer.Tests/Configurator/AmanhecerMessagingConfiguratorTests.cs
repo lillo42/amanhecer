@@ -157,7 +157,7 @@ public class AmanhecerMessagingConfiguratorTests
     }
 
     [Test]
-    public async Task When_AddGateway_Should_RunProvisionerAndRegisterGatewayAsSingleton()
+    public async Task When_AddGateway_Should_RegisterGatewayAsSingletonWithoutProvisioning()
     {
         var services = new ServiceCollection();
         var configurator = new AmanhecerMessagingConfigurator(services);
@@ -166,13 +166,36 @@ public class AmanhecerMessagingConfiguratorTests
         var result = configurator.AddGateway(gateway);
 
         await Assert.That(result).IsSameReferenceAs(configurator);
-        await gateway.Received(1).ProvisionerAsync();
+        await gateway.DidNotReceive().ProvisionerAsync();
         await Assert.That(configurator.Gateways).Count().IsEqualTo(1);
         await Assert.That(configurator.Gateways[0]).IsSameReferenceAs(gateway);
         await Assert.That(services)
             .Contains(x => x.ServiceType == typeof(IGateway)
-                && x.Lifetime == ServiceLifetime.Singleton
-                && ReferenceEquals(x.ImplementationInstance, gateway));
+                && x.Lifetime == ServiceLifetime.Singleton);
+
+        var provider = services.BuildServiceProvider();
+        await Assert.That(provider.GetRequiredService<IGateway>()).IsSameReferenceAs(gateway);
+    }
+
+    [Test]
+    public async Task When_TheContainerIsDisposed_Should_DisposeGatewaysAddedViaAddGateway()
+    {
+        var services = new ServiceCollection();
+        var configurator = new AmanhecerMessagingConfigurator(services);
+        var gateway = Substitute.For<IGateway, IDisposable>();
+        gateway.Publications.Returns([]);
+        gateway.Subscriptions.Returns([]);
+
+        configurator.AddGateway(gateway);
+
+        var disposed = false;
+        ((IDisposable)gateway).When(x => x.Dispose()).Do(_ => disposed = true);
+
+        var provider = services.BuildServiceProvider();
+        provider.GetRequiredService<IGateway>();
+        provider.Dispose();
+
+        await Assert.That(disposed).IsTrue();
     }
 
     [Test]

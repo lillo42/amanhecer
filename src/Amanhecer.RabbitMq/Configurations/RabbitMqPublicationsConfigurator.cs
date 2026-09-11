@@ -29,8 +29,17 @@ public class RabbitMqPublicationsConfigurator
     /// </summary>
     /// <param name="publication">The publication to add.</param>
     /// <returns>The configurator instance for method chaining.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the publication has no exchange configured.
+    /// </exception>
     public RabbitMqPublicationsConfigurator AddPublication(RabbitMqPublication publication)
     {
+        if (publication.Exchange is null)
+        {
+            throw new InvalidOperationException(
+                $"The publication '{publication.RoutingKey}' has no exchange configured.");
+        }
+
         _publications.Add(publication);
         return this;
     }

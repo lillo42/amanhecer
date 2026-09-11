@@ -1,5 +1,8 @@
 using System;
+using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Net.Mime;
 using System.Text;
 using System.Threading;
@@ -14,8 +17,9 @@ namespace Amanhecer.RabbitMq;
 /// <summary>
 /// An <see cref="AsyncDefaultBasicConsumer"/> that maps RabbitMQ deliveries to
 /// <see cref="Message"/>s and buffers them for the message pump. The buffer is bounded by
-/// the subscription's <see cref="Subscription.BufferSize"/>, which is also used as the QoS
-/// prefetch count, providing end-to-end backpressure.
+/// the subscription's <see cref="Subscription.BufferSize"/>, and the QoS prefetch count is
+/// the buffer size plus one in-flight delivery per consumer, providing end-to-end
+/// backpressure.
 /// </summary>
 public class RabbitMqMessagePoller(
     RabbitMqSubscription subscription,
@@ -37,6 +41,12 @@ public class RabbitMqMessagePoller(
     // RabbitMQ.Client channels are not thread-safe: every operation on the channel goes
     // through this lock.
     private readonly SemaphoreSlim _channelLock = new(1, 1);
+
+    // Cancelled when the poller shuts down, releasing pending buffer writes.
+    private readonly CancellationTokenSource _shutdown = new();
+
+    // Delivery attempts per message id, used to bound how many times a message is requeued.
+    private readonly ConcurrentDictionary<string, int> _deliveryAttempts = new();
 
     /// <summary>
     /// Gets the reader over the buffered messages waiting to be pumped through the pipeline.
@@ -99,7 +109,30 @@ public class RabbitMqMessagePoller(
             return;
         }
 
-        await _buffer.Writer.WriteAsync(message);
+#if NETFRAMEWORK
+        var writeToken = _shutdown.Token;
+#else
+        using var writeTokens = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _shutdown.Token);
+        var writeToken = writeTokens.Token;
+#endif
+        try
+        {
+            await _buffer.Writer.WriteAsync(message, writeToken);
+        }
+        catch (Exception e) when (e is OperationCanceledException or ChannelClosedException)
+        {
+            // The poller is shutting down with a full or completed buffer: requeue the
+            // delivery so the broker redelivers it instead of losing it. The channel may
+            // already be gone, in which case the broker requeues the unacked delivery itself.
+            try
+            {
+                await NackAsync(deliveryTag, requeue: true);
+            }
+            catch
+            {
+                // Best effort: the broker redelivers unacked deliveries when the channel closes.
+            }
+        }
     }
 
     /// <summary>
@@ -146,11 +179,21 @@ public class RabbitMqMessagePoller(
     }
 
     /// <summary>
-    /// Completes the message buffer, releasing any pending readers.
+    /// Completes the message buffer, releasing any pending readers and writers.
     /// </summary>
     internal void Complete()
     {
+        _shutdown.Cancel();
         _buffer.Writer.TryComplete();
+    }
+
+    /// <summary>
+    /// Forgets the delivery attempts tracked for the message identified by
+    /// <paramref name="messageId"/>, called once the message has been settled.
+    /// </summary>
+    internal void ClearDeliveryAttempts(string messageId)
+    {
+        _deliveryAttempts.TryRemove(messageId, out _);
     }
 
     private Message ToMessage(string consumerTag,
@@ -180,7 +223,7 @@ public class RabbitMqMessagePoller(
             [MetadataName.RoutingKey] = routingKey
         };
 
-        return new Message
+        var message = new Message
         {
             Id = GetId(headers, properties.MessageId),
             ContentType = GetContentType(properties.ContentType),
@@ -200,6 +243,66 @@ public class RabbitMqMessagePoller(
             TraceParent = GetTraceParent(headers),
             TraceState = GetTraceState(headers),
         };
+
+        metadata[MetadataName.DeliveryAttempts] = CountDeliveryAttempt(message.Id, headers);
+        return message;
+    }
+
+    // The broker does not count plain requeues, so deliveries are counted in memory; the
+    // x-death header (stamped when a message was dead-lettered) keeps the count meaningful
+    // for messages that already cycled through a dead-letter exchange, and the
+    // x-delivery-count header (stamped by quorum queues on redelivery) keeps the client cap
+    // consistent with the broker's delivery-limit across consumer restarts.
+    private int CountDeliveryAttempt(string messageId, IDictionary<string, object?> headers)
+    {
+        var attempts = _deliveryAttempts.AddOrUpdate(messageId, 1, static (_, count) => count + 1);
+        var brokerCount = Math.Max(GetDeadLetterCount(headers), GetDeliveryCount(headers));
+        return Math.Max(attempts, brokerCount + 1);
+    }
+
+    // RabbitMQ.Client may deliver the x-delivery-count header as long, int or byte[].
+    private static int GetDeliveryCount(IDictionary<string, object?> headers)
+    {
+        if (!headers.TryGetValue("x-delivery-count", out var value) || value == null)
+        {
+            return 0;
+        }
+
+        var count = value switch
+        {
+            long integer => integer,
+            int integer => integer,
+            byte[] bytes when long.TryParse(Encoding.UTF8.GetString(bytes),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var parsed) => parsed,
+            _ => 0L
+        };
+
+        return count <= 0 ? 0 : (int)Math.Min(count, int.MaxValue);
+    }
+
+    private static int GetDeadLetterCount(IDictionary<string, object?> headers)
+    {
+        if (!headers.TryGetValue("x-death", out var deaths)
+            || deaths is not IEnumerable entries
+            || deaths is string)
+        {
+            return 0;
+        }
+
+        var count = 0L;
+        foreach (var entry in entries)
+        {
+            if (entry is IDictionary<string, object?> death
+                && death.TryGetValue("count", out var value)
+                && value != null)
+            {
+                count += Convert.ToInt64(value, CultureInfo.InvariantCulture);
+            }
+        }
+
+        return (int)Math.Min(count, int.MaxValue);
     }
 
     // RabbitMQ.Client delivers AMQP long-string header values as byte[], not string.
@@ -289,7 +392,10 @@ public class RabbitMqMessagePoller(
     private static DateTimeOffset GetTime(AmqpTimestamp timestamp, Dictionary<string, object?> properties)
     {
         var val = GetHeaderValue(properties, "cloudEvents:time");
-        if (val != null && DateTimeOffset.TryParse(val, out var time))
+        if (val != null && DateTimeOffset.TryParse(val,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind,
+                out var time))
         {
             return time;
         }

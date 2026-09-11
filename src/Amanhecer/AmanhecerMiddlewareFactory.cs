@@ -22,7 +22,10 @@ public class AmanhecerMiddlewareFactory(IServiceProvider provider) : IMiddleware
     /// <returns>The resolved middleware instance.</returns>
     public IMiddleware Create(Type middlewareType, object? metadata, AmanhecerContext context)
     {
-        context.SetMetadata(metadata);
+        if (metadata != null)
+        {
+            context.SetMetadata(metadata);
+        }
 
         var obj = (IMiddleware)provider.GetRequiredService(middlewareType);
         return obj;

@@ -34,6 +34,47 @@ public class RabbitMqValidationTests
             .ThrowsExactly<ArgumentException>();
     }
 
+    [Test]
+    public async Task When_The_Prefetch_Count_Would_Overflow_Should_Throw()
+    {
+        var gateway = new RabbitMqGateway();
+        var subscription = new RabbitMqSubscription("tests", "tests.queue")
+        {
+            BufferSize = ushort.MaxValue,
+            NumberOfConsumers = 2
+        };
+
+        await Assert.That(() => gateway.CreateConsumer(subscription))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task When_Two_Publications_Share_A_Routing_Key_Should_Throw()
+    {
+        var gateway = new RabbitMqGateway
+        {
+            Publications =
+            [
+                new RabbitMqPublication
+                {
+                    RoutingKey = "tests",
+                    RabbitMqRoutingKey = "tests.a",
+                    Exchange = new Exchange { Name = "tests.exchange" }
+                },
+                new RabbitMqPublication
+                {
+                    RoutingKey = "tests",
+                    RabbitMqRoutingKey = "tests.b",
+                    Exchange = new Exchange { Name = "tests.exchange" }
+                }
+            ]
+        };
+
+        var exception = await Assert.That(() => gateway.CreateProducers())
+            .ThrowsExactly<InvalidOperationException>();
+        await Assert.That(exception?.Message).Contains("tests");
+    }
+
     private sealed class TestPublication : Publication;
 
     private sealed class TestSubscription(string toRoutingKey) : Subscription(toRoutingKey);

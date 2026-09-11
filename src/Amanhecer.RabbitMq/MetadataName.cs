@@ -47,6 +47,11 @@ public static class MetadataName
     public const string Redelivered = "Amanhecer.RabbitMq.Redelivered";
 
     /// <summary>
+    /// The number of times the consumed message has been delivered, including this delivery.
+    /// </summary>
+    public const string DeliveryAttempts = "Amanhecer.RabbitMq.DeliveryAttempts";
+
+    /// <summary>
     /// The exchange the consumed message was published to.
     /// </summary>
     public const string Exchange = "Amanhecer.RabbitMq.Exchange";

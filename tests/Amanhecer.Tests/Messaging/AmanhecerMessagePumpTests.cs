@@ -338,6 +338,45 @@ public class AmanhecerMessagePumpTests
     }
 
     [Test]
+    public async Task When_OnErrorActionThrows_Should_NackMessage()
+    {
+        var subscription = CreateSubscription();
+        var consumer = Substitute.For<IConsumer>();
+        consumer.Subscription.Returns(subscription);
+
+        var resolving = Substitute.For<IResolvingConsumerAction>();
+        resolving
+            .ExecuteAsync(Arg.Any<Message>(), Arg.Any<ISubscription>(), Arg.Any<IDispatcher>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<IConsumerAction>(
+                Task.FromException<IConsumerAction>(new InvalidOperationException("Error action failed."))));
+
+        subscription.OnError = (_, _) => resolving;
+
+        var message = new Message();
+        consumer.GetMessagesAsync(Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<Message[]>([message]));
+
+        _dispatcher
+            .QueryAsync<object?>(Arg.Any<object>(), Arg.Any<AmanhecerContext>(), Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<object?>(
+                Task.FromException<object?>(new InvalidOperationException("Processing failed."))));
+
+        using var cts = new CancellationTokenSource();
+        consumer.NackAsync(Arg.Any<Message>())
+            .Returns(_ =>
+            {
+                cts.Cancel();
+                return ValueTask.CompletedTask;
+            });
+
+        await _pump.ExecuteAsync(consumer, cts.Token);
+
+        await consumer.Received(1).NackAsync(message);
+        await consumer.DidNotReceive().AckAsync(Arg.Any<Message>());
+        await consumer.DidNotReceive().DeferAsync(Arg.Any<Message>(), Arg.Any<TimeSpan>());
+    }
+
+    [Test]
     public async Task When_ReceivingMessagesFails_Should_RetryAndKeepPumping()
     {
         var subscription = CreateSubscription();

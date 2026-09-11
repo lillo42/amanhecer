@@ -24,9 +24,11 @@ public class ConsumerHostedService(IServiceProvider provider, IMessagePumpFactor
     private readonly List<Task> _tasks = [];
 
     /// <summary>
-    /// Creates the consumers for all subscriptions of all registered gateways and starts them.
-    /// The gateways are re-resolved on every start, so a service restarted after
-    /// <see cref="StopAsync"/> does not reuse disposed gateway instances.
+    /// Provisions every registered gateway (see <see cref="IGateway.ProvisionerAsync"/>), then
+    /// creates the consumers for all subscriptions and starts them. The gateways are singletons
+    /// reused across stop/start cycles: they are disposed by the container, never by this
+    /// service, so a service restarted after <see cref="StopAsync"/> keeps working with the same
+    /// gateway instances.
     /// </summary>
     /// <param name="cancellationToken">A token that signals the start should be aborted.</param>
     /// <returns>A <see cref="Task"/> that completes when all consumers have started.</returns>
@@ -38,6 +40,8 @@ public class ConsumerHostedService(IServiceProvider provider, IMessagePumpFactor
         var gateways = provider.GetServices<IGateway>().ToArray();
         foreach (var gateway in gateways)
         {
+            await gateway.ProvisionerAsync();
+
             foreach (var subscription in gateway.Subscriptions)
             {
                 for (var i = 0; i < subscription.NumberOfConsumers; i++)
@@ -52,8 +56,8 @@ public class ConsumerHostedService(IServiceProvider provider, IMessagePumpFactor
     }
 
     /// <summary>
-    /// Stops all consumers started by this hosted service, then disposes the gateways that
-    /// implement <see cref="IDisposable"/> (or <see cref="IAsyncDisposable"/> where available).
+    /// Stops all consumers started by this hosted service. The gateways are left alive: they
+    /// are reused when the service starts again and are disposed with the container.
     /// </summary>
     /// <param name="cancellationToken">A token that signals the stop should be aborted.</param>
     /// <returns>A <see cref="Task"/> that completes when all consumers have stopped.</returns>
@@ -78,24 +82,5 @@ public class ConsumerHostedService(IServiceProvider provider, IMessagePumpFactor
 
         _cancellationTokenSource.Dispose();
         _cancellationTokenSource = null;
-
-        foreach (var gateway in provider.GetServices<IGateway>())
-        {
-            switch (gateway)
-            {
-#if NETFRAMEWORK || NETSTANDARD2_0
-                case IDisposable disposable:
-                    disposable.Dispose();
-                    break;
-#else
-                case IAsyncDisposable asyncDisposable:
-                    await asyncDisposable.DisposeAsync();
-                    break;
-                case IDisposable disposable:
-                    disposable.Dispose();
-                    break;
-#endif
-            }
-        }
     }
 }

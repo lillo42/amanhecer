@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Exceptions;
+using Amanhecer.Messaging.Middlewares;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
@@ -647,6 +648,59 @@ public class AmanhecerDispatcherTests
         await _defaultStrategy
             .Received()
             .ExecuteAsync(context, pipelines);
+    }
+
+    #endregion
+
+    #region Post & PostAsync
+
+    [Test]
+    public async Task When_PostAsyncIsCalledTwiceWithTheSameContext_Should_LeaveTheContextUntouched()
+    {
+        var request = new SomeRequest();
+        var context = new AmanhecerContext();
+
+        var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
+            .Returns(pipelines);
+
+        await Assert.That(async () => await _dispatcher.PostAsync(request, context))
+            .ThrowsNothing();
+
+        await Assert.That(async () => await _dispatcher.PostAsync(request, context))
+            .ThrowsNothing();
+
+        await Assert.That(context.RoutingKey).IsEqualTo("");
+        await Assert.That(context.Middlewares).IsNull();
+        await Assert.That(context.Metadata).IsEmpty();
+
+        _ = _pipelineFactory
+            .Received(2)
+            .Create(Arg.Is<AmanhecerContext>(c =>
+                !ReferenceEquals(c, context) &&
+                c.RoutingKey == "Amanhecer.Messaging.Post" &&
+                (string?)c.Metadata[MetadataName.PublicationRoutingKey] ==
+                    "Amanhecer.Tests.AmanhecerDispatcherTests+SomeRequest" &&
+                c.Middlewares!.Count == 1 &&
+                c.Middlewares[0].MiddlewareType == typeof(EncodeMiddleware)));
+    }
+
+    [Test]
+    public async Task When_PostAsyncHasNullMessage_Should_Throw()
+    {
+        var context = new AmanhecerContext();
+
+        await Assert.That(async () => await _dispatcher.PostAsync<string>(null!, context))
+            .Throws<ArgumentNullException>();
+    }
+
+    [Test]
+    public async Task When_PostAsyncHasNullContext_Should_Throw()
+    {
+        var request = Guid.NewGuid().ToString();
+
+        await Assert.That(async () => await _dispatcher.PostAsync(request, null!))
+            .Throws<ArgumentNullException>();
     }
 
     #endregion

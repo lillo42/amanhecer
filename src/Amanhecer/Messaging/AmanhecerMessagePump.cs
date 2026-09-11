@@ -159,12 +159,23 @@ public partial class AmanhecerMessagePump(IServiceProvider provider, ILogger<Ama
             }
             catch (Exception e)
             {
-                await ApplyActionAsync(message,
-                        subscription.OnError(message, e),
-                        consumer,
-                        subscription,
-                        dispatcher)
-                    .ConfigureAwait(subscription.ContinueOnCapturedContext);
+                try
+                {
+                    await ApplyActionAsync(message,
+                            subscription.OnError(message, e),
+                            consumer,
+                            subscription,
+                            dispatcher)
+                        .ConfigureAwait(subscription.ContinueOnCapturedContext);
+                }
+                catch (Exception errorActionException)
+                {
+                    // The error action itself failed; fall back to a nack so the message is
+                    // always settled rather than left unacked until the channel closes.
+                    Logger.ErrorActionFailed(logger, subscription.Name, errorActionException);
+                    await consumer.NackAsync(message)
+                        .ConfigureAwait(subscription.ContinueOnCapturedContext);
+                }
 #if !NET8_0
                 activity?.AddException(e);
 #endif
@@ -267,5 +278,9 @@ public partial class AmanhecerMessagePump(IServiceProvider provider, ILogger<Ama
         [LoggerMessage(LogLevel.Error,
             "An error occurred while receiving messages from subscription {SubscriptionName}; retrying after the failure delay.")]
         public static partial void PumpFailed(ILogger logger, string subscriptionName, Exception exception);
+
+        [LoggerMessage(LogLevel.Error,
+            "The error action of subscription {SubscriptionName} failed; the message is nacked instead.")]
+        public static partial void ErrorActionFailed(ILogger logger, string subscriptionName, Exception exception);
     }
 }

@@ -16,7 +16,10 @@ public class AmanhecerDecodeTransformerFactory(IServiceProvider provider) : IDec
     /// <inheritdoc />
     public IDecodeTransformer Create(Type transformerType, object? metadata, AmanhecerContext context)
     {
-        context.SetMetadata(metadata);
+        if (metadata != null)
+        {
+            context.SetMetadata(metadata);
+        }
 
         var transformer = (IDecodeTransformer)provider.GetRequiredService(transformerType);
         return transformer;

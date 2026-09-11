@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Mime;
 using Amanhecer.Abstractions.Exceptions;
@@ -81,4 +82,7 @@ public abstract class Subscription(string toRoutingKey) : ISubscription
             _ => new Defer(TimeSpan.FromSeconds(5))
         };
     };
+
+    /// <inheritdoc cref="ISubscription.Transformers"/>
+    public IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; set; } = [];
 }

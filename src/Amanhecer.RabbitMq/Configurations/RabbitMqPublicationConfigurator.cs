@@ -5,6 +5,9 @@ using System.Linq;
 using System.Net.Mime;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Messaging.Transformers;
+using Amanhecer.RabbitMq.Provisioners;
+using RabbitMQ.Client;
 
 namespace Amanhecer.RabbitMq.Configurations;
 
@@ -54,7 +57,10 @@ public class RabbitMqPublicationConfigurator
     private string? _rabbitMqRoutingKey;
 
     /// <summary>
-    /// Sets the RabbitMQ routing key messages are published to the exchange with.
+    /// Sets the RabbitMQ routing key messages are published to the exchange with. An empty
+    /// routing key is allowed only when the exchange is declared as <c>fanout</c> (see
+    /// <see cref="RabbitMqExchangeConfigurator.CreateIfNotExistsConfigurator.Type"/>), which
+    /// routes messages to every bound queue regardless of the routing key.
     /// </summary>
     /// <param name="routingKey">The RabbitMQ routing key.</param>
     /// <returns>The configurator instance for method chaining.</returns>
@@ -387,7 +393,7 @@ public class RabbitMqPublicationConfigurator
                 "A routing key is required for a publication. Call RoutingKey to configure it.");
         }
 
-        if (string.IsNullOrEmpty(_rabbitMqRoutingKey))
+        if (_rabbitMqRoutingKey is null)
         {
             throw new InvalidOperationException(
                 "A RabbitMQ routing key is required for a publication. Call RabbitMqRoutingKey to configure it.");
@@ -399,13 +405,32 @@ public class RabbitMqPublicationConfigurator
                 "An exchange is required for a publication. Call Exchange to configure it.");
         }
 
+        if (_rabbitMqRoutingKey.Length == 0 && !IsFanout(_exchange))
+        {
+            throw new InvalidOperationException(
+                "An empty RabbitMQ routing key is only valid when the exchange is declared as fanout. " +
+                "Call RabbitMqRoutingKey with a non-empty routing key, or declare the exchange with " +
+                "CreateIfNotExists and Type(\"fanout\").");
+        }
+
+        var transformers = _transformers;
+        if (_cloudEventType == Abstractions.Messaging.CloudEventType.Json)
+        {
+            // The envelope wrap runs last, once the attributes and defaults are set.
+            transformers =
+            [
+                .. _transformers,
+                new AmanhecerTransformerOptions(typeof(StructuredCloudEventTransformer), int.MaxValue, null)
+            ];
+        }
+
         return new RabbitMqPublication
         {
             RoutingKey = _routingKey!,
             RabbitMqRoutingKey = _rabbitMqRoutingKey!,
             Exchange = _exchange,
             MessageMapperType = _messageMapperType,
-            Transformers = [.. _transformers.OrderBy(x => x.Order)],
+            Transformers = [.. transformers.OrderBy(x => x.Order)],
             Mandatory = _mandatory,
             Persistent = _persistent,
             ContentEncoding = _contentEncoding,
@@ -423,5 +448,11 @@ public class RabbitMqPublicationConfigurator
             DefaultContentType = _defaultContentType ?? new ContentType("text/plain"),
             DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute)
         };
+    }
+
+    private static bool IsFanout(Exchange exchange)
+    {
+        return exchange.Provisioner is CreateIfNotExchange provisioner
+            && string.Equals(provisioner.Type, ExchangeType.Fanout, StringComparison.OrdinalIgnoreCase);
     }
 }

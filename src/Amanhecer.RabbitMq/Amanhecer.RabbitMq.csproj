@@ -11,6 +11,10 @@
       <PackageReference Include="RabbitMQ.Client" />
     </ItemGroup>
 
+    <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' OR '$(TargetFramework)' == 'net462'">
+      <PackageReference Include="System.Text.Json" />
+    </ItemGroup>
+
     <ItemGroup>
       <ProjectReference Include="..\Amanhecer.Abstractions\Amanhecer.Abstractions.csproj" />
       <ProjectReference Include="..\Amanhecer\Amanhecer.csproj" />

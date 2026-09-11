@@ -8,6 +8,7 @@ using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
 using NSubstitute;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 
 namespace Amanhecer.RabbitMq.Tests;
 
@@ -156,6 +157,84 @@ public class RabbitMqProducerPropertiesTests
         await Assert.That(publishes[0].Exchange).IsEqualTo(publication.Exchange!.Name);
         await Assert.That(publishes[0].RoutingKey).IsEqualTo(publication.RabbitMqRoutingKey);
         await Assert.That(publishes[0].Mandatory).IsTrue();
+    }
+
+    [Test]
+    public async Task When_The_Publication_Uses_Structured_CloudEvents_Should_Pass_The_Message_Content_Type_Through()
+    {
+        var (producer, publishes) = CreateProducer();
+        var publication = CreatePublication();
+        publication.CloudEventType = CloudEventType.Json;
+
+        await producer.ProduceAsync(CreateMessage(), publication, new AmanhecerContext());
+
+        // The envelope content type is set by the StructuredCloudEventTransformer upstream
+        // in the pipeline; the producer passes the message's content type through.
+        await Assert.That(publishes[0].Properties.ContentType).IsEqualTo("text/plain");
+    }
+
+    [Test]
+    public async Task When_The_Publication_Has_Additional_CloudEvents_Should_Set_The_CloudEvents_Headers()
+    {
+        var (producer, publishes) = CreateProducer();
+        var publication = CreatePublication();
+        publication.AdditionalCloudEvents["tenant"] = "acme";
+
+        await producer.ProduceAsync(CreateMessage(), publication, new AmanhecerContext());
+
+        await Assert.That(publishes[0].Properties.Headers!["cloudEvents:tenant"]).IsEqualTo("acme");
+    }
+
+    [Test]
+    public async Task When_An_Additional_CloudEvent_Matches_A_Standard_Attribute_Should_Not_Overwrite_It()
+    {
+        var (producer, publishes) = CreateProducer();
+        var publication = CreatePublication();
+        publication.AdditionalCloudEvents["type"] = "overwritten";
+        var message = CreateMessage();
+
+        await producer.ProduceAsync(message, publication, new AmanhecerContext());
+
+        await Assert.That(publishes[0].Properties.Headers!["cloudEvents:type"]).IsEqualTo(message.Type);
+    }
+
+    [Test]
+    public async Task When_The_Publication_Has_No_Exchange_Should_Throw()
+    {
+        var (producer, _) = CreateProducer();
+        var publication = CreatePublication();
+        publication.Exchange = null;
+
+        await Assert.That(async () =>
+                await producer.ProduceAsync(CreateMessage(), publication, new AmanhecerContext()))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task When_Creating_A_Producer_Should_Subscribe_To_Basic_Returns()
+    {
+        var channel = Substitute.For<IChannel>();
+
+        _ = new RabbitMqProducer(channel);
+
+        channel.Received(1).BasicReturnAsync += Arg.Any<AsyncEventHandler<BasicReturnEventArgs>>();
+    }
+
+    [Test]
+    public async Task When_The_Broker_Returns_A_Message_Should_Handle_The_Return()
+    {
+        var channel = Substitute.For<IChannel>();
+        _ = new RabbitMqProducer(channel);
+
+        channel.BasicReturnAsync += Raise.Event<AsyncEventHandler<BasicReturnEventArgs>>(
+            channel,
+            new BasicReturnEventArgs(312,
+                "NO_ROUTE",
+                "tests.exchange",
+                "tests",
+                Substitute.For<IReadOnlyBasicProperties>(),
+                ReadOnlyMemory<byte>.Empty,
+                CancellationToken.None));
     }
 
     private static (RabbitMqProducer Producer, List<Publish> Publishes) CreateProducer()

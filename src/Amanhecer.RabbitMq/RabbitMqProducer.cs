@@ -2,26 +2,23 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Abstractions.Messaging;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Events;
 
 namespace Amanhecer.RabbitMq;
 
 /// <summary>
 /// An <see cref="IProducer"/> that publishes messages to a RabbitMQ exchange.
 /// </summary>
-/// <param name="channel">The RabbitMQ channel used to publish messages.</param>
-public class RabbitMqProducer(
-#if NETFRAMEWORK
-    IModel channel
-#else
-    IChannel channel
-#endif
-) : IProducer
+public partial class RabbitMqProducer : IProducer
     , IDisposable
 #if !NETFRAMEWORK
     , IAsyncDisposable
@@ -30,6 +27,36 @@ public class RabbitMqProducer(
     // RabbitMQ.Client channels are not thread-safe: every operation on the channel goes
     // through this lock.
     private readonly SemaphoreSlim _channelLock = new(1, 1);
+    private readonly ILogger<RabbitMqProducer> _logger;
+#if NETFRAMEWORK
+    private readonly IModel _channel;
+#else
+    private readonly IChannel _channel;
+#endif
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="RabbitMqProducer"/> class.
+    /// </summary>
+    /// <param name="channel">The RabbitMQ channel used to publish messages.</param>
+    /// <param name="logger">The logger used to report messages returned by the broker.</param>
+    public RabbitMqProducer(
+#if NETFRAMEWORK
+        IModel channel,
+#else
+        IChannel channel,
+#endif
+        ILogger<RabbitMqProducer>? logger = null)
+    {
+        _channel = channel;
+        _logger = logger ?? NullLogger<RabbitMqProducer>.Instance;
+
+        // Mandatory publishes the broker cannot route come back through basic.return.
+#if NETFRAMEWORK
+        _channel.BasicReturn += OnBasicReturn;
+#else
+        _channel.BasicReturnAsync += OnBasicReturnAsync;
+#endif
+    }
 
     /// <summary>Counts messages published successfully.</summary>
     private static readonly Counter<int> SuccessCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
@@ -42,6 +69,12 @@ public class RabbitMqProducer(
         "amanhecer.message.publish.failed",
         unit: "{message}",
         description: "Number of messages that failed to publish.");
+
+    /// <summary>Counts messages returned by the broker as unroutable (mandatory publishes).</summary>
+    private static readonly Counter<int> ReturnedCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
+        "amanhecer.message.publish.returned",
+        unit: "{message}",
+        description: "Number of published messages returned by the broker as unroutable.");
 
     /// <summary>Records how long publishing a message took, in seconds.</summary>
     private static readonly Histogram<double> ProducerDuration =
@@ -60,12 +93,16 @@ public class RabbitMqProducer(
                 nameof(publication));
         }
 
+        var exchange = rabbitMqPublication.Exchange
+            ?? throw new InvalidOperationException(
+                $"The publication '{rabbitMqPublication.RoutingKey}' has no exchange configured.");
+
         // Low-cardinality tags shared by the metrics instruments (OTel messaging conventions).
         var metricTags = new List<KeyValuePair<string, object?>>
         {
             new("messaging.system", "rabbitmq"),
             new("messaging.operation.type", "publish"),
-            new("messaging.destination.name", rabbitMqPublication.Exchange!.Name),
+            new("messaging.destination.name", exchange.Name),
         }.ToArray();
 
         // Per-message values are high-cardinality, so they go on the span only, never on metrics.
@@ -101,7 +138,7 @@ public class RabbitMqProducer(
             await _channelLock.WaitAsync(context.CancellationToken);
             try
             {
-                await PublishAsync(rabbitMqPublication.Exchange!.Name,
+                await PublishAsync(exchange.Name,
                         rabbitMqPublication.RabbitMqRoutingKey,
                         rabbitMqPublication.Mandatory,
                         properties,
@@ -138,6 +175,8 @@ public class RabbitMqProducer(
         }
     }
 
+    // In structured content mode the attributes are members of the JSON envelope in the
+    // message body, so no cloudEvents:* headers are set.
     private static void SetCloudEventHeaders(Message message, IPublication publication)
     {
         if (publication.CloudEventType == CloudEventType.Json)
@@ -152,10 +191,17 @@ public class RabbitMqProducer(
         Set(message, "cloudEvents:datacontenttype", message.ContentType?.ToString());
         Set(message, "cloudEvents:dataschema", message.DataSchema?.ToString());
         Set(message, "cloudEvents:subject", message.Subject);
-        Set(message, "cloudEvents:time", message.Time.ToString("O"));
+        Set(message, "cloudEvents:time", message.Time.ToString("O", CultureInfo.InvariantCulture));
         Set(message, "cloudEvents:baggage", message.Baggage?.ToString());
         Set(message, "cloudEvents:traceparent", message.TraceParent);
         Set(message, "cloudEvents:tracestate", message.TraceState?.ToString());
+
+        // Extension attributes never overwrite the standard attributes set above.
+        foreach (var additional in publication.AdditionalCloudEvents)
+        {
+            Set(message, $"cloudEvents:{additional.Key}", additional.Value);
+        }
+
         return;
 
         static void Set(Message message, string key, object? value)
@@ -178,6 +224,43 @@ public class RabbitMqProducer(
     }
 
 #if NETFRAMEWORK
+    private void OnBasicReturn(object? sender, BasicReturnEventArgs args)
+    {
+        HandleBasicReturn(args.Exchange,
+            args.RoutingKey,
+            args.ReplyCode,
+            args.ReplyText,
+            args.BasicProperties?.MessageId);
+    }
+#else
+    private Task OnBasicReturnAsync(object sender, BasicReturnEventArgs args)
+    {
+        HandleBasicReturn(args.Exchange,
+            args.RoutingKey,
+            args.ReplyCode,
+            args.ReplyText,
+            args.BasicProperties.MessageId);
+        return Task.CompletedTask;
+    }
+#endif
+
+    private void HandleBasicReturn(string exchange,
+        string routingKey,
+        ushort replyCode,
+        string replyText,
+        string? messageId)
+    {
+        Logger.MessageReturned(_logger, exchange, routingKey, replyCode, replyText, messageId);
+        ReturnedCounter.Add(1,
+            new List<KeyValuePair<string, object?>>
+            {
+                new("messaging.system", "rabbitmq"),
+                new("messaging.operation.type", "publish"),
+                new("messaging.destination.name", exchange),
+            }.ToArray());
+    }
+
+#if NETFRAMEWORK
     private ValueTask PublishAsync(
         string exchange,
         string routingKey,
@@ -186,14 +269,14 @@ public class RabbitMqProducer(
         ReadOnlyMemory<byte> body,
         CancellationToken cancellationToken)
     {
-        channel.BasicPublish(exchange, routingKey, mandatory, properties, body);
+        _channel.BasicPublish(exchange, routingKey, mandatory, properties, body);
         return new ValueTask();
     }
 
     private IBasicProperties CreateProperties(Message message, AmanhecerContext context,
         RabbitMqPublication publication)
     {
-        var properties = channel.CreateBasicProperties();
+        var properties = _channel.CreateBasicProperties();
         properties.MessageId = message.Id;
         properties.CorrelationId = message.CorrelationId;
         properties.ReplyTo = message.ReplyTo;
@@ -202,7 +285,6 @@ public class RabbitMqProducer(
         properties.AppId = publication.AppId;
         properties.ClusterId = publication.ClusterId;
         properties.Headers = message.Headers;
-
         properties.ContentType = message.ContentType?.ToString() ?? publication.DefaultContentType.ToString();
 
         var encoding = context.GetMetadata<string?>(MetadataName.ContentEncoding);
@@ -265,7 +347,7 @@ public class RabbitMqProducer(
         ReadOnlyMemory<byte> body,
         CancellationToken cancellationToken)
     {
-        await channel.BasicPublishAsync(exchange, routingKey, mandatory, properties, body, cancellationToken);
+        await _channel.BasicPublishAsync(exchange, routingKey, mandatory, properties, body, cancellationToken);
     }
 #endif
 
@@ -273,7 +355,7 @@ public class RabbitMqProducer(
     /// <inheritdoc />
     public void Dispose()
     {
-        channel.Dispose();
+        _channel.Dispose();
         _channelLock.Dispose();
     }
 
@@ -281,8 +363,20 @@ public class RabbitMqProducer(
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        await channel.DisposeAsync();
+        await _channel.DisposeAsync();
         _channelLock.Dispose();
     }
 #endif
+
+    private static partial class Logger
+    {
+        [LoggerMessage(LogLevel.Warning,
+            "Message {MessageId} published to exchange {Exchange} with routing key {RoutingKey} was returned by the broker as unroutable ({ReplyCode} {ReplyText})")]
+        public static partial void MessageReturned(ILogger logger,
+            string exchange,
+            string routingKey,
+            ushort replyCode,
+            string replyText,
+            string? messageId);
+    }
 }

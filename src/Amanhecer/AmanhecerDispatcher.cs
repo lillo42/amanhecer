@@ -553,9 +553,9 @@ public partial class AmanhecerDispatcher(
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the message's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the message's routing key.</exception>
     /// <remarks>
-    /// The context is mutated in place: its routing key is replaced with the internal post routing
-    /// key and the original routing key is stored in the metadata under
-    /// <see cref="MetadataName.PublicationRoutingKey"/>.
+    /// The context is cloned before its routing key is replaced with the internal post routing
+    /// key; the original routing key is stored in the clone's metadata under
+    /// <see cref="MetadataName.PublicationRoutingKey"/> and the caller's context is left untouched.
     /// </remarks>
     public void Post<T>(T message, AmanhecerContext context)
     {
@@ -580,9 +580,9 @@ public partial class AmanhecerDispatcher(
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the message's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the message's routing key.</exception>
     /// <remarks>
-    /// The context is mutated in place: its routing key is replaced with the internal post routing
-    /// key and the original routing key is stored in the metadata under
-    /// <see cref="MetadataName.PublicationRoutingKey"/>.
+    /// The context is cloned before its routing key is replaced with the internal post routing
+    /// key; the original routing key is stored in the clone's metadata under
+    /// <see cref="MetadataName.PublicationRoutingKey"/> and the caller's context is left untouched.
     /// </remarks>
     public void Post(Message message, AmanhecerContext context)
     {
@@ -635,9 +635,9 @@ public partial class AmanhecerDispatcher(
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the message's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the message's routing key.</exception>
     /// <remarks>
-    /// The context is mutated in place: its routing key is replaced with the internal post routing
-    /// key and the original routing key is stored in the metadata under
-    /// <see cref="MetadataName.PublicationRoutingKey"/>.
+    /// The context is cloned before its routing key is replaced with the internal post routing
+    /// key; the original routing key is stored in the clone's metadata under
+    /// <see cref="MetadataName.PublicationRoutingKey"/> and the caller's context is left untouched.
     /// </remarks>
     public async ValueTask PostAsync<T>(T message, AmanhecerContext context,
         CancellationToken cancellationToken = default)
@@ -657,9 +657,9 @@ public partial class AmanhecerDispatcher(
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the message's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the message's routing key.</exception>
     /// <remarks>
-    /// The context is mutated in place: its routing key is replaced with the internal post routing
-    /// key and the original routing key is stored in the metadata under
-    /// <see cref="MetadataName.PublicationRoutingKey"/>.
+    /// The context is cloned before its routing key is replaced with the internal post routing
+    /// key; the original routing key is stored in the clone's metadata under
+    /// <see cref="MetadataName.PublicationRoutingKey"/> and the caller's context is left untouched.
     /// </remarks>
     public async ValueTask PostAsync(Message message, AmanhecerContext context,
         CancellationToken cancellationToken = default)
@@ -678,6 +678,10 @@ public partial class AmanhecerDispatcher(
         {
             throw new ArgumentNullException(nameof(context));
         }
+
+        // The post re-routes the context to the internal post pipeline; work on a clone so the
+        // caller's context is not mutated and can be reused for further posts.
+        context = (AmanhecerContext)context.Clone();
 
         PrepareContext(context, message, cancellationToken);
         context.Metadata[MetadataName.PublicationRoutingKey] = context.RoutingKey;

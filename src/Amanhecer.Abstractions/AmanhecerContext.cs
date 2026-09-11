@@ -89,8 +89,9 @@ public class AmanhecerContext : ICloneable
     /// <see cref="Activity"/> and <see cref="ExecutingStrategy"/> are shared references.
     /// </summary>
     /// <remarks>
-    /// Cloning is intended for the <see cref="IExecutingStrategy"/> implementations, which clone
-    /// the context per resolved pipeline; it is not a general-purpose deep copy.
+    /// Cloning is intended for isolating execution state — the <see cref="IExecutingStrategy"/>
+    /// implementations clone the context per resolved pipeline, and the dispatcher clones it
+    /// before re-routing a post; it is not a general-purpose deep copy.
     /// </remarks>
     /// <returns>A shallow copy of this context.</returns>
     public object Clone()

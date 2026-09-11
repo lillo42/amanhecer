@@ -44,9 +44,10 @@ public record PollyPipelineMetadata(string PipelineName);
 /// or via <see cref="PollyResiliencePipelineAttribute"/> on the handler class or method.
 /// If <see cref="AmanhecerContext.Metadata"/> contains a Polly <see cref="T:Polly.ResilienceContext"/>
 /// under the key <see cref="ResilienceContext"/>, that context is used; otherwise a context is
-/// rented from the pool, carrying the pipeline context's cancellation token. The cancellation
-/// token provided by Polly replaces the token carried by the pipeline context passed to
-/// the next middleware.
+/// rented from the pool, carrying the pipeline context's cancellation token. Each execution
+/// attempt runs against a clone of the pipeline context whose cancellation token is the one
+/// provided by Polly, so mutations made by a failed attempt do not leak into the next attempt;
+/// the successful attempt's response is copied back to the original context.
 /// </remarks>
 public class PollyResiliencePipelineMiddleware(ResiliencePipelineProvider<string> provider) : IMiddleware
 {
@@ -116,16 +117,9 @@ public class PollyResiliencePipelineMiddleware(ResiliencePipelineProvider<string
         Func<AmanhecerContext, ValueTask> next,
         CancellationToken cancellationToken)
     {
-        var tmp = context.CancellationToken;
-
-        try
-        {
-            context.CancellationToken = cancellationToken;
-            await next(context).ConfigureAwait(context.ContinueOnCapturedContext);
-        }
-        finally
-        {
-            context.CancellationToken = tmp;
-        }
+        var attempt = (AmanhecerContext)context.Clone();
+        attempt.CancellationToken = cancellationToken;
+        await next(attempt).ConfigureAwait(context.ContinueOnCapturedContext);
+        context.Response = attempt.Response;
     }
 }

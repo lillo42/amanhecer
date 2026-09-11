@@ -5,6 +5,7 @@ using System.Linq;
 using Amanhecer.Abstractions.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
 
 namespace Amanhecer.Configurator;
 
@@ -155,18 +156,18 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
     }
 
     /// <summary>
-    /// Runs the gateway's provisioner (see <see cref="IGateway.ProvisionerAsync"/>), then adds the
-    /// gateway to <see cref="Gateways"/> and registers it as a singleton in <see cref="Services"/>.
-    /// Publications and subscriptions without a message mapper fall back to the default
-    /// configured via <see cref="DefaultMessageMapper(Type)"/>, and every configured message
-    /// mapper type is registered in <see cref="Services"/> so it can be resolved at runtime.
+    /// Adds the gateway to <see cref="Gateways"/> and registers it as a singleton in
+    /// <see cref="Services"/>. Registration performs no broker I/O: the gateway's provisioner
+    /// (see <see cref="IGateway.ProvisionerAsync"/>) runs later, when the gateway is first used
+    /// (consumers starting or the first publish). Publications and subscriptions without a
+    /// message mapper fall back to the default configured via
+    /// <see cref="DefaultMessageMapper(Type)"/>, and every configured message mapper type is
+    /// registered in <see cref="Services"/> so it can be resolved at runtime.
     /// </summary>
     /// <param name="gateway">The gateway to register.</param>
     /// <returns>The current configurator, for chaining.</returns>
     public AmanhecerMessagingConfigurator AddGateway(IGateway gateway)
     {
-        gateway.ProvisionerAsync().GetAwaiter().GetResult();
-
         ApplyDefaultMessageMapper(gateway);
 
         foreach (var publication in gateway.Publications)
@@ -186,7 +187,18 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
         }
 
         Gateways.Add(gateway);
-        Services.AddSingleton(gateway);
+        // Factory registration (rather than the pre-built instance) so the container disposes
+        // the gateway when it is disposed, and so the gateway gets the application's logger
+        // factory when it supports logging.
+        Services.AddSingleton<IGateway>(provider =>
+        {
+            if (gateway is ILoggerFactorySupport logging)
+            {
+                logging.LoggerFactory ??= provider.GetService<ILoggerFactory>();
+            }
+
+            return gateway;
+        });
         return this;
     }
 

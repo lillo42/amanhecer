@@ -75,6 +75,22 @@ public static class ServiceCollectionExtensions
 
         cfg.AddRoutingKey("Amanhecer.Messaging.Post", routing => routing.UseHandler<PostMessageHandler>());
 
+        // Publication routing keys resolve the producer and the publication, so duplicates
+        // across gateways would make the finders ambiguous.
+        var duplicatedRoutingKey = cfg.Gateways
+            .SelectMany(x => x.Publications)
+            .GroupBy(x => x.RoutingKey)
+            .Where(x => x.Count() > 1)
+            .Select(x => x.Key)
+            .FirstOrDefault();
+
+        if (duplicatedRoutingKey != null)
+        {
+            throw new InvalidOperationException(
+                $"The publication routing key '{duplicatedRoutingKey}' is declared more than once. " +
+                "Publication routing keys must be unique across all gateways.");
+        }
+
         var routing = cfg.RoutingConfigurators
             .GroupBy(x => x.RoutingKey)
             .ToFrozenDictionary(x => x.Key,
@@ -84,9 +100,12 @@ public static class ServiceCollectionExtensions
 
         services.TryAddSingleton(new AmanhecerPipelineOptions(routing));
 
-        services.TryAddSingleton<IProducerFinder>(new AmanhecerProducerFinder(
-            cfg
-                .Gateways
+        // Producers are created on first resolution (the first publish), so building the
+        // service collection opens no broker connection. The gateways are resolved through
+        // the provider so their registrations (singleton lifetime, logger factory) apply.
+        services.TryAddSingleton<IProducerFinder>(provider => new AmanhecerProducerFinder(
+            provider
+                .GetServices<IGateway>()
                 .SelectMany(x => x.CreateProducers())
                 .ToFrozenDictionary(x => x.Key, x => x.Value)));
 
@@ -116,7 +135,7 @@ public static class ServiceCollectionExtensions
             MergeTransformers(
                 TransformerPipelineNames.Decode(subscription.Name),
                 subscription.MessageMapperType,
-                []);
+                subscription.Transformers);
         }
 
         // Explicitly named pipelines that belong to no publication or subscription still

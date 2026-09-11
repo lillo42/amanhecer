@@ -45,11 +45,15 @@ public class AmanhecerPipelineFactory(
                             .AppendRange(context.Middlewares);
                     }
 
+                    var ordered = middlewares
+                        .OrderBy(x => x.Order)
+                        .ToList();
+
                     return new AmanhecerPipeline([
-                        .. middlewares
-                            .OrderBy(x => x.Order)
-                            .Select(opt => middlewareFactory.Create(opt.MiddlewareType, opt.Metadata, metadataBag))
-                    ], metadataBag.Metadata);
+                            .. ordered.Select(opt => middlewareFactory.Create(opt.MiddlewareType, opt.Metadata, metadataBag))
+                        ],
+                        metadataBag.Metadata,
+                        [.. ordered.Select(opt => opt.Metadata)]);
                 })
         ];
     }

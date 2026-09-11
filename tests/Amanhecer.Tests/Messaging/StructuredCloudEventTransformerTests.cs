@@ -196,7 +196,7 @@ public class StructuredCloudEventTransformerTests
                 }
                 """)
         };
-        var context = new AmanhecerContext();
+        var context = CreateSubscriptionContext();
         var next = Substitute.For<Func<Message, AmanhecerContext, ValueTask>>();
 
         await _transformer.DecodeAsync(message, context, next);
@@ -240,7 +240,7 @@ public class StructuredCloudEventTransformerTests
         };
 
         await _transformer.DecodeAsync(message,
-            new AmanhecerContext(),
+            CreateSubscriptionContext(),
             Substitute.For<Func<Message, AmanhecerContext, ValueTask>>());
 
         await Assert.That(message.Payload.ToArray()).IsEquivalentTo(payload);
@@ -265,7 +265,7 @@ public class StructuredCloudEventTransformerTests
         };
 
         await _transformer.DecodeAsync(message,
-            new AmanhecerContext(),
+            CreateSubscriptionContext(),
             Substitute.For<Func<Message, AmanhecerContext, ValueTask>>());
 
         await Assert.That(message.ContentType).IsNull();
@@ -279,7 +279,7 @@ public class StructuredCloudEventTransformerTests
             ContentType = new ContentType("application/json"),
             Payload = Encoding.UTF8.GetBytes("""{"greeting":"hello"}""")
         };
-        var context = new AmanhecerContext();
+        var context = CreateSubscriptionContext(CloudEventType.Binary);
         var next = Substitute.For<Func<Message, AmanhecerContext, ValueTask>>();
 
         await _transformer.DecodeAsync(message, context, next);
@@ -299,7 +299,7 @@ public class StructuredCloudEventTransformerTests
         };
 
         await Assert.That(async () => await _transformer.DecodeAsync(message,
-                new AmanhecerContext(),
+                CreateSubscriptionContext(),
                 Substitute.For<Func<Message, AmanhecerContext, ValueTask>>()))
             .ThrowsExactly<FormatException>();
     }
@@ -322,7 +322,7 @@ public class StructuredCloudEventTransformerTests
             Payload = message.Payload
         };
         await _transformer.DecodeAsync(decoded,
-            new AmanhecerContext(),
+            CreateSubscriptionContext(),
             Substitute.For<Func<Message, AmanhecerContext, ValueTask>>());
 
         await Assert.That(decoded.Id).IsEqualTo(message.Id);
@@ -349,6 +349,14 @@ public class StructuredCloudEventTransformerTests
     {
         var context = new AmanhecerContext();
         context.SetMetadata(publication, MetadataName.Publication);
+        return context;
+    }
+
+    private static AmanhecerContext CreateSubscriptionContext(CloudEventType cloudEventType = CloudEventType.Json)
+    {
+        var subscription = new TestSubscription("tests") { CloudEventType = cloudEventType };
+        var context = new AmanhecerContext();
+        context.SetMetadata(subscription, MetadataName.Subscription);
         return context;
     }
 

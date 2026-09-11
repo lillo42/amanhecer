@@ -12,6 +12,9 @@ namespace Amanhecer.Abstractions.Messaging;
 /// </summary>
 public abstract class Subscription(string toRoutingKey) : ISubscription
 {
+    /// <inheritdoc cref="ISubscription.CloudEventType"/>
+    public CloudEventType CloudEventType { get; set; } = CloudEventType.Binary;
+
     /// <inheritdoc cref="ISubscription.Name"/>
     public string Name { get; set; } = Uuid.NewGuid().ToString();
 

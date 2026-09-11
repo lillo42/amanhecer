@@ -142,7 +142,7 @@ internal static class ResilienceContextMetadataExtensions
         {
             resilienceContext.SetRequestMetadata(new RequestMetadata
             {
-                RequestName = context.Request.GetType().Name
+                RequestName = context.Request.GetType().Name,
             });
         }
     }

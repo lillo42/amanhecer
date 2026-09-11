@@ -53,6 +53,12 @@ public interface ISubscription
     /// Gets the type (the CloudEvents <c>type</c> attribute) expected on consumed messages.
     /// </summary>
     string DefaultType { get; }
+    
+    /// <summary>
+    /// Gets the CloudEvents content mode expected on consumed messages: binary (attributes
+    /// in transport headers) or structured JSON envelope.
+    /// </summary>
+    CloudEventType CloudEventType { get; }
 
     /// <summary>
     /// Gets the name of the subscription.

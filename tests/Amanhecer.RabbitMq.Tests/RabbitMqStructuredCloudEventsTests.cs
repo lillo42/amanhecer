@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Mime;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -97,6 +98,43 @@ public class RabbitMqStructuredCloudEventsTests
         await Assert.That(transformers[0].TransformerType).IsEqualTo(typeof(StructuredCloudEventTransformer));
     }
 
+    [Test]
+    public async Task When_Configuring_A_Subscription_With_CloudEvent_Should_Set_The_CloudEvent_Type()
+    {
+        var subscription = CreateSubscription(subscription => subscription
+            .Name("configured-sub")
+            .ToRoutingKey("tests")
+            .QueueName("tests.queue")
+            .CloudEvent(CloudEventType.Json));
+
+        await Assert.That(subscription.CloudEventType).IsEqualTo(CloudEventType.Json);
+    }
+
+    [Test]
+    public async Task When_Configuring_A_Subscription_With_JsonCloudEvent_Should_Set_The_CloudEvent_Type_To_Json()
+    {
+        var subscription = CreateSubscription(subscription => subscription
+            .Name("json-sub")
+            .ToRoutingKey("tests")
+            .QueueName("tests.queue")
+            .JsonCloudEvent());
+
+        await Assert.That(subscription.CloudEventType).IsEqualTo(CloudEventType.Json);
+    }
+
+    [Test]
+    public async Task When_Configuring_A_Subscription_With_BinaryCloudEvent_Should_Set_The_CloudEvent_Type_To_Binary()
+    {
+        var subscription = CreateSubscription(subscription => subscription
+            .Name("binary-sub")
+            .ToRoutingKey("tests")
+            .QueueName("tests.queue")
+            .JsonCloudEvent()
+            .BinaryCloudEvent());
+
+        await Assert.That(subscription.CloudEventType).IsEqualTo(CloudEventType.Binary);
+    }
+
     private static ServiceCollection RegisterGateway(
         Action<RabbitMqPublicationsConfigurator>? publications,
         Action<RabbitMqSubscriptionsConfigurator>? subscriptions)
@@ -122,6 +160,17 @@ public class RabbitMqStructuredCloudEventsTests
         return (AmanhecerTransformerPipelineOptions)services
             .Single(x => x.ServiceType == typeof(AmanhecerTransformerPipelineOptions))
             .ImplementationInstance!;
+    }
+
+    private static ISubscription CreateSubscription(Action<RabbitMqSubscriptionConfigurator> configure)
+    {
+        var cfg = new RabbitMqSubscriptionConfigurator();
+        configure.Invoke(cfg);
+
+        var toSubscription = typeof(RabbitMqSubscriptionConfigurator)
+            .GetMethod("ToSubscription", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        return (ISubscription)toSubscription.Invoke(cfg, null)!;
     }
 
     private static (RabbitMqProducer Producer, List<Publish> Publishes) CreateProducer()

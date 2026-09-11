@@ -59,7 +59,8 @@ public class StructuredCloudEventTransformer : ITransformer
     public ValueTask DecodeAsync(Message message, AmanhecerContext context,
         Func<Message, AmanhecerContext, ValueTask> next)
     {
-        if (IsStructuredCloudEvent(message.ContentType))
+        var subscription = context.GetRequiredMetadata<ISubscription>(MetadataName.Subscription);
+        if (subscription.CloudEventType == CloudEventType.Json  && IsStructuredCloudEvent(message.ContentType))
         {
             ApplyEnvelope(message);
         }
@@ -70,7 +71,8 @@ public class StructuredCloudEventTransformer : ITransformer
     private static bool IsStructuredCloudEvent(ContentType? contentType)
     {
         return contentType != null
-            && string.Equals(contentType.MediaType, MediaType, StringComparison.OrdinalIgnoreCase);
+            && (string.Equals(contentType.MediaType, MediaType, StringComparison.OrdinalIgnoreCase)
+            || contentType.MediaType.Contains("application/json", StringComparison.OrdinalIgnoreCase));
     }
 
     // Structured content mode: the event is a single JSON object carrying the attributes

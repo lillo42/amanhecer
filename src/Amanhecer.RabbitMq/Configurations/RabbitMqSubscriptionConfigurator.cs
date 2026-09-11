@@ -265,6 +265,38 @@ public class RabbitMqSubscriptionConfigurator
         return this;
     }
 
+
+    private CloudEventType _cloudEventType = CloudEventType.Binary;
+
+    /// <summary>
+    /// Sets how consumed messages are interpreted as CloudEvents.
+    /// </summary>
+    /// <param name="cloudEvent">The CloudEvents encoding mode expected on consumed messages.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator  CloudEvent(CloudEventType cloudEvent)
+    {
+        _cloudEventType = cloudEvent;
+        return this;
+    }
+
+    /// <summary>
+    /// Configures the subscription to consume structured CloudEvents JSON envelopes.
+    /// </summary>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator JsonCloudEvent()
+    {
+        return CloudEvent(CloudEventType.Json);
+    }
+    
+    /// <summary>
+    /// Configures the subscription to consume binary CloudEvents (attributes in headers).
+    /// </summary>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator BinaryCloudEvent()
+    {
+        return CloudEvent(CloudEventType.Binary);
+    }
+
     private Func<Message, Exception, IConsumerAction>? _onError;
 
     /// <summary>
@@ -346,6 +378,7 @@ public class RabbitMqSubscriptionConfigurator
         {
             Name = _name ?? Uuid.NewGuid().ToString(),
             MessageMapperType = _messageMapperType,
+            CloudEventType =  _cloudEventType,
             // The envelope unwrap is content-type-sniffing and runs first, so it is inert
             // for binary-mode messages.
             Transformers = [new AmanhecerTransformerOptions(typeof(StructuredCloudEventTransformer), int.MinValue, null)],

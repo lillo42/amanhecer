@@ -18,4 +18,4 @@ public record Nack : IConsumerAction
 /// The exception thrown to signal a negative acknowledgement (<see cref="Nack"/>) for the
 /// message being handled.
 /// </summary>
-public class NackException() : AmanhecerException;
+public class NackException : AmanhecerException;

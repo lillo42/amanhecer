@@ -5,8 +5,8 @@ Abstractions for [Amanhecer](https://github.com/lillo42/amanhecer), a lightweigh
 This package contains the contracts your application code depends on:
 
 - **Handlers** — derive from `RequestHandler<T>` or `QueryHandler<TQuery, TResponse>`, or implement `IRequestHandler` / `IQueryHandler` directly.
-- **Dispatch** — `IDispatcher`, `IContext` and the `AmanhecerContext` implementation carrying routing-key overrides, metadata, an `Activity` and a per-dispatch executing strategy.
-- **Pipelines and middleware** — `IPipeline`, `IPipelineContext`, `IMiddleware`, and the factories used to build them.
+- **Dispatch** — `IDispatcher` and the `AmanhecerContext` implementation carrying routing-key overrides, metadata, an `Activity` and a per-dispatch executing strategy.
+- **Pipelines and middleware** — `IPipeline`, `IMiddleware`, and the factories used to build them.
 - **Attributes** — `[RoutingKey]` to override a request's routing key, and `MiddlewareAttribute` to declare middleware on handler classes or methods.
 - **Exceptions** — `AmanhecerException`, `PipelineNotFoundException`, `MultiPipelineFoundException`.
 
@@ -19,7 +19,7 @@ public record Greeting(string Name);
 
 public class GreetingHandler : RequestHandler<Greeting>
 {
-    public override ValueTask HandleAsync(Greeting request, IPipelineContext context,
+    public override ValueTask HandleAsync(Greeting request, AmanhecerContext context,
         CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"Hello {request.Name}!");

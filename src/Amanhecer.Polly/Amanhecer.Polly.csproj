@@ -4,7 +4,7 @@
         <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
         <IsPackable>true</IsPackable>
         <Description>Polly integration for Amanhecer: execute request pipelines inside named Polly resilience pipelines (retry, circuit breaker, timeout, fallback) via middleware.</Description>
-        <PackageTags>mediator;cqrs;messaging;dispatcher;polly;resilience;retry;circuit-breaker;timeout;middleware;pipeline;brighter</PackageTags>
+        <PackageTags>mediator;cqrs;messaging;dispatcher;polly;resilience;retry;circuit-breaker;timeout;middleware;pipeline</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>

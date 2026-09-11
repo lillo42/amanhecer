@@ -15,7 +15,7 @@ public record PlaceOrder(int Id);
 
 ## Overriding per dispatch
 
-Pass an `IContext` with a `RoutingKey` to route a request to a different pipeline:
+Pass an `AmanhecerContext` with a `RoutingKey` to route a request to a different pipeline:
 
 ```csharp
 dispatcher.Send(request, new AmanhecerContext { RoutingKey = "priority.order" });
@@ -23,7 +23,7 @@ dispatcher.Send(request, new AmanhecerContext { RoutingKey = "priority.order" })
 
 ## Registering a pipeline for a routing key
 
-Several handlers can share a routing key, and a routing key can be registered without a handler type:
+Several handlers can share a routing key. A routing key can also be registered without a handler type — such a pipeline only contributes extra middleware and must be paired with another registration that terminates the key with `UseHandler`:
 
 ```csharp
 services.AddAmanhecer(a => a

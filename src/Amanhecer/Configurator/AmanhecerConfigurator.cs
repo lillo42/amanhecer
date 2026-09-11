@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -17,13 +18,35 @@ namespace Amanhecer.Configurator;
 /// <param name="services">The service collection where handlers and middlewares are registered.</param>
 public class AmanhecerConfigurator(IServiceCollection services)
 {
-    private readonly List<AmanhecerRoutingOptions> _routingConfigurators = [];
     private readonly HashSet<Type> _autoRegisteredTypes = [];
+
+    /// <summary>
+    /// Gets the service collection where handlers and middlewares are registered.
+    /// </summary>
+    public IServiceCollection Services { get; } = services;
 
     /// <summary>
     /// Gets the routing options built from the configured routing keys.
     /// </summary>
-    public IEnumerable<AmanhecerRoutingOptions> RoutingConfigurators => _routingConfigurators;
+    public List<AmanhecerRoutingOptions> RoutingConfigurators { get; } = [];
+
+    /// <summary>
+    /// Gets the messaging gateways registered via <see cref="UsingMessagingGateway"/>.
+    /// </summary>
+    public List<IGateway> Gateways { get; set; } = [];
+
+    /// <summary>
+    /// Gets the named transformer pipelines registered via <see cref="UsingMessagingGateway"/>,
+    /// keyed by pipeline name.
+    /// </summary>
+    public Dictionary<string, IReadOnlyList<AmanhecerTransformerOptions>> TransformerPipelineConfiguration { get; } =
+        [];
+
+    /// <summary>
+    /// Gets the transformers applied to every encode and decode transformer pipeline.
+    /// </summary>
+    public List<AmanhecerTransformerOptions> GlobalTransformers { get; } = [];
+
 
     /// <summary>
     /// Registers a request handler and creates a pipeline for the routing key derived from its request type.
@@ -76,11 +99,11 @@ public class AmanhecerConfigurator(IServiceCollection services)
     public AmanhecerConfigurator AddRoutingKey(string routingKey,
         Action<AmanhecerRoutingConfigurator>? configure = null)
     {
-        var cfg = new AmanhecerRoutingConfigurator(routingKey, services);
+        var cfg = new AmanhecerRoutingConfigurator(routingKey, Services);
 
         configure?.Invoke(cfg);
 
-        _routingConfigurators.Add(cfg.ToOptions());
+        RoutingConfigurators.Add(cfg.ToOptions());
         return this;
     }
 
@@ -91,8 +114,60 @@ public class AmanhecerConfigurator(IServiceCollection services)
     /// <returns>The current <see cref="AmanhecerConfigurator"/>, for chaining.</returns>
     public AmanhecerConfigurator SetExecutorStrategy(IExecutingStrategy executor)
     {
-        services.AddSingleton(executor);
+        Services.AddSingleton(executor);
         return this;
+    }
+
+    /// <summary>
+    /// Configures the messaging side of Amanhecer: registers gateways, transformer pipelines
+    /// and global transformers into the service collection.
+    /// </summary>
+    /// <param name="configure">An action that configures the messaging gateways and transformers.</param>
+    /// <returns>The current <see cref="AmanhecerConfigurator"/>, for chaining.</returns>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when two gateways share the same name or a transformer pipeline name is registered twice.
+    /// </exception>
+    public AmanhecerConfigurator UsingMessagingGateway(Action<AmanhecerMessagingConfigurator> configure)
+    {
+        var cfg = new AmanhecerMessagingConfigurator(Services);
+        configure.Invoke(cfg);
+        Gateways.AddRange(cfg.Gateways);
+
+        var duplicatedGatewayName = FindDuplicatedName(Gateways);
+        if (duplicatedGatewayName != null)
+        {
+            throw new InvalidOperationException(
+                $"A gateway named '{duplicatedGatewayName}' is already registered; gateway names must be unique.");
+        }
+
+        foreach (var keyPairValue in cfg.TransformerPipeline)
+        {
+            if (TransformerPipelineConfiguration.ContainsKey(keyPairValue.Key))
+            {
+                throw new InvalidOperationException(
+                    $"A transformer pipeline named '{keyPairValue.Key}' is already registered; pipeline names must be unique.");
+            }
+
+            TransformerPipelineConfiguration[keyPairValue.Key] = keyPairValue.Value;
+        }
+
+        GlobalTransformers.AddRange(cfg.GlobalTransformers);
+
+        return this;
+
+        static string? FindDuplicatedName(List<IGateway> gateways)
+        {
+            var hash = new HashSet<string>();
+            foreach (var gateway in gateways)
+            {
+                if (!hash.Add(gateway.Name))
+                {
+                    return gateway.Name;
+                }
+            }
+
+            return null;
+        }
     }
 
     /// <summary>
@@ -126,9 +201,9 @@ public class AmanhecerConfigurator(IServiceCollection services)
                     continue;
                 }
 
-                if (IsMiddleware(type))
+                if (IsMiddleware(type) || IsTransformer(type) || IsMessageMapper(type))
                 {
-                    services.TryAddTransient(type);
+                    Services.TryAddTransient(type);
                 }
                 else if (IsHandler(type))
                 {
@@ -229,5 +304,29 @@ public class AmanhecerConfigurator(IServiceCollection services)
         }
 
         return type.GetInterfaces().Any(x => x == typeof(IHandler));
+    }
+
+    private static bool IsTransformer(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)]
+        Type type)
+    {
+        if (!type.IsClass || type.IsAbstract || type.ContainsGenericParameters)
+        {
+            return false;
+        }
+
+        return type.GetInterfaces().Any(x => x == typeof(IEncodeTransformer) || x == typeof(IDecodeTransformer));
+    }
+
+    private static bool IsMessageMapper(
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.Interfaces)]
+        Type type)
+    {
+        if (!type.IsClass || type.IsAbstract || type.ContainsGenericParameters)
+        {
+            return false;
+        }
+
+        return type.GetInterfaces().Any(x => x == typeof(IMessageMapper));
     }
 }

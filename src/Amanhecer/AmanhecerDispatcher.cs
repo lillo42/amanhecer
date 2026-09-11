@@ -1,9 +1,15 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Exceptions;
+using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Abstractions.Options;
+using Amanhecer.ExecutingStrategies;
+using Amanhecer.Messaging.Middlewares;
 using Microsoft.Extensions.Logging;
 
 namespace Amanhecer;
@@ -13,15 +19,17 @@ namespace Amanhecer;
 /// routing key through an <see cref="IPipelineFactory"/> and executes them using the
 /// <see cref="IExecutingStrategy"/> selected for the context.
 /// </summary>
-/// <param name="contextFactory">Creates the <see cref="IPipelineContext"/> for each request.</param>
 /// <param name="factory">Resolves the pipelines configured for a routing key.</param>
+/// <param name="defaultStrategy">The <see cref="IExecutingStrategy"/> used when the context does not specify one.</param>
 /// <param name="logger">The logger used to record dispatch diagnostics.</param>
 public partial class AmanhecerDispatcher(
-    IPipelineContextFactory contextFactory,
     IPipelineFactory factory,
+    IExecutingStrategy defaultStrategy,
     ILogger<AmanhecerDispatcher> logger)
     : IDispatcher
 {
+    private static readonly ConcurrentDictionary<Type, string> CacheRoutingKeys = new();
+
     /// <summary>
     /// Sends a request synchronously to its single matching pipeline, using a new <see cref="AmanhecerContext"/>.
     /// </summary>
@@ -47,7 +55,7 @@ public partial class AmanhecerDispatcher(
     /// <typeparam name="TRequest">The type of the request.</typeparam>
     /// <param name="request">The request to send.</param>
     /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
-    public void Send<TRequest>(TRequest request, IContext context)
+    public void Send<TRequest>(TRequest request, AmanhecerContext context)
     {
         Send((object)request!, context);
     }
@@ -60,7 +68,7 @@ public partial class AmanhecerDispatcher(
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> or <paramref name="context"/> is null.</exception>
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the request's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the request's routing key.</exception>
-    public void Send(object request, IContext context)
+    public void Send(object request, AmanhecerContext context)
     {
         var response = SendAsync(request, context, CancellationToken.None);
         if (response.IsCompleted)
@@ -107,7 +115,7 @@ public partial class AmanhecerDispatcher(
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> or <paramref name="context"/> is null.</exception>
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the request's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the request's routing key.</exception>
-    public async ValueTask SendAsync<TRequest>(TRequest request, IContext context,
+    public async ValueTask SendAsync<TRequest>(TRequest request, AmanhecerContext context,
         CancellationToken cancellationToken = default)
     {
         await SendAsync((object)request!, context, cancellationToken);
@@ -123,7 +131,8 @@ public partial class AmanhecerDispatcher(
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> or <paramref name="context"/> is null.</exception>
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the request's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the request's routing key.</exception>
-    public async ValueTask SendAsync(object request, IContext context, CancellationToken cancellationToken = default)
+    public async ValueTask SendAsync(object request, AmanhecerContext context,
+        CancellationToken cancellationToken = default)
     {
         if (request == null)
         {
@@ -135,21 +144,21 @@ public partial class AmanhecerDispatcher(
             throw new ArgumentNullException(nameof(context));
         }
 
-        var pipelineContext = contextFactory.Create(request, context, cancellationToken);
-        var pipelines = factory.Create(pipelineContext);
-
-        pipelineContext.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhecer.operation", "send"));
+        PrepareContext(context, request, cancellationToken);
+        context.Request = request;
+        var pipelines = factory.Create(context);
 
         switch (pipelines.Count)
         {
             case 0:
-                Logger.NoPipelineFound(logger, pipelineContext.RoutingKey);
-                throw new PipelineNotFoundException(pipelineContext.RoutingKey);
+                Logger.NoPipelineFound(logger, context.RoutingKey);
+                throw new PipelineNotFoundException(context.RoutingKey);
             case > 1:
-                throw new MultiPipelineFoundException(pipelineContext.RoutingKey);
+                throw new MultiPipelineFoundException(context.RoutingKey);
             default:
-                await pipelineContext.ExecutingStrategy.ExecuteAsync(pipelineContext, pipelines)
-                    .ConfigureAwait(pipelineContext.ContinueOnCapturedContext);
+                context.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhecer.operation", "send"));
+                await context.ExecutingStrategy!.ExecuteAsync(context, pipelines)
+                    .ConfigureAwait(context.ContinueOnCapturedContext);
                 break;
         }
     }
@@ -179,7 +188,7 @@ public partial class AmanhecerDispatcher(
     /// <typeparam name="TRequest">The type of the request.</typeparam>
     /// <param name="request">The request to publish.</param>
     /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
-    public void Publish<TRequest>(TRequest request, IContext context)
+    public void Publish<TRequest>(TRequest request, AmanhecerContext context)
     {
         Publish((object)request!, context);
     }
@@ -190,7 +199,7 @@ public partial class AmanhecerDispatcher(
     /// <param name="request">The request to publish.</param>
     /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> or <paramref name="context"/> is null.</exception>
-    public void Publish(object request, IContext context)
+    public void Publish(object request, AmanhecerContext context)
     {
         var response = PublishAsync(request, context, CancellationToken.None);
         if (response.IsCompleted)
@@ -235,7 +244,7 @@ public partial class AmanhecerDispatcher(
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the pipelines have executed.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> or <paramref name="context"/> is null.</exception>
-    public async ValueTask PublishAsync<TRequest>(TRequest request, IContext context,
+    public async ValueTask PublishAsync<TRequest>(TRequest request, AmanhecerContext context,
         CancellationToken cancellationToken = default)
     {
         await PublishAsync((object)request!, context, cancellationToken);
@@ -249,7 +258,8 @@ public partial class AmanhecerDispatcher(
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the pipelines have executed.</returns>
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="request"/> or <paramref name="context"/> is null.</exception>
-    public async ValueTask PublishAsync(object request, IContext context, CancellationToken cancellationToken = default)
+    public async ValueTask PublishAsync(object request, AmanhecerContext context,
+        CancellationToken cancellationToken = default)
     {
         if (request == null)
         {
@@ -261,20 +271,21 @@ public partial class AmanhecerDispatcher(
             throw new ArgumentNullException(nameof(context));
         }
 
-        var pipelineContext = contextFactory.Create(request, context, cancellationToken);
-        var pipelines = factory.Create(pipelineContext);
+        PrepareContext(context, request, cancellationToken);
+        context.Request = request;
+        var pipelines = factory.Create(context);
 
         if (pipelines.Count == 0)
         {
-            Logger.NoPipelineFound(logger, pipelineContext.RoutingKey);
+            Logger.NoPipelineFound(logger, context.RoutingKey);
             return;
         }
 
-        pipelineContext.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhecer.operation", "publish"));
-        await pipelineContext
-            .ExecutingStrategy
-            .ExecuteAsync(pipelineContext, pipelines)
-            .ConfigureAwait(pipelineContext.ContinueOnCapturedContext);
+        context.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhecer.operation", "publish"));
+        await context
+            .ExecutingStrategy!
+            .ExecuteAsync(context, pipelines)
+            .ConfigureAwait(context.ContinueOnCapturedContext);
     }
 
     /// <summary>
@@ -322,7 +333,7 @@ public partial class AmanhecerDispatcher(
     /// <param name="query">The query to execute.</param>
     /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
     /// <returns>The response produced by the query handler.</returns>
-    public TResponse Query<TQuery, TResponse>(TQuery query, IContext context)
+    public TResponse Query<TQuery, TResponse>(TQuery query, AmanhecerContext context)
     {
         var response = QueryAsync<TQuery, TResponse>(query, context);
         if (response.IsCompleted)
@@ -344,7 +355,7 @@ public partial class AmanhecerDispatcher(
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="query"/> or <paramref name="context"/> is null.</exception>
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the query's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the query's routing key.</exception>
-    public TResponse Query<TResponse>(object query, IContext context)
+    public TResponse Query<TResponse>(object query, AmanhecerContext context)
     {
         var response = QueryAsync<TResponse>(query, context);
         if (response.IsCompleted)
@@ -365,7 +376,7 @@ public partial class AmanhecerDispatcher(
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="query"/> or <paramref name="context"/> is null.</exception>
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the query's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the query's routing key.</exception>
-    public object? Query(object query, IContext context)
+    public object? Query(object query, AmanhecerContext context)
     {
         var response = QueryAsync(query, context);
         if (response.IsCompleted)
@@ -429,16 +440,16 @@ public partial class AmanhecerDispatcher(
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="query"/> or <paramref name="context"/> is null.</exception>
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the query's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the query's routing key.</exception>
-    public async ValueTask<TResponse> QueryAsync<TQuery, TResponse>(TQuery query, IContext context,
+    public async ValueTask<TResponse> QueryAsync<TQuery, TResponse>(TQuery query, AmanhecerContext context,
         CancellationToken cancellationToken = default)
     {
-       if (context == null)
-       {
-           throw new ArgumentNullException(nameof(context));
-       }
+        if (context == null)
+        {
+            throw new ArgumentNullException(nameof(context));
+        }
 
-       return await QueryAsync<TResponse>(query!, context, cancellationToken)
-           .ConfigureAwait(context.ContinueOnCapturedContext);
+        return await QueryAsync<TResponse>(query!, context, cancellationToken)
+            .ConfigureAwait(context.ContinueOnCapturedContext);
     }
 
     /// <summary>
@@ -453,7 +464,7 @@ public partial class AmanhecerDispatcher(
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="query"/> or <paramref name="context"/> is null.</exception>
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the query's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the query's routing key.</exception>
-    public async ValueTask<TResponse> QueryAsync<TResponse>(object query, IContext context,
+    public async ValueTask<TResponse> QueryAsync<TResponse>(object query, AmanhecerContext context,
         CancellationToken cancellationToken = default)
     {
         if (context == null)
@@ -476,7 +487,8 @@ public partial class AmanhecerDispatcher(
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="query"/> or <paramref name="context"/> is null.</exception>
     /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the query's routing key.</exception>
     /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the query's routing key.</exception>
-    public async ValueTask<object?> QueryAsync(object query, IContext context, CancellationToken cancellationToken = default)
+    public async ValueTask<object?> QueryAsync(object query, AmanhecerContext context,
+        CancellationToken cancellationToken = default)
     {
         if (query == null)
         {
@@ -488,24 +500,246 @@ public partial class AmanhecerDispatcher(
             throw new ArgumentNullException(nameof(context));
         }
 
-        var pipelineContext = contextFactory.Create(query, context, cancellationToken);
-        var pipelines = factory.Create(pipelineContext);
+        PrepareContext(context, query, cancellationToken);
+        context.Request = query;
+        var pipelines = factory.Create(context);
 
-        pipelineContext.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhecer.operation", "query"));
         switch (pipelines.Count)
         {
             case 0:
-                Logger.NoPipelineFound(logger, pipelineContext.RoutingKey);
-                throw new PipelineNotFoundException(pipelineContext.RoutingKey);
+                Logger.NoPipelineFound(logger, context.RoutingKey);
+                throw new PipelineNotFoundException(context.RoutingKey);
             case > 1:
-                throw new MultiPipelineFoundException(pipelineContext.RoutingKey);
+                throw new MultiPipelineFoundException(context.RoutingKey);
             default:
-                await pipelineContext
-                    .ExecutingStrategy
-                    .ExecuteAsync(pipelineContext, pipelines)
-                    .ConfigureAwait(pipelineContext.ContinueOnCapturedContext);
-                return pipelineContext.Response;
+                context.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhecer.operation", "query"));
+                await context
+                    .ExecutingStrategy!
+                    .ExecuteAsync(context, pipelines)
+                    .ConfigureAwait(context.ContinueOnCapturedContext);
+                return context.Response;
         }
+    }
+
+    /// <summary>
+    /// Posts a message synchronously to the single publication pipeline registered for it,
+    /// using a new <see cref="AmanhecerContext"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of the message.</typeparam>
+    /// <param name="message">The message to post.</param>
+    public void Post<T>(T message)
+    {
+        Post(message, new AmanhecerContext());
+    }
+
+    /// <summary>
+    /// Posts a message synchronously to the single publication pipeline registered for it,
+    /// using a new <see cref="AmanhecerContext"/>.
+    /// </summary>
+    /// <param name="message">The message to post.</param>
+    public void Post(Message message)
+    {
+        Post(message, new AmanhecerContext());
+    }
+
+    /// <summary>
+    /// Posts a message synchronously to the single publication pipeline registered for the
+    /// context's routing key, using the provided context.
+    /// </summary>
+    /// <typeparam name="T">The type of the message.</typeparam>
+    /// <param name="message">The message to post.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="message"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the message's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the message's routing key.</exception>
+    /// <remarks>
+    /// The context is cloned before its routing key is replaced with the internal post routing
+    /// key; the original routing key is stored in the clone's metadata under
+    /// <see cref="MetadataName.PublicationRoutingKey"/> and the caller's context is left untouched.
+    /// </remarks>
+    public void Post<T>(T message, AmanhecerContext context)
+    {
+        var response = PostCoreAsync(message!, context, CancellationToken.None);
+        if (response.IsCompleted)
+        {
+            response.GetAwaiter().GetResult();
+        }
+        else
+        {
+            response.AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    /// <summary>
+    /// Posts a message synchronously to the single publication pipeline registered for the
+    /// context's routing key, using the provided context.
+    /// </summary>
+    /// <param name="message">The message to post.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="message"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the message's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the message's routing key.</exception>
+    /// <remarks>
+    /// The context is cloned before its routing key is replaced with the internal post routing
+    /// key; the original routing key is stored in the clone's metadata under
+    /// <see cref="MetadataName.PublicationRoutingKey"/> and the caller's context is left untouched.
+    /// </remarks>
+    public void Post(Message message, AmanhecerContext context)
+    {
+        var response = PostCoreAsync(message, context, CancellationToken.None);
+        if (response.IsCompleted)
+        {
+            response.GetAwaiter().GetResult();
+        }
+        else
+        {
+            response.AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    /// <summary>
+    /// Posts a message asynchronously to the single publication pipeline registered for it,
+    /// using a new <see cref="AmanhecerContext"/>.
+    /// </summary>
+    /// <typeparam name="T">The type of the message.</typeparam>
+    /// <param name="message">The message to post.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has executed.</returns>
+    public async ValueTask PostAsync<T>(T message, CancellationToken cancellationToken = default)
+    {
+        await PostAsync(message, new AmanhecerContext(), cancellationToken);
+    }
+
+    /// <summary>
+    /// Posts a message asynchronously to the single publication pipeline registered for it,
+    /// using a new <see cref="AmanhecerContext"/>.
+    /// </summary>
+    /// <param name="message">The message to post.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has executed.</returns>
+    public async ValueTask PostAsync(Message message, CancellationToken cancellationToken = default)
+    {
+        await PostAsync(message, new AmanhecerContext(), cancellationToken);
+    }
+
+    /// <summary>
+    /// Posts a message asynchronously to the single publication pipeline registered for the
+    /// context's routing key, using the provided context.
+    /// </summary>
+    /// <typeparam name="T">The type of the message.</typeparam>
+    /// <param name="message">The message to post.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has executed.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="message"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the message's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the message's routing key.</exception>
+    /// <remarks>
+    /// The context is cloned before its routing key is replaced with the internal post routing
+    /// key; the original routing key is stored in the clone's metadata under
+    /// <see cref="MetadataName.PublicationRoutingKey"/> and the caller's context is left untouched.
+    /// </remarks>
+    public async ValueTask PostAsync<T>(T message, AmanhecerContext context,
+        CancellationToken cancellationToken = default)
+    {
+        await PostCoreAsync(message!, context, cancellationToken);
+    }
+
+    /// <summary>
+    /// Posts a message asynchronously to the single publication pipeline registered for the
+    /// context's routing key, using the provided context.
+    /// </summary>
+    /// <param name="message">The message to post.</param>
+    /// <param name="context">The call context (routing key, metadata, executing strategy).</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has executed.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="message"/> or <paramref name="context"/> is null.</exception>
+    /// <exception cref="PipelineNotFoundException">Thrown when no pipeline is registered for the message's routing key.</exception>
+    /// <exception cref="MultiPipelineFoundException">Thrown when more than one pipeline is registered for the message's routing key.</exception>
+    /// <remarks>
+    /// The context is cloned before its routing key is replaced with the internal post routing
+    /// key; the original routing key is stored in the clone's metadata under
+    /// <see cref="MetadataName.PublicationRoutingKey"/> and the caller's context is left untouched.
+    /// </remarks>
+    public async ValueTask PostAsync(Message message, AmanhecerContext context,
+        CancellationToken cancellationToken = default)
+    {
+        await PostCoreAsync(message, context, cancellationToken);
+    }
+
+    private async ValueTask PostCoreAsync(object message, AmanhecerContext context, CancellationToken cancellationToken)
+    {
+        if (message == null)
+        {
+            throw new ArgumentNullException(nameof(message));
+        }
+
+        if (context == null)
+        {
+            throw new ArgumentNullException(nameof(context));
+        }
+
+        // The post re-routes the context to the internal post pipeline; work on a clone so the
+        // caller's context is not mutated and can be reused for further posts.
+        context = (AmanhecerContext)context.Clone();
+
+        PrepareContext(context, message, cancellationToken);
+        context.Metadata[MetadataName.PublicationRoutingKey] = context.RoutingKey;
+
+        context.RoutingKey = "Amanhecer.Messaging.Post";
+        context.Request = message;
+
+        if (message is not Message)
+        {
+            context.Middlewares ??= [];
+            context.Middlewares.Insert(0, new AmanhecerMiddlewareOptions(typeof(EncodeMiddleware), 0, null));
+        }
+
+        var pipelines = factory.Create(context);
+
+        switch (pipelines.Count)
+        {
+            case 0:
+                Logger.NoPipelineFound(logger, context.RoutingKey);
+                throw new PipelineNotFoundException(context.RoutingKey);
+            case > 1:
+                throw new MultiPipelineFoundException(context.RoutingKey);
+            default:
+                context.TelemetryTags.Add(new KeyValuePair<string, object?>("amanhecer.operation", "post"));
+                await context.ExecutingStrategy!
+                    .ExecuteAsync(context, pipelines)
+                    .ConfigureAwait(context.ContinueOnCapturedContext);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Prepares the context for pipeline execution: resolves the routing key from the request
+    /// type when the context does not specify one, defaults the executing strategy and assigns
+    /// the cancellation token.
+    /// </summary>
+    private void PrepareContext(AmanhecerContext context, object request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(context.RoutingKey))
+        {
+            context.RoutingKey = GetRoutingKey(request);
+        }
+
+        context.ExecutingStrategy ??= defaultStrategy;
+        context.CancellationToken = cancellationToken;
+    }
+
+    /// <summary>
+    /// Resolves the routing key for the request from its type's <see cref="RoutingKeyAttribute"/>,
+    /// falling back to the type's full name (cached per type).
+    /// </summary>
+    private string GetRoutingKey(object request)
+    {
+        return CacheRoutingKeys.GetOrAdd(request.GetType(), type =>
+        {
+            var attribute = type.GetCustomAttribute<RoutingKeyAttribute>();
+            return attribute == null ? (type.FullName ?? type.Name) : attribute.RoutingKey;
+        });
     }
 
     private static partial class Logger

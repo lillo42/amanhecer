@@ -104,7 +104,7 @@ public class RoutingKeyTests : BaseTests
 
     private class PriorityOrderHandler(HandledRequests handled) : RequestHandler<PriorityOrder>
     {
-        public override ValueTask HandleAsync(PriorityOrder request, IPipelineContext context,
+        public override ValueTask HandleAsync(PriorityOrder request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             handled.Add(nameof(PriorityOrderHandler));
@@ -117,7 +117,7 @@ public class RoutingKeyTests : BaseTests
 
     private class PriorityLookupHandler : QueryHandler<PriorityLookup, string>
     {
-        public override ValueTask<string> HandleAsync(PriorityLookup query, IPipelineContext context,
+        public override ValueTask<string> HandleAsync(PriorityLookup query, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromResult("priority-lookup");
@@ -128,7 +128,7 @@ public class RoutingKeyTests : BaseTests
 
     private class PlainOrderHandler(HandledRequests handled) : RequestHandler<PlainOrder>
     {
-        public override ValueTask HandleAsync(PlainOrder request, IPipelineContext context,
+        public override ValueTask HandleAsync(PlainOrder request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             handled.Add(nameof(PlainOrderHandler));
@@ -141,7 +141,7 @@ public class RoutingKeyTests : BaseTests
 
     private class AttributedKeyOrderHandler(HandledRequests handled) : RequestHandler<OverrideOrder>
     {
-        public override ValueTask HandleAsync(OverrideOrder request, IPipelineContext context,
+        public override ValueTask HandleAsync(OverrideOrder request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             handled.Add(nameof(AttributedKeyOrderHandler));
@@ -151,7 +151,7 @@ public class RoutingKeyTests : BaseTests
 
     private class OverrideKeyOrderHandler(HandledRequests handled) : RequestHandler<OverrideOrder>
     {
-        public override ValueTask HandleAsync(OverrideOrder request, IPipelineContext context,
+        public override ValueTask HandleAsync(OverrideOrder request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             handled.Add(nameof(OverrideKeyOrderHandler));
@@ -164,7 +164,7 @@ public class RoutingKeyTests : BaseTests
 
     private class FirstSharedHandler(HandledRequests handled) : RequestHandler<SharedRequest>
     {
-        public override ValueTask HandleAsync(SharedRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(SharedRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             handled.Add(nameof(FirstSharedHandler));
@@ -174,7 +174,7 @@ public class RoutingKeyTests : BaseTests
 
     private class SecondSharedHandler(HandledRequests handled) : RequestHandler<SharedRequest>
     {
-        public override ValueTask HandleAsync(SharedRequest request, IPipelineContext context,
+        public override ValueTask HandleAsync(SharedRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
             handled.Add(nameof(SecondSharedHandler));

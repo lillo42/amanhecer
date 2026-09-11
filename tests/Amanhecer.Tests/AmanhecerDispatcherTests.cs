@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Exceptions;
+using Amanhecer.Messaging.Middlewares;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 
@@ -13,16 +14,16 @@ namespace Amanhecer.Tests;
 
 public class AmanhecerDispatcherTests
 {
-    private readonly IPipelineContextFactory _contextFactory;
     private readonly IPipelineFactory _pipelineFactory;
+    private readonly IExecutingStrategy _defaultStrategy;
     private readonly AmanhecerDispatcher _dispatcher;
 
     public AmanhecerDispatcherTests()
     {
-        _contextFactory = Substitute.For<IPipelineContextFactory>();
         _pipelineFactory = Substitute.For<IPipelineFactory>();
-        _dispatcher =
-            new AmanhecerDispatcher(_contextFactory, _pipelineFactory, new NullLogger<AmanhecerDispatcher>());
+        _defaultStrategy = Substitute.For<IExecutingStrategy>();
+        _dispatcher = new AmanhecerDispatcher(_pipelineFactory, _defaultStrategy,
+            new NullLogger<AmanhecerDispatcher>());
     }
 
     #region Send & SendAsync
@@ -32,82 +33,49 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(ImmutableList<IPipeline>.Empty);
 
         await Assert.That(() => _dispatcher.Send(request))
             .Throws<PipelineNotFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(() => _dispatcher.Send(request, context))
             .Throws<PipelineNotFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
     }
-
 
     [Test]
     public async Task When_SendAsyncHasNoPipeline_Should_Throw()
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(ImmutableList<IPipeline>.Empty);
 
         await Assert.That(async () => await _dispatcher.SendAsync(request))
             .Throws<PipelineNotFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await _dispatcher.SendAsync(request, context))
             .Throws<PipelineNotFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
     }
 
     [Test]
@@ -115,40 +83,24 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns([Substitute.For<IPipeline>(), Substitute.For<IPipeline>()]);
 
         await Assert.That(() => _dispatcher.Send(request))
             .Throws<MultiPipelineFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(() => _dispatcher.Send(request, context))
             .Throws<MultiPipelineFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
     }
 
     [Test]
@@ -156,40 +108,24 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns([Substitute.For<IPipeline>(), Substitute.For<IPipeline>()]);
 
         await Assert.That(async () => await _dispatcher.SendAsync(request))
             .Throws<MultiPipelineFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await _dispatcher.SendAsync(request, context))
             .Throws<MultiPipelineFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
     }
 
     [Test]
@@ -197,51 +133,33 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
         var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(pipelines);
 
         await Assert.That(() => _dispatcher.Send(request))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        await pipelineContext
-            .ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines);
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(() => _dispatcher.Send(request, context))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
 
-        await pipelineContext
-            .ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(context, pipelines);
     }
 
     [Test]
@@ -249,56 +167,37 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
         var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(pipelines);
 
-        pipelineContext
-            .ExecutingStrategy
-            .ExecuteAsync(pipelineContext, pipelines)
+        _defaultStrategy
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines)
             .Returns(new ValueTask(Delay()));
 
         await Assert.That(() => _dispatcher.Send(request))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        await pipelineContext
-            .ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines);
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(() => _dispatcher.Send(request, context))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
 
-        await pipelineContext
-            .ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(context, pipelines);
 
         static async Task Delay()
         {
@@ -311,51 +210,33 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
         var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(pipelines);
 
         await Assert.That(async () => await _dispatcher.SendAsync(request))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        await pipelineContext
-            .ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines);
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await _dispatcher.SendAsync(request, context))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
 
-        await pipelineContext
-            .ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(context, pipelines);
     }
 
     #endregion
@@ -367,82 +248,49 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(ImmutableList<IPipeline>.Empty);
 
         await Assert.That(() => _dispatcher.Publish(request))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(() => _dispatcher.Publish(request, context))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
     }
-
 
     [Test]
     public async Task When_PublishAsyncHasNoPipeline_Should_DoNothing()
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(ImmutableList<IPipeline>.Empty);
 
         await Assert.That(async () => await _dispatcher.PublishAsync(request))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await _dispatcher.PublishAsync(request, context))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
     }
 
     [Test]
@@ -452,54 +300,38 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
         var pipelines = Enumerable.Range(0, numberOfPipelines)
             .Select(_ => Substitute.For<IPipeline>())
             .ToImmutableList();
 
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(pipelines);
 
         await Assert.That(() => _dispatcher.Publish(request))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        await pipelineContext.ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines);
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(() => _dispatcher.Publish(request, context))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
 
-        await pipelineContext.ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(context, pipelines);
     }
-    
+
     [Test]
     [Arguments(1)]
     [Arguments(2)]
@@ -507,52 +339,36 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
         var pipelines = Enumerable.Range(0, numberOfPipelines)
             .Select(_ => Substitute.For<IPipeline>())
             .ToImmutableList();
 
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(pipelines);
 
         await Assert.That(async () => await _dispatcher.PublishAsync(request))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        await pipelineContext.ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines);
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await _dispatcher.PublishAsync(request, context))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
 
-        await pipelineContext.ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(context, pipelines);
     }
 
     [Test]
@@ -560,54 +376,37 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
         var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(pipelines);
 
-        pipelineContext
-            .ExecutingStrategy
-            .ExecuteAsync(pipelineContext, pipelines)
+        _defaultStrategy
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines)
             .Returns(new ValueTask(Delay()));
 
         await Assert.That(() => _dispatcher.Publish(request))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        await pipelineContext.ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines);
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(() => _dispatcher.Publish(request, context))
             .ThrowsNothing();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
 
-        await pipelineContext.ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(context, pipelines);
 
         static async Task Delay()
         {
@@ -616,7 +415,7 @@ public class AmanhecerDispatcherTests
     }
 
     #endregion
-    
+
     #region Query & QueryAsync
 
     [Test]
@@ -624,82 +423,49 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(ImmutableList<IPipeline>.Empty);
 
         await Assert.That(() => _dispatcher.Query<string, object?>(request))
             .Throws<PipelineNotFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(() => _dispatcher.Query<string, object?>(request, context))
             .Throws<PipelineNotFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
     }
-
 
     [Test]
     public async Task When_QueryAsyncHasNoPipeline_Should_Throw()
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(ImmutableList<IPipeline>.Empty);
 
         await Assert.That(async () => await _dispatcher.QueryAsync<string, object?>(request))
             .Throws<PipelineNotFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await _dispatcher.QueryAsync<string, object?>(request, context))
             .Throws<PipelineNotFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
     }
 
     [Test]
@@ -707,40 +473,24 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns([Substitute.For<IPipeline>(), Substitute.For<IPipeline>()]);
 
         await Assert.That(() => _dispatcher.Query<string, object?>(request))
             .Throws<MultiPipelineFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(() => _dispatcher.Query<string, object?>(request, context))
             .Throws<MultiPipelineFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
     }
 
     [Test]
@@ -748,40 +498,24 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns([Substitute.For<IPipeline>(), Substitute.For<IPipeline>()]);
 
         await Assert.That(async () => await _dispatcher.QueryAsync<string, object?>(request))
             .Throws<MultiPipelineFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await _dispatcher.QueryAsync<string, object?>(request, context))
             .Throws<MultiPipelineFoundException>();
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
     }
 
     [Test]
@@ -790,54 +524,39 @@ public class AmanhecerDispatcherTests
         var request = Guid.NewGuid().ToString();
         var response = new object();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-        pipelineContext.Response.Returns(response);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
         var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(pipelines);
+
+        _defaultStrategy
+            .When(x => x.ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines))
+            .Do(call => call.Arg<AmanhecerContext>().Response = response);
 
         await Assert.That(() => _dispatcher.Query<string, object?>(request))
             .ThrowsNothing()
             .And.IsEqualTo(response);
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        await pipelineContext
-            .ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines);
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(() => _dispatcher.Query<string, object?>(request, context))
             .ThrowsNothing()
             .And.IsEqualTo(response);
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
 
-        await pipelineContext
-            .ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(context, pipelines);
     }
 
     [Test]
@@ -846,59 +565,43 @@ public class AmanhecerDispatcherTests
         var request = Guid.NewGuid().ToString();
         var response = new object();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-        pipelineContext.Response.Returns(response);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
         var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(pipelines);
 
-        pipelineContext
-            .ExecutingStrategy
-            .ExecuteAsync(pipelineContext, pipelines)
+        _defaultStrategy
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines)
             .Returns(new ValueTask(Delay()));
+
+        _defaultStrategy
+            .When(x => x.ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines))
+            .Do(call => call.Arg<AmanhecerContext>().Response = response);
 
         await Assert.That(() => _dispatcher.Query<string, object?>(request))
             .ThrowsNothing()
             .And.IsEqualTo(response);
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        await pipelineContext
-            .ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines);
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(() => _dispatcher.Query<string, object?>(request, context))
             .ThrowsNothing()
             .And.IsEqualTo(response);
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
 
-        await pipelineContext
-            .ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(context, pipelines);
 
         static async Task Delay()
         {
@@ -912,54 +615,156 @@ public class AmanhecerDispatcherTests
         var request = Guid.NewGuid().ToString();
         var response = new object();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-        pipelineContext.Response.Returns(response);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
         var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
             .Returns(pipelines);
+
+        _defaultStrategy
+            .When(x => x.ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines))
+            .Do(call => call.Arg<AmanhecerContext>().Response = response);
 
         await Assert.That(async () => await _dispatcher.QueryAsync<string, object?>(request))
             .ThrowsNothing()
             .And.IsEqualTo(response);
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(Arg.Any<AmanhecerContext>());
 
-        await pipelineContext
-            .ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), pipelines);
 
-        var context = Substitute.For<IContext>();
-        _contextFactory.Create(request, context, Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await _dispatcher.QueryAsync<string, object?>(request, context))
             .ThrowsNothing()
             .And.IsEqualTo(response);
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, Arg.Any<CancellationToken>());
-
         _ = _pipelineFactory
             .Received()
-            .Create(pipelineContext);
+            .Create(context);
 
-        await pipelineContext
-            .ExecutingStrategy
+        await _defaultStrategy
             .Received()
-            .ExecuteAsync(pipelineContext, pipelines);
+            .ExecuteAsync(context, pipelines);
+    }
+
+    #endregion
+
+    #region Post & PostAsync
+
+    [Test]
+    public async Task When_PostAsyncIsCalledTwiceWithTheSameContext_Should_LeaveTheContextUntouched()
+    {
+        var request = new SomeRequest();
+        var context = new AmanhecerContext();
+
+        var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
+            .Returns(pipelines);
+
+        await Assert.That(async () => await _dispatcher.PostAsync(request, context))
+            .ThrowsNothing();
+
+        await Assert.That(async () => await _dispatcher.PostAsync(request, context))
+            .ThrowsNothing();
+
+        await Assert.That(context.RoutingKey).IsEqualTo("");
+        await Assert.That(context.Middlewares).IsNull();
+        await Assert.That(context.Metadata).IsEmpty();
+
+        _ = _pipelineFactory
+            .Received(2)
+            .Create(Arg.Is<AmanhecerContext>(c =>
+                !ReferenceEquals(c, context) &&
+                c.RoutingKey == "Amanhecer.Messaging.Post" &&
+                (string?)c.Metadata[MetadataName.PublicationRoutingKey] ==
+                    "Amanhecer.Tests.AmanhecerDispatcherTests+SomeRequest" &&
+                c.Middlewares!.Count == 1 &&
+                c.Middlewares[0].MiddlewareType == typeof(EncodeMiddleware)));
+    }
+
+    [Test]
+    public async Task When_PostAsyncHasNullMessage_Should_Throw()
+    {
+        var context = new AmanhecerContext();
+
+        await Assert.That(async () => await _dispatcher.PostAsync<string>(null!, context))
+            .Throws<ArgumentNullException>();
+    }
+
+    [Test]
+    public async Task When_PostAsyncHasNullContext_Should_Throw()
+    {
+        var request = Guid.NewGuid().ToString();
+
+        await Assert.That(async () => await _dispatcher.PostAsync(request, null!))
+            .Throws<ArgumentNullException>();
+    }
+
+    #endregion
+
+    #region Context preparation
+
+    [Test]
+    [Arguments(typeof(SomeRequest), null, "Amanhecer.Tests.AmanhecerDispatcherTests+SomeRequest")]
+    [Arguments(typeof(SomeRequest), "random-name", "random-name")]
+    [Arguments(typeof(SomeRequestWithAttribute), "random-name", "random-name")]
+    [Arguments(typeof(SomeRequestWithAttribute), null, "some-request")]
+    public async Task When_Dispatch_Should_ResolveTheRoutingKeyCorrectly(
+        Type type, string? routingKey, string expectedRoutingKey)
+    {
+        var request = Activator.CreateInstance(type)!;
+        var context = new AmanhecerContext { RoutingKey = routingKey ?? "" };
+
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
+            .Returns(ImmutableList<IPipeline>.Empty);
+
+        await Assert.That(async () => await _dispatcher.PublishAsync(request, context))
+            .ThrowsNothing();
+
+        await Assert.That(context.RoutingKey).IsEqualTo(expectedRoutingKey);
+    }
+
+    [Test]
+    public async Task When_Dispatch_Should_DefaultTheExecutingStrategy()
+    {
+        var request = Guid.NewGuid().ToString();
+        var context = new AmanhecerContext();
+
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
+            .Returns(ImmutableList<IPipeline>.Empty);
+
+        await Assert.That(async () => await _dispatcher.PublishAsync(request, context))
+            .ThrowsNothing();
+
+        await Assert.That(context.ExecutingStrategy).IsSameReferenceAs(_defaultStrategy);
+    }
+
+    [Test]
+    public async Task When_Dispatch_Should_KeepTheContextExecutingStrategy()
+    {
+        var request = Guid.NewGuid().ToString();
+        var executingStrategy = Substitute.For<IExecutingStrategy>();
+        var context = new AmanhecerContext { ExecutingStrategy = executingStrategy };
+
+        var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
+        _pipelineFactory.Create(Arg.Any<AmanhecerContext>())
+            .Returns(pipelines);
+
+        await Assert.That(async () => await _dispatcher.PublishAsync(request, context))
+            .ThrowsNothing();
+
+        await Assert.That(context.ExecutingStrategy).IsSameReferenceAs(executingStrategy);
+
+        await executingStrategy
+            .Received()
+            .ExecuteAsync(context, pipelines);
+
+        await _defaultStrategy
+            .DidNotReceive()
+            .ExecuteAsync(Arg.Any<AmanhecerContext>(), Arg.Any<IReadOnlyList<IPipeline>>());
     }
 
     #endregion
@@ -969,7 +774,7 @@ public class AmanhecerDispatcherTests
     [Test]
     public async Task When_SendAsyncHasNullRequest_Should_Throw()
     {
-        var context = Substitute.For<IContext>();
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await _dispatcher.SendAsync<string>(null!, context))
             .Throws<ArgumentNullException>();
@@ -987,7 +792,7 @@ public class AmanhecerDispatcherTests
     [Test]
     public async Task When_PublishAsyncHasNullRequest_Should_Throw()
     {
-        var context = Substitute.For<IContext>();
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await _dispatcher.PublishAsync<string>(null!, context))
             .Throws<ArgumentNullException>();
@@ -1005,7 +810,7 @@ public class AmanhecerDispatcherTests
     [Test]
     public async Task When_QueryAsyncHasNullQuery_Should_Throw()
     {
-        var context = Substitute.For<IContext>();
+        var context = new AmanhecerContext();
 
         await Assert.That(async () => await _dispatcher.QueryAsync<string, object?>(null!, context))
             .Throws<ArgumentNullException>();
@@ -1029,18 +834,13 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
         var tags = new List<KeyValuePair<string, object?>>();
-
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns(tags);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext { TelemetryTags = tags };
 
         var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(context)
             .Returns(pipelines);
 
-        await Assert.That(() => _dispatcher.Send(request))
+        await Assert.That(() => _dispatcher.Send(request, context))
             .ThrowsNothing();
 
         await Assert.That(tags)
@@ -1052,18 +852,13 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
         var tags = new List<KeyValuePair<string, object?>>();
-
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns(tags);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext { TelemetryTags = tags };
 
         var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(context)
             .Returns(pipelines);
 
-        await Assert.That(() => _dispatcher.Publish(request))
+        await Assert.That(() => _dispatcher.Publish(request, context))
             .ThrowsNothing();
 
         await Assert.That(tags)
@@ -1075,17 +870,12 @@ public class AmanhecerDispatcherTests
     {
         var request = Guid.NewGuid().ToString();
         var tags = new List<KeyValuePair<string, object?>>();
+        var context = new AmanhecerContext { TelemetryTags = tags };
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns(tags);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
-
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(context)
             .Returns(ImmutableList<IPipeline>.Empty);
 
-        await Assert.That(() => _dispatcher.Publish(request))
+        await Assert.That(() => _dispatcher.Publish(request, context))
             .ThrowsNothing();
 
         await Assert.That(tags).Count().IsEqualTo(0);
@@ -1097,19 +887,17 @@ public class AmanhecerDispatcherTests
         var request = Guid.NewGuid().ToString();
         var response = new object();
         var tags = new List<KeyValuePair<string, object?>>();
-
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns(tags);
-        pipelineContext.Response.Returns(response);
-
-        _contextFactory.Create(request, Arg.Any<IContext>(), Arg.Any<CancellationToken>())
-            .Returns(pipelineContext);
+        var context = new AmanhecerContext { TelemetryTags = tags };
 
         var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(context)
             .Returns(pipelines);
 
-        await Assert.That(() => _dispatcher.Query<string, object?>(request))
+        _defaultStrategy
+            .When(x => x.ExecuteAsync(context, pipelines))
+            .Do(call => call.Arg<AmanhecerContext>().Response = response);
+
+        await Assert.That(() => _dispatcher.Query<string, object?>(request, context))
             .ThrowsNothing()
             .And.IsEqualTo(response);
 
@@ -1125,75 +913,54 @@ public class AmanhecerDispatcherTests
     public async Task When_SendAsync_Should_ForwardCancellationToken()
     {
         var request = Guid.NewGuid().ToString();
-        var context = Substitute.For<IContext>();
+        var context = new AmanhecerContext();
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, context, cancellationTokenSource.Token)
-            .Returns(pipelineContext);
-
         var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(context)
             .Returns(pipelines);
 
         await _dispatcher.SendAsync(request, context, cancellationTokenSource.Token);
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, cancellationTokenSource.Token);
+        await Assert.That(context.CancellationToken).IsEqualTo(cancellationTokenSource.Token);
     }
 
     [Test]
     public async Task When_PublishAsync_Should_ForwardCancellationToken()
     {
         var request = Guid.NewGuid().ToString();
-        var context = Substitute.For<IContext>();
+        var context = new AmanhecerContext();
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-
-        _contextFactory.Create(request, context, cancellationTokenSource.Token)
-            .Returns(pipelineContext);
-
         var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(context)
             .Returns(pipelines);
 
         await _dispatcher.PublishAsync(request, context, cancellationTokenSource.Token);
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, cancellationTokenSource.Token);
+        await Assert.That(context.CancellationToken).IsEqualTo(cancellationTokenSource.Token);
     }
 
     [Test]
     public async Task When_QueryAsync_Should_ForwardCancellationToken()
     {
         var request = Guid.NewGuid().ToString();
-        var response = new object();
-        var context = Substitute.For<IContext>();
+        var context = new AmanhecerContext();
         using var cancellationTokenSource = new CancellationTokenSource();
 
-        var pipelineContext = Substitute.For<IPipelineContext>();
-        pipelineContext.TelemetryTags.Returns([]);
-        pipelineContext.Response.Returns(response);
-
-        _contextFactory.Create(request, context, cancellationTokenSource.Token)
-            .Returns(pipelineContext);
-
         var pipelines = ImmutableList.Create(Substitute.For<IPipeline>());
-        _pipelineFactory.Create(pipelineContext)
+        _pipelineFactory.Create(context)
             .Returns(pipelines);
 
         await _dispatcher.QueryAsync<string, object?>(request, context, cancellationTokenSource.Token);
 
-        _ = _contextFactory
-            .Received()
-            .Create(request, context, cancellationTokenSource.Token);
+        await Assert.That(context.CancellationToken).IsEqualTo(cancellationTokenSource.Token);
     }
 
     #endregion
+
+    public record SomeRequest;
+
+    [RoutingKey("some-request")]
+    public record SomeRequestWithAttribute;
 }

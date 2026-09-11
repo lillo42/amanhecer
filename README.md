@@ -1,11 +1,13 @@
 # Amanhecer
 
-A lightweight request dispatcher (mediator) for .NET, inspired by [Paramore Brighter](https://github.com/BrighterCommand/Brighter). Send commands, publish events and execute queries through configurable middleware pipelines — with no external broker required.
+A lightweight request dispatcher (mediator) for .NET. Send commands, publish events and execute queries through configurable middleware pipelines — with no external broker required.
 
 ## Features
 
-- **Send / Publish / Query** — dispatch a command to a single handler, an event to any number of handlers, or a query that returns a response.
+- **Send / Publish / Query / Post** — dispatch a command to a single handler, an event to any number of handlers, a query that returns a response, or a message to a broker publication.
 - **Middleware pipelines** — wrap handlers with cross-cutting concerns (logging, validation, retries) configured fluently or via attributes.
+- **Messaging gateway** — publish and consume `Message`s through publications and subscriptions, with pluggable message mappers and encode/decode transformers.
+- **RabbitMQ transport** — bind the messaging gateway to RabbitMQ exchanges and queues (classic, quorum, dead-letter topologies) via the `Amanhecer.RabbitMq` package.
 - **Routing keys** — route requests to pipelines by convention (type name) or explicitly with `[RoutingKey]`.
 - **Executing strategies** — run published pipelines sequentially or in parallel.
 - **DI-first** — built on `Microsoft.Extensions.DependencyInjection`; everything is resolved from the container.
@@ -22,7 +24,7 @@ public record Greeting(string Name);
 
 public class GreetingHandler : RequestHandler<Greeting>
 {
-    public override ValueTask HandleAsync(Greeting request, IPipelineContext context,
+    public override ValueTask HandleAsync(Greeting request, AmanhecerContext context,
         CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"Hello {request.Name}!");
@@ -51,7 +53,7 @@ dispatcher.Publish(new OrderShipped(id));                   // any number of han
 var answer = dispatcher.Query<Ask, string>(new Ask("?"));   // returns a response
 ```
 
-All three operations have `async` overloads (`SendAsync`, `PublishAsync`, `QueryAsync`) and accept an optional `IContext` carrying a routing-key override, metadata, an `Activity` and a per-dispatch executing strategy.
+All operations have `async` overloads (`SendAsync`, `PublishAsync`, `QueryAsync`, `PostAsync`) and accept an optional `AmanhecerContext` carrying a routing-key override, metadata, an `Activity` and a per-dispatch executing strategy.
 
 ## Middleware
 
@@ -60,10 +62,8 @@ Implement `IMiddleware` and add it to a pipeline when registering the handler:
 ```csharp
 public class LoggingMiddleware : IMiddleware
 {
-    public void Initialize(object? metadata) { }
-
-    public async ValueTask ExecuteAsync(IPipelineContext context,
-        Func<IPipelineContext, ValueTask> next)
+    public async ValueTask ExecuteAsync(AmanhecerContext context,
+        Func<AmanhecerContext, ValueTask> next)
     {
         Console.WriteLine($"--> {context.RoutingKey}");
         await next(context);
@@ -112,21 +112,28 @@ When `Publish` fans out to multiple pipelines, the default `SequenceExecutingStr
 
 ```csharp
 services.AddAmanhecer(a => a
-    .SetExecutorStrategy(new ParallelExecutingStrategy(new ParallelOptions()))
+    .SetExecutorStrategy(new ParallelExecutingStrategy(
+        new ParallelOptions(),
+        new AmanhecerPipelineContextAccessor(),
+        NullLogger<ParallelExecutingStrategy>.Instance))
     .AddRequestHandler<GreetingHandler>());
 ```
 
 ## Project layout
 
 - `src/Amanhecer.Abstractions` — interfaces, base classes, attributes and contexts.
-- `src/Amanhecer` — the dispatcher, pipeline, factories, configurators and DI extensions.
+- `src/Amanhecer` — the dispatcher, pipeline, factories, configurators, messaging abstractions and DI extensions.
+- `src/Amanhecer.RabbitMq` — RabbitMQ transport for the messaging gateway.
+- `src/Amanhecer.Extensions.Hosting` — generic-host integration that runs the message consumers as a hosted service.
 - `src/Amanhecer.Polly` — middleware that wraps handlers in [Polly](https://www.pollydocs.org/) resilience pipelines.
 - `src/Amanhecer.Extensions.Resilience` — the same resilience middleware built on `Microsoft.Extensions.Resilience`.
 - `src/Amanhecer.OpenTelemetry` — OpenTelemetry tracing and metrics instrumentation for pipelines.
 - `samples/Simple` — a minimal console example.
 - `samples/Middleware` — a console example showing middleware in a pipeline.
+- `samples/RabbitMqQuorum` — a RabbitMQ example publishing to and consuming from a quorum queue.
 - `tests/Amanhecer.Tests` — unit tests (TUnit + NSubstitute).
 - `tests/Amanhecer.IntegrationTests` — end-to-end tests through the real DI container and pipelines.
+- `tests/Amanhecer.RabbitMq.Tests` — transport tests against a real broker (see `docker-compose-rabbitmq.yaml`).
 - `tests/Amanhecer.Polly.Tests`, `tests/Amanhecer.Extensions.Resilience.Tests`, `tests/Amanhecer.OpenTelemetry.Tests` — tests for the extension packages.
 
 ## Building and testing

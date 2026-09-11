@@ -4,7 +4,7 @@
         <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
         <IsPackable>true</IsPackable>
         <Description>Microsoft.Extensions.Resilience integration for Amanhecer: execute request pipelines inside named resilience pipelines with request-metadata telemetry enrichment.</Description>
-        <PackageTags>mediator;cqrs;messaging;dispatcher;resilience;retry;circuit-breaker;timeout;telemetry;middleware;pipeline;brighter</PackageTags>
+        <PackageTags>mediator;cqrs;messaging;dispatcher;resilience;retry;circuit-breaker;timeout;telemetry;middleware;pipeline</PackageTags>
 
         <SuppressTfmSupportBuildWarnings>true</SuppressTfmSupportBuildWarnings>
     </PropertyGroup>

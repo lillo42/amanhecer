@@ -18,10 +18,10 @@ public interface IQueryHandler<in TQuery, TResponse> : IQueryHandler
     /// <param name="context">The context of the pipeline executing the query.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The response produced for the query.</returns>
-    ValueTask<TResponse> HandleAsync(TQuery query, IPipelineContext context, CancellationToken cancellationToken = default);
+    ValueTask<TResponse> HandleAsync(TQuery query, AmanhecerContext context, CancellationToken cancellationToken = default);
     
 #if NET8_0_OR_GREATER
-    async ValueTask<object?> IQueryHandler.HandleAsync(object query, IPipelineContext context, CancellationToken cancellationToken)
+    async ValueTask<object?> IQueryHandler.HandleAsync(object query, AmanhecerContext context, CancellationToken cancellationToken)
         => await HandleAsync((TQuery)query, context, cancellationToken);
 #endif
 }
@@ -39,5 +39,5 @@ public interface IQueryHandler : IHandler
     /// <param name="context">The context of the pipeline executing the query.</param>
     /// <param name="cancellationToken">A token to observe while waiting for the operation to complete.</param>
     /// <returns>The response produced for the query, or <see langword="null"/> if none was set.</returns>
-    ValueTask<object?> HandleAsync(object query, IPipelineContext context, CancellationToken cancellationToken = default);
+    ValueTask<object?> HandleAsync(object query, AmanhecerContext context, CancellationToken cancellationToken = default);
 }

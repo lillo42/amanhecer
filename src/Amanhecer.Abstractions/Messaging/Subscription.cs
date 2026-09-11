@@ -1,0 +1,91 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Net.Mime;
+using Amanhecer.Abstractions.Exceptions;
+
+namespace Amanhecer.Abstractions.Messaging;
+
+/// <summary>
+/// Base class for declaring a subscription: how messages consumed from a given routing
+/// key are handled, including the default CloudEvents attributes expected on them.
+/// </summary>
+public abstract class Subscription(string toRoutingKey) : ISubscription
+{
+    /// <inheritdoc cref="ISubscription.CloudEventType"/>
+    public CloudEventType CloudEventType { get; set; } = CloudEventType.Binary;
+
+    /// <inheritdoc cref="ISubscription.Name"/>
+    public string Name { get; set; } = Uuid.NewGuid().ToString();
+
+    /// <inheritdoc cref="ISubscription.MessagingSystem" />
+    public string MessagingSystem { get; set; } = "amanhecer";
+
+    /// <inheritdoc cref="ISubscription.NumberOfConsumers"/>
+    public int NumberOfConsumers { get; set; } = 1;
+
+    /// <inheritdoc cref="ISubscription.BufferSize"/>
+    public int BufferSize { get; set; } = 1;
+
+    /// <inheritdoc cref="ISubscription.NoMessageDelay" />
+    public TimeSpan NoMessageDelay { get; set; } = TimeSpan.FromMilliseconds(300); 
+
+    /// <inheritdoc cref="ISubscription.FailureDelay" />
+    public TimeSpan FailureDelay { get; set; } = TimeSpan.FromMilliseconds(300);
+
+    /// <inheritdoc cref="ISubscription.ReceiveMessageTimeout" />
+    public TimeSpan ReceiveMessageTimeout { get; set; } = TimeSpan.FromMilliseconds(300);
+
+    /// <inheritdoc cref="ISubscription.ToRoutingKey" />
+    public string ToRoutingKey { get; set; } = toRoutingKey;
+
+    /// <inheritdoc cref="ISubscription.DefaultContentType" />
+    public ContentType DefaultContentType { get; set; } = new("text/plain");
+    
+    /// <inheritdoc cref="ISubscription.DefaultDataSchema" />
+    public Uri? DefaultDataSchema { get; set; }
+    
+    /// <inheritdoc cref="ISubscription.DefaultReplyTo" />
+    public string? DefaultReplyTo { get; set; }
+
+    /// <inheritdoc cref="ISubscription.DefaultSpecVersion" />
+    public string DefaultSpecVersion { get; set; } = "1.0";
+
+    /// <inheritdoc cref="ISubscription.DefaultSubject" />
+    public string? DefaultSubject { get; set; }
+
+    /// <inheritdoc cref="ISubscription.DefaultSource" />
+    public Uri DefaultSource { get; set; } = new("amanhecer", UriKind.RelativeOrAbsolute);
+
+    /// <inheritdoc cref="ISubscription.DefaultType" />
+    public string DefaultType { get; set; } = "default";
+
+    /// <inheritdoc cref="ISubscription.MessageMapperType" />
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+    public Type? MessageMapperType { get; set; }
+
+    /// <inheritdoc cref="ISubscription.Provisioner" />
+    public ISubscriptionProvisioner? Provisioner { get; set; }
+
+    /// <inheritdoc cref="ISubscription.DeadLetterQueueRoutingKey" />
+    public string? DeadLetterQueueRoutingKey { get; set; }
+
+    /// <inheritdoc cref="ISubscription.InvalidMessageRoutingKey" />
+    public string? InvalidMessageRoutingKey { get; set; }
+
+    /// <inheritdoc cref="ISubscription.ContinueOnCapturedContext" />
+    public bool ContinueOnCapturedContext { get; set; } = false;
+
+    /// <inheritdoc cref="ISubscription.OnError"/>
+    public Func<Message, Exception, IConsumerAction> OnError { get; set; } = static (_, ex) =>
+    {
+        return ex switch
+        {
+            InvalidMessageException => MoveToInvalidConsumerAction.Instance,
+            _ => new Defer(TimeSpan.FromSeconds(5))
+        };
+    };
+
+    /// <inheritdoc cref="ISubscription.Transformers"/>
+    public IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; set; } = [];
+}

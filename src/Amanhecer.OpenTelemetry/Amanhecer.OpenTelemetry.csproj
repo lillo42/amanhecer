@@ -4,7 +4,7 @@
         <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
         <IsPackable>true</IsPackable>
         <Description>OpenTelemetry integration for Amanhecer: trace and metric instrumentation for the request pipelines.</Description>
-        <PackageTags>mediator;cqrs;messaging;dispatcher;opentelemetry;observability;tracing;metrics;brighter</PackageTags>
+        <PackageTags>mediator;cqrs;messaging;dispatcher;opentelemetry;observability;tracing;metrics</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>

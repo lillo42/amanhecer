@@ -16,7 +16,7 @@ public class AmanhecerHandlerFactory(IServiceProvider serviceProvider) : IHandle
     /// <param name="handlerType">The type of the handler to create.</param>
     /// <param name="context">The current pipeline context.</param>
     /// <returns>The resolved handler instance.</returns>
-    public IHandler Create(Type handlerType, IPipelineContext context)
+    public IHandler Create(Type handlerType, AmanhecerContext context)
     {
         return (IHandler)serviceProvider.GetRequiredService(handlerType);
     }

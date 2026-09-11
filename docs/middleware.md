@@ -9,10 +9,8 @@ using Amanhecer.Abstractions;
 
 public class LoggingMiddleware : IMiddleware
 {
-    public void Initialize(object? metadata) { }
-
-    public async ValueTask ExecuteAsync(IPipelineContext context,
-        Func<IPipelineContext, ValueTask> next)
+    public async ValueTask ExecuteAsync(AmanhecerContext context,
+        Func<AmanhecerContext, ValueTask> next)
     {
         Console.WriteLine($"--> {context.RoutingKey}");
         await next(context);
@@ -21,7 +19,7 @@ public class LoggingMiddleware : IMiddleware
 }
 ```
 
-`Initialize` is called once when the middleware is created and receives the metadata supplied at registration time.
+The metadata supplied at registration time is stored in `AmanhecerContext.Metadata` (keyed by its runtime type) when the middleware is created; read it with `context.GetMetadata<T>()`.
 
 ## Fluent registration
 
@@ -48,7 +46,7 @@ public class LoggingAttribute(int order) : MiddlewareAttribute(order)
 public class GreetingHandler : RequestHandler<Greeting> { ... }
 ```
 
-With attribute registration, the attribute instance itself is passed to `Initialize` as the metadata, so the attribute can carry configuration to the middleware.
+With attribute registration, the attribute instance itself is stored as the middleware's metadata, so the attribute can carry configuration to the middleware; read it with `context.GetMetadata<LoggingAttribute>()`.
 
 ## Ordering
 

@@ -24,3 +24,24 @@ public abstract class MiddlewareAttribute(int order) : Attribute
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     public abstract Type GetMiddlewareType();
 }
+
+/// <summary>
+/// Declares the middleware <typeparamref name="TMiddleware"/> to be included in the pipeline
+/// of the annotated handler class or handler method.
+/// </summary>
+/// <typeparam name="TMiddleware">The type of the middleware to add to the pipeline.</typeparam>
+/// <param name="order">The order in which the middleware runs within the pipeline.</param>
+public abstract class MiddlewareAttribute<
+    [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+    TMiddleware>(int order)
+    : MiddlewareAttribute(order)
+    where TMiddleware : IMiddleware
+{
+    
+    /// <inheritdoc />
+    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
+    public override Type GetMiddlewareType()
+    {
+        return typeof(TMiddleware);
+    }
+}

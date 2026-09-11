@@ -4,8 +4,12 @@
     <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
     <IsPackable>true</IsPackable>
     <Description>Abstractions for Amanhecer, a lightweight request dispatcher (mediator) for .NET: pipelines, middleware, handlers and dispatch contexts.</Description>
-    <PackageTags>mediator;cqrs;messaging;dispatcher;abstractions;middleware;pipeline;brighter</PackageTags>
+    <PackageTags>mediator;cqrs;messaging;dispatcher;abstractions;middleware;pipeline</PackageTags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' OR '$(TargetFramework)' == 'net462'">
     <PackageReference Include="System.Collections.Immutable" />

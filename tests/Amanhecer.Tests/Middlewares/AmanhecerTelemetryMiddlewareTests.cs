@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Middlewares;
@@ -19,16 +18,16 @@ public class AmanhecerTelemetryMiddlewareTests
 
     private readonly AmanhecerTelemetryMiddleware _middleware = new();
 
-    private static IPipelineContext CreateContext(string routingKey,
+    private static AmanhecerContext CreateContext(string routingKey,
         List<KeyValuePair<string, object?>>? telemetryTags = null)
     {
-        var context = Substitute.For<IPipelineContext>();
-        context.RoutingKey.Returns(routingKey);
-        context.Request.Returns(new SomeRequest());
-        context.ExecutingStrategy.Returns(Substitute.For<IExecutingStrategy>());
-        context.TelemetryTags.Returns(telemetryTags ?? []);
-        context.DeepClone(Arg.Any<Activity>(), Arg.Any<CancellationToken>()).Returns(context);
-        return context;
+        return new AmanhecerContext
+        {
+            RoutingKey = routingKey,
+            Request = new SomeRequest(),
+            ExecutingStrategy = Substitute.For<IExecutingStrategy>(),
+            TelemetryTags = telemetryTags ?? []
+        };
     }
 
     private static ActivityListener ListenForSpans(List<Activity> started)
@@ -43,15 +42,12 @@ public class AmanhecerTelemetryMiddlewareTests
         return listener;
     }
 
-    // NOTE: the "no ActivityListener" path (StartActivity returning null, so no DeepClone)
-    // cannot be exercised here: the TUnit test host registers its own all-sources
-    // ActivityListener, so AmanhecerDiagnostics.ActivitySource always has listeners.
     [Test]
     public async Task When_ExecuteAsync_Should_RecordSuccessMetricAndInvokeNext()
     {
         const string routingKey = "unit.telemetry.no-listener";
         var context = CreateContext(routingKey);
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
         var recordedRoutingKeys = new List<string?>();
         using var meterListener = new MeterListener();
@@ -90,15 +86,31 @@ public class AmanhecerTelemetryMiddlewareTests
         using var parent = AmanhecerDiagnostics.ActivitySource.StartActivity("unit-parent");
 
         var context = CreateContext(routingKey);
-        context.Activity.Returns(parent);
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        context.Activity = parent;
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
         await _middleware.ExecuteAsync(context, next);
 
         var span = started.Single(a => a.OperationName == $"{routingKey} process");
         await Assert.That(span.ParentId).IsEqualTo(parent!.Id);
-        context.Received(1).DeepClone(Arg.Is<Activity>(a => ReferenceEquals(a, span)),
-            Arg.Any<CancellationToken>());
+        await Assert.That(context.Activity).IsSameReferenceAs(parent);
+        await next.Received(1).Invoke(context);
+    }
+
+    [Test]
+    public async Task When_ExecuteAsync_WithoutContextActivity_Should_AssignTheSpanToTheContext()
+    {
+        const string routingKey = "unit.telemetry.assign-span";
+        var started = new List<Activity>();
+        using var listener = ListenForSpans(started);
+
+        var context = CreateContext(routingKey);
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
+
+        await _middleware.ExecuteAsync(context, next);
+
+        var span = started.Single(a => a.OperationName == $"{routingKey} process");
+        await Assert.That(context.Activity).IsSameReferenceAs(span);
         await next.Received(1).Invoke(context);
     }
 
@@ -110,7 +122,7 @@ public class AmanhecerTelemetryMiddlewareTests
         using var listener = ListenForSpans(started);
 
         var context = CreateContext(routingKey, [new KeyValuePair<string, object?>("tenant", "acme")]);
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
         await _middleware.ExecuteAsync(context, next);
 

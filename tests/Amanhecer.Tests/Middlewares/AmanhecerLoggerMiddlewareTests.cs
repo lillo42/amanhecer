@@ -26,13 +26,11 @@ public class AmanhecerLoggerMiddlewareTests
     [Test]
     public async Task When_ExecuteAsync_WhenCancelled_Should_LogCancelledAndRethrow()
     {
-        var context = Substitute.For<IPipelineContext>();
-        context.RoutingKey.Returns("orders");
-        context.Request.Returns(new SomeRequest());
+        var context = new AmanhecerContext { RoutingKey = "orders", Request = new SomeRequest() };
 
         var exception = new OperationCanceledException();
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
-        next.Invoke(Arg.Any<IPipelineContext>()).Throws(exception);
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
+        next.Invoke(Arg.Any<AmanhecerContext>()).Throws(exception);
 
         await Assert.That(async () => await _middleware.ExecuteAsync(context, next))
             .ThrowsExactly<OperationCanceledException>();
@@ -57,11 +55,9 @@ public class AmanhecerLoggerMiddlewareTests
         "which requires reflection and is not compatible with AOT.")]
     public async Task When_ExecuteAsync_Should_BeginScopesForRoutingKeyAndRequestType()
     {
-        var context = Substitute.For<IPipelineContext>();
-        context.RoutingKey.Returns("orders");
-        context.Request.Returns(new SomeRequest());
+        var context = new AmanhecerContext { RoutingKey = "orders", Request = new SomeRequest() };
 
-        var next = Substitute.For<Func<IPipelineContext, ValueTask>>();
+        var next = Substitute.For<Func<AmanhecerContext, ValueTask>>();
 
         await _middleware.ExecuteAsync(context, next);
 

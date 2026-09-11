@@ -14,5 +14,5 @@ public interface IHandlerFactory
     /// <param name="handlerType">The type of the handler to create.</param>
     /// <param name="context">The context of the pipeline the handler will run in.</param>
     /// <returns>The created handler instance.</returns>
-    IHandler Create(Type handlerType, IPipelineContext context);
+    IHandler Create(Type handlerType, AmanhecerContext context);
 }

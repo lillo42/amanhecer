@@ -26,7 +26,7 @@ public class AmanhecerHandlerFactoryTests
         var handleType = typeof(CustomHandler);
         var handler = new CustomHandler();
         _serviceProvider.GetService(handleType).Returns(handler);
-        await Assert.That(() => _factory.Create(handleType, Substitute.For<IPipelineContext>()))
+        await Assert.That(() => _factory.Create(handleType, new AmanhecerContext()))
             .ThrowsNothing()
             .And.IsEquivalentTo(handler);
     }
@@ -36,7 +36,7 @@ public class AmanhecerHandlerFactoryTests
     {
         var handleType = typeof(CustomHandler);
 
-        await Assert.That(() => _factory.Create(handleType, Substitute.For<IPipelineContext>()))
+        await Assert.That(() => _factory.Create(handleType, new AmanhecerContext()))
             .Throws<InvalidOperationException>();
     }
 
@@ -47,7 +47,7 @@ public class AmanhecerHandlerFactoryTests
 
         _serviceProvider.GetService(handleType).Returns(new object());
 
-        await Assert.That(() => _factory.Create(handleType, Substitute.For<IPipelineContext>()))
+        await Assert.That(() => _factory.Create(handleType, new AmanhecerContext()))
             .Throws<InvalidCastException>();
     }
 

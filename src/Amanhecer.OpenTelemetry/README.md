@@ -28,7 +28,7 @@ services.AddAmanhecer(a => a
         .Use<AmanhecerTelemetryMiddleware>(order: 1)));
 ```
 
-Recorded metrics include counters for succeeded, failed, timed-out and cancelled requests, plus a duration histogram. Spans and metrics are tagged with the routing key, request type and operation (`send`, `post`, `query`), and any custom tags carried by `IContext.TelemetryTags`.
+Recorded metrics include counters for succeeded, failed, timed-out and cancelled requests, plus a duration histogram. Spans and metrics are tagged with the routing key, request type, executing strategy and operation (`send`, `publish`, `query`, `post`), plus any custom tags carried by `AmanhecerContext.TelemetryTags`.
 
 ## Documentation
 

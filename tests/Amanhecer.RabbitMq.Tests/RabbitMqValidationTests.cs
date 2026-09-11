@@ -1,0 +1,81 @@
+using System;
+using System.Threading.Tasks;
+using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Messaging;
+using NSubstitute;
+using RabbitMQ.Client;
+
+namespace Amanhecer.RabbitMq.Tests;
+
+/// <summary>
+/// Broker-independent tests for the RabbitMQ transport's argument validation.
+/// </summary>
+public class RabbitMqValidationTests
+{
+    [Test]
+    public async Task When_Producing_Through_A_Non_RabbitMq_Publication_Should_Throw()
+    {
+        var channel = Substitute.For<IChannel>();
+        var producer = new RabbitMqProducer(channel);
+
+        await Assert.That(async () => await producer.ProduceAsync(
+                new Message(),
+                new TestPublication { RoutingKey = "tests" },
+                new AmanhecerContext()))
+            .ThrowsExactly<ArgumentException>();
+    }
+
+    [Test]
+    public async Task When_Creating_A_Consumer_For_A_Non_RabbitMq_Subscription_Should_Throw()
+    {
+        var gateway = new RabbitMqGateway();
+
+        await Assert.That(() => gateway.CreateConsumer(new TestSubscription("tests")))
+            .ThrowsExactly<ArgumentException>();
+    }
+
+    [Test]
+    public async Task When_The_Prefetch_Count_Would_Overflow_Should_Throw()
+    {
+        var gateway = new RabbitMqGateway();
+        var subscription = new RabbitMqSubscription("tests", "tests.queue")
+        {
+            BufferSize = ushort.MaxValue,
+            NumberOfConsumers = 2
+        };
+
+        await Assert.That(() => gateway.CreateConsumer(subscription))
+            .ThrowsExactly<InvalidOperationException>();
+    }
+
+    [Test]
+    public async Task When_Two_Publications_Share_A_Routing_Key_Should_Throw()
+    {
+        var gateway = new RabbitMqGateway
+        {
+            Publications =
+            [
+                new RabbitMqPublication
+                {
+                    RoutingKey = "tests",
+                    RabbitMqRoutingKey = "tests.a",
+                    Exchange = new Exchange { Name = "tests.exchange" }
+                },
+                new RabbitMqPublication
+                {
+                    RoutingKey = "tests",
+                    RabbitMqRoutingKey = "tests.b",
+                    Exchange = new Exchange { Name = "tests.exchange" }
+                }
+            ]
+        };
+
+        var exception = await Assert.That(() => gateway.CreateProducers())
+            .ThrowsExactly<InvalidOperationException>();
+        await Assert.That(exception?.Message).Contains("tests");
+    }
+
+    private sealed class TestPublication : Publication;
+
+    private sealed class TestSubscription(string toRoutingKey) : Subscription(toRoutingKey);
+}

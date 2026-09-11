@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Metrics;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
@@ -14,19 +13,11 @@ namespace Amanhecer.Middlewares;
 /// <c>HandleAsync</c> method, adding request telemetry to that handler's pipeline.
 /// </summary>
 /// <param name="order">The order in which the middleware runs within the pipeline.</param>
-public class AmanhecerTelemetryAttribute(int order) : MiddlewareAttribute(order)
-{
-    /// <inheritdoc />
-    [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
-    public override Type GetMiddlewareType()
-    {
-        return typeof(AmanhecerTelemetryMiddleware);
-    }
-}
+public class AmanhecerTelemetryAttribute(int order) : MiddlewareAttribute<AmanhecerTelemetryMiddleware>(order);
 
 /// <summary>
 /// Middleware that records telemetry for each request flowing through the pipeline: a span from
-/// <see cref="AmanhecerDiagnostics.ActivitySource"/> (parented to <see cref="IPipelineContext.Activity"/>
+/// <see cref="AmanhecerDiagnostics.ActivitySource"/> (parented to <see cref="AmanhecerContext.Activity"/>
 /// when set) and success/failure/timeout/cancellation counters plus a processing-duration histogram
 /// on <see cref="AmanhecerDiagnostics.Meter"/>.
 /// </summary>
@@ -63,28 +54,22 @@ public class AmanhecerTelemetryMiddleware : IMiddleware
             unit: "s",
             description: "Duration of request processing, in seconds.");
 
-    /// <inheritdoc />
-    public void Initialize(object? metadata)
-    {
-    }
-
     /// <summary>
     /// Starts a span named <c>{routing key} process</c>, tags it and the metrics with the routing key,
-    /// request type, executing strategy and <see cref="IPipelineContext.TelemetryTags"/>, then invokes
+    /// request type, executing strategy and <see cref="AmanhecerContext.TelemetryTags"/>, then invokes
     /// the rest of the pipeline. Records the outcome (success, failure, timeout or cancellation) and
     /// the processing duration, and rethrows any exception.
     /// </summary>
     /// <param name="context">The context of the pipeline being executed.</param>
     /// <param name="next">A delegate that invokes the next middleware in the pipeline.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when the pipeline has finished.</returns>
-    public async ValueTask ExecuteAsync(IPipelineContext context, Func<IPipelineContext, ValueTask> next)
+    public async ValueTask ExecuteAsync(AmanhecerContext context, Func<AmanhecerContext, ValueTask> next)
     {
         var metadata = new List<KeyValuePair<string, object?>>
         {
             new("amanhecer.routing_key", context.RoutingKey),
             new("amanhecer.request.type", context.Request.GetType().FullName ?? context.Request.GetType().Name),
-            new("amanhecer.executing_strategy",
-                context.ExecutingStrategy.GetType().FullName ?? context.ExecutingStrategy.GetType().Name),
+            new("amanhecer.executing_strategy", context.ExecutingStrategy!.GetType().FullName ?? context.ExecutingStrategy.GetType().Name),
         };
 
         metadata.AddRange(context.TelemetryTags);
@@ -94,7 +79,7 @@ public class AmanhecerTelemetryMiddleware : IMiddleware
             parentContext: context.Activity?.Context ?? default,
             tags: metadata);
 
-        context = activity == null ? context : context.DeepClone(activity);
+        context.Activity ??= activity;
 
         var duration = Stopwatch.StartNew();
 

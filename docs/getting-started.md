@@ -9,7 +9,7 @@ public record Greeting(string Name);
 
 public class GreetingHandler : RequestHandler<Greeting>
 {
-    public override ValueTask HandleAsync(Greeting request, IPipelineContext context,
+    public override ValueTask HandleAsync(Greeting request, AmanhecerContext context,
         CancellationToken cancellationToken = default)
     {
         Console.WriteLine($"Hello {request.Name}!");
@@ -25,7 +25,7 @@ public record Ask(string Question);
 
 public class AskHandler : QueryHandler<Ask, string>
 {
-    public override ValueTask<string> HandleAsync(Ask query, IPipelineContext context,
+    public override ValueTask<string> HandleAsync(Ask query, AmanhecerContext context,
         CancellationToken cancellationToken = default)
     {
         return ValueTask.FromResult("42");
@@ -61,9 +61,10 @@ var dispatcher = services.GetRequiredService<IDispatcher>();
 dispatcher.Send(new Greeting("world"));                     // exactly one pipeline required
 dispatcher.Publish(new OrderShipped(id));                   // any number of pipelines (zero is fine)
 var answer = dispatcher.Query<Ask, string>(new Ask("?"));   // returns a response
+await dispatcher.PostAsync(new Greeting("world"));          // produces the message to a broker (see [RabbitMQ](rabbitmq.md))
 ```
 
-All three operations have `async` overloads (`SendAsync`, `PublishAsync`, `QueryAsync`) and accept an optional `IContext` carrying:
+All operations have `async` overloads (`SendAsync`, `PublishAsync`, `QueryAsync`, `PostAsync`) and accept an optional `AmanhecerContext` carrying:
 
 - a routing-key override (see [Routing keys](routing.md)),
 - a metadata dictionary visible to middleware and handlers,

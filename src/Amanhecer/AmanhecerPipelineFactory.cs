@@ -1,7 +1,8 @@
-using System.Collections.Immutable;
+using System.Collections.Generic;
 using System.Linq;
 using Amanhecer.Abstractions;
 using Amanhecer.Configurator;
+using Amanhecer.Extensions;
 
 namespace Amanhecer;
 
@@ -11,7 +12,8 @@ namespace Amanhecer;
 /// </summary>
 /// <param name="options">The pipeline configuration, keyed by routing key.</param>
 /// <param name="middlewareFactory">The factory used to create the middleware instances.</param>
-public class AmanhecerPipelineFactory(AmanhecerPipelineOptions options,
+public class AmanhecerPipelineFactory(
+    AmanhecerPipelineOptions options,
     IMiddlewareFactory middlewareFactory) : IPipelineFactory
 {
     /// <summary>
@@ -19,24 +21,40 @@ public class AmanhecerPipelineFactory(AmanhecerPipelineOptions options,
     /// </summary>
     /// <param name="context">The pipeline context whose routing key is used to look up the pipelines.</param>
     /// <returns>The pipelines configured for the routing key, or an empty list when none is configured.</returns>
-    public ImmutableList<IPipeline> Create(IPipelineContext context)
+    public IReadOnlyList<IPipeline> Create(AmanhecerContext context)
     {
-        if (options.Configuration.TryGetValue(context.RoutingKey, out var pipelines))
+        if (!options.Configuration.TryGetValue(context.RoutingKey, out var pipelines) || pipelines.Count == 0)
         {
-            return
-            [
-                .. pipelines
-                    .Select(middlewares =>
-                    {
-                        IPipeline pipeline = new AmanhecerPipeline([
-                            .. middlewares
-                                .Select(middleware => middlewareFactory.Create(middleware.MiddlewareType, middleware.Metadata))
-                        ]);
-                        return pipeline;
-                    })
-            ];
+            return [];
         }
-        
-        return ImmutableList<IPipeline>.Empty;
+
+        return
+        [
+            .. pipelines
+                .Select(cfg =>
+                {
+                    // Middlewares are created against a per-pipeline metadata bag so pipelines
+                    // sharing the caller's context don't overwrite each other's metadata; the
+                    // pipeline merges the bag into the context it executes with.
+                    var metadataBag = new AmanhecerContext();
+
+                    var middlewares = cfg;
+                    if (context.Middlewares != null)
+                    {
+                        middlewares = middlewares
+                            .AppendRange(context.Middlewares);
+                    }
+
+                    var ordered = middlewares
+                        .OrderBy(x => x.Order)
+                        .ToList();
+
+                    return new AmanhecerPipeline([
+                            .. ordered.Select(opt => middlewareFactory.Create(opt.MiddlewareType, opt.Metadata, metadataBag))
+                        ],
+                        metadataBag.Metadata,
+                        [.. ordered.Select(opt => opt.Metadata)]);
+                })
+        ];
     }
 }

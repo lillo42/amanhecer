@@ -3,8 +3,8 @@
   <PropertyGroup>
     <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
     <IsPackable>true</IsPackable>
-    <Description>A lightweight request dispatcher (mediator) for .NET — send commands, publish events and execute queries through middleware pipelines. Inspired by Paramore Brighter.</Description>
-    <PackageTags>mediator;cqrs;messaging;dispatcher;commands;events;queries;middleware;pipeline;brighter</PackageTags>
+    <Description>A lightweight request dispatcher (mediator) for .NET — send commands, publish events and execute queries through middleware pipelines.</Description>
+    <PackageTags>mediator;cqrs;messaging;dispatcher;commands;events;queries;middleware;pipeline</PackageTags>
   </PropertyGroup>
   
   <ItemGroup>
@@ -13,6 +13,7 @@
 
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' OR '$(TargetFramework)' == 'net462'">
     <PackageReference Include="System.Collections.Immutable" />
+    <PackageReference Include="System.Text.Json" />
   </ItemGroup>
 
   <ItemGroup>

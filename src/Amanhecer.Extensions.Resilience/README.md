@@ -36,7 +36,7 @@ public class PlaceOrderHandler : RequestHandler<PlaceOrder> { ... }
 ## Behaviour
 
 - The dispatch's `CancellationToken` flows into the resilience execution, so cancelling a dispatch aborts retries, and a timeout strategy replaces the token seen by the rest of the pipeline.
-- A custom Polly `ResilienceContext` can be supplied per dispatch through the pipeline-context metadata, under the key `ResiliencePipelineMiddleware.ResilienceContextKey`.
+- A custom Polly `ResilienceContext` can be supplied per dispatch through the pipeline-context metadata, under the key `ResiliencePipelineMiddleware.ResilienceContext`.
 
 ## Telemetry enrichment
 

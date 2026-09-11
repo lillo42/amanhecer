@@ -22,7 +22,7 @@ public class SequenceExecutingStrategyTests
     [Test]
     public async Task When_ExecuteAsync_WithEmptyPipelineList_Should_DoNothing()
     {
-        var context = Substitute.For<IPipelineContext>();
+        var context = new AmanhecerContext();
         var pipeline = Substitute.For<IPipeline>();
 
         await Assert.That(async () => await _strategy.ExecuteAsync(context, ImmutableList<IPipeline>.Empty))
@@ -30,13 +30,13 @@ public class SequenceExecutingStrategyTests
 
         await pipeline
             .DidNotReceive()
-            .ExecuteAsync(Arg.Any<IPipelineContext>());
+            .ExecuteAsync(Arg.Any<AmanhecerContext>());
     }
 
     [Test]
     public async Task When_ExecuteAsync_Should_ExecuteWhenHasOnlyPipeline()
     {
-        var context = Substitute.For<IPipelineContext>();
+        var context = new AmanhecerContext();
         var pipeline = Substitute.For<IPipeline>();
         var pipelines = ImmutableList<IPipeline>.Empty.Add(pipeline);
 
@@ -51,7 +51,7 @@ public class SequenceExecutingStrategyTests
     [Test]
     public async Task When_ExecuteAsync_Should_OnePipelineNotSilentFail()
     {
-        var context = Substitute.For<IPipelineContext>();
+        var context = new AmanhecerContext();
         var pipeline = Substitute.For<IPipeline>();
 
         pipeline
@@ -71,7 +71,7 @@ public class SequenceExecutingStrategyTests
     [Test]
     public async Task When_ExecuteAsync_Should_PropagateOriginalExceptionWhenSinglePipelineFails()
     {
-        var context = Substitute.For<IPipelineContext>();
+        var context = new AmanhecerContext();
         var pipeline = Substitute.For<IPipeline>();
 
         pipeline
@@ -87,7 +87,7 @@ public class SequenceExecutingStrategyTests
     [Test]
     public async Task When_ExecuteAsync_Should_ExecuteInSequenceWhenExecuteInPipeline()
     {
-        var context = Substitute.For<IPipelineContext>();
+        var context = new AmanhecerContext();
         var counter = 0;
 
         var pipelines = Enumerable.Range(0, 2)
@@ -95,7 +95,7 @@ public class SequenceExecutingStrategyTests
                 {
                     var pipeline = Substitute.For<IPipeline>();
 
-                    pipeline.ExecuteAsync(Arg.Any<IPipelineContext>())
+                    pipeline.ExecuteAsync(Arg.Any<AmanhecerContext>())
                         .Returns(_ =>
                         {
                             counter++;
@@ -115,37 +115,43 @@ public class SequenceExecutingStrategyTests
         {
             await pipeline
                 .Received(1)
-                .ExecuteAsync(Arg.Any<IPipelineContext>());
+                .ExecuteAsync(Arg.Any<AmanhecerContext>());
         }
     }
 
     [Test]
     public async Task When_ExecuteAsync_WithMultiplePipelines_Should_ExecuteEachWithDistinctClonedContext()
     {
-        var context = Substitute.For<IPipelineContext>();
-        var clonedContexts = Enumerable.Range(0, 3)
-            .Select(_ => Substitute.For<IPipelineContext>())
-            .ToList();
-
-        var cloneIndex = 0;
-        context.DeepClone().Returns(_ => clonedContexts[cloneIndex++]);
+        var context = new AmanhecerContext { RoutingKey = "some.key" };
+        var usedContexts = new List<AmanhecerContext>();
 
         var pipelines = Enumerable.Range(0, 3)
-            .Select(_ => Substitute.For<IPipeline>())
+            .Select(_ =>
+            {
+                var pipeline = Substitute.For<IPipeline>();
+                pipeline.ExecuteAsync(Arg.Any<AmanhecerContext>())
+                    .Returns(callInfo =>
+                    {
+                        usedContexts.Add(callInfo.Arg<AmanhecerContext>());
+                        return new ValueTask();
+                    });
+
+                return pipeline;
+            })
             .ToImmutableList();
 
         await Assert.That(async () => await _strategy.ExecuteAsync(context, pipelines))
             .ThrowsNothing();
 
-        context.Received(pipelines.Count).DeepClone();
+        await Assert.That(usedContexts)
+            .Count().IsEqualTo(pipelines.Count)
+            .And.DoesNotContain(context);
+        await Assert.That(usedContexts.Distinct()).Count().IsEqualTo(pipelines.Count);
+        await Assert.That(usedContexts.All(x => x.RoutingKey == context.RoutingKey)).IsTrue();
 
-        for (var i = 0; i < pipelines.Count; i++)
+        foreach (var pipeline in pipelines)
         {
-            await pipelines[i]
-                .Received(1)
-                .ExecuteAsync(clonedContexts[i]);
-
-            await pipelines[i]
+            await pipeline
                 .DidNotReceive()
                 .ExecuteAsync(context);
         }
@@ -157,17 +163,16 @@ public class SequenceExecutingStrategyTests
         "which requires reflection and is not compatible with AOT.")]
     public async Task When_ExecuteAsync_WithMultiplePipelines_Should_ExecuteSequentially()
     {
-        var context = Substitute.For<IPipelineContext>();
-        context.DeepClone().Returns(_ => Substitute.For<IPipelineContext>());
+        var context = new AmanhecerContext();
 
         var events = new List<string>();
 
         var first = Substitute.For<IPipeline>();
-        first.ExecuteAsync(Arg.Any<IPipelineContext>())
+        first.ExecuteAsync(Arg.Any<AmanhecerContext>())
             .Returns(_ => new ValueTask(FirstPipeline()));
 
         var second = Substitute.For<IPipeline>();
-        second.ExecuteAsync(Arg.Any<IPipelineContext>())
+        second.ExecuteAsync(Arg.Any<AmanhecerContext>())
             .Returns(_ =>
             {
                 events.Add("second-started");
@@ -196,8 +201,7 @@ public class SequenceExecutingStrategyTests
     [Test]
     public async Task When_ExecuteAsync_WithOneFailingPipeline_Should_ExecuteAllPipelinesAndThrowAggregateException()
     {
-        var context = Substitute.For<IPipelineContext>();
-        context.DeepClone().Returns(_ => Substitute.For<IPipelineContext>());
+        var context = new AmanhecerContext();
 
         var expected = new InvalidOperationException("boom");
         var pipelines = Enumerable.Range(0, 3)
@@ -207,7 +211,7 @@ public class SequenceExecutingStrategyTests
                 if (i == 1)
                 {
                     pipeline
-                        .ExecuteAsync(Arg.Any<IPipelineContext>())
+                        .ExecuteAsync(Arg.Any<AmanhecerContext>())
                         .Throws(expected);
                 }
 
@@ -224,20 +228,20 @@ public class SequenceExecutingStrategyTests
         {
             await pipeline
                 .Received(1)
-                .ExecuteAsync(Arg.Any<IPipelineContext>());
+                .ExecuteAsync(Arg.Any<AmanhecerContext>());
         }
     }
 
     [Test]
     public async Task When_ExecuteAsync_Should_NotSilentFailWithMultiplePipelines()
     {
-        var context = Substitute.For<IPipelineContext>();
+        var context = new AmanhecerContext();
 
         var pipelines = Enumerable.Range(0, 2)
             .Select(_ =>
             {
                 var pipeline = Substitute.For<IPipeline>();
-                pipeline.ExecuteAsync(Arg.Any<IPipelineContext>())
+                pipeline.ExecuteAsync(Arg.Any<AmanhecerContext>())
                     .Throws(new Exception());
                 return pipeline;
             })

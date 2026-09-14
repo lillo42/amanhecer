@@ -83,6 +83,13 @@ public class InMemoryPublicationConfigurator
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
         Type mapper)
     {
+        if (!typeof(IMessageMapper).IsAssignableFrom(mapper))
+        {
+            throw new ArgumentException(
+                $"The type '{mapper.FullName}' does not implement IMessageMapper.",
+                nameof(mapper));
+        }
+
         _messageMapperType = mapper;
         return this;
     }
@@ -276,6 +283,8 @@ public class InMemoryPublicationConfigurator
 
     /// <summary>
     /// Sets the provisioner that creates the in-memory queue resources this publication needs.
+    /// Defaults to <see cref="CreateOrOverrideQueue"/> when not set, because an in-memory queue
+    /// can never pre-exist.
     /// </summary>
     /// <param name="provisioner">The publication provisioner.</param>
     /// <returns>The configurator instance for method chaining.</returns>
@@ -286,7 +295,9 @@ public class InMemoryPublicationConfigurator
     }
 
     /// <summary>
-    /// Assumes the queue already exists and performs no provisioning.
+    /// Assumes the queue already exists and performs no provisioning. The default is
+    /// <see cref="CreateOrOverrideQueue"/>; use this only when another publication or
+    /// subscription on the same gateway creates the queue.
     /// </summary>
     /// <returns>The configurator instance for method chaining.</returns>
     public InMemoryPublicationConfigurator AssumeExists()
@@ -296,7 +307,10 @@ public class InMemoryPublicationConfigurator
     }
 
     /// <summary>
-    /// Validates the queue exists, throwing when it does not.
+    /// Validates the queue exists, throwing when it does not. The default is
+    /// <see cref="CreateOrOverrideQueue"/>. Note that publications are provisioned before
+    /// subscriptions and the queue registry starts empty on every process run, so this only
+    /// works when another publication on the same gateway created the queue first.
     /// </summary>
     /// <returns>The configurator instance for method chaining.</returns>
     public InMemoryPublicationConfigurator ValidateIfExists()
@@ -306,7 +320,8 @@ public class InMemoryPublicationConfigurator
     }
 
     /// <summary>
-    /// Creates or replaces the queue channel used by this publication.
+    /// Creates or replaces the queue channel used by this publication. This is the default
+    /// when no provisioner is configured.
     /// </summary>
     /// <param name="configure">A delegate that configures how the queue is created.</param>
     /// <returns>The configurator instance for method chaining.</returns>
@@ -326,14 +341,25 @@ public class InMemoryPublicationConfigurator
                 "A routing key is required for a publication. Call RoutingKey to configure it.");
         }
 
+        var transformers = _transformers;
+        if (_cloudEventType == Abstractions.Messaging.CloudEventType.Json)
+        {
+            // The envelope wrap runs last, once the attributes and defaults are set.
+            transformers =
+            [
+                .. _transformers,
+                new AmanhecerTransformerOptions(typeof(StructuredCloudEventTransformer), int.MaxValue, null)
+            ];
+        }
+
         return new InMemoryPublication
         {
             Name = _name ?? Uuid.NewGuid().ToString(),
             RoutingKey = _routingKey!,
             QueueName = _queueName ?? _routingKey!,
             MessageMapperType = _messageMapperType,
-            Provisioner = _provisioner,
-            Transformers = [.. _transformers.OrderBy(x => x.Order)],
+            Provisioner = _provisioner ?? new CreateOrOverrideQueue(),
+            Transformers = [.. transformers.OrderBy(x => x.Order)],
             DefaultContentType = _defaultContentType ?? new ContentType("text/plain"),
             DefaultDataSchema = _defaultDataSchema,
             DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute),

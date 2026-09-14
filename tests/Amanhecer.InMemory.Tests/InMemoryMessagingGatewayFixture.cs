@@ -22,9 +22,8 @@ internal static class InMemoryMessagingGatewayFixture
             Provisioner = new CreateOrOverrideQueue()
         };
 
-        var subscription = new InMemorySubscription(routingKey)
+        var subscription = new InMemorySubscription(routingKey, queueName)
         {
-            QueueName = queueName,
             Provisioner = new ValidateQueueExists()
         };
 

@@ -81,6 +81,13 @@ public class InMemorySubscriptionConfigurator
         [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
         Type mapper)
     {
+        if (!typeof(IMessageMapper).IsAssignableFrom(mapper))
+        {
+            throw new ArgumentException(
+                $"The type '{mapper.FullName}' does not implement IMessageMapper.",
+                nameof(mapper));
+        }
+
         _messageMapperType = mapper;
         return this;
     }
@@ -310,6 +317,8 @@ public class InMemorySubscriptionConfigurator
 
     /// <summary>
     /// Sets the provisioner that creates the in-memory queue resources this subscription needs.
+    /// Defaults to <see cref="CreateOrOverrideQueue"/> when not set, because an in-memory queue
+    /// can never pre-exist.
     /// </summary>
     /// <param name="provisioner">The subscription provisioner.</param>
     /// <returns>The configurator instance for method chaining.</returns>
@@ -320,7 +329,9 @@ public class InMemorySubscriptionConfigurator
     }
 
     /// <summary>
-    /// Assumes the queue already exists and performs no provisioning.
+    /// Assumes the queue already exists and performs no provisioning. The default is
+    /// <see cref="CreateOrOverrideQueue"/>; use this only when another publication or
+    /// subscription on the same gateway creates the queue.
     /// </summary>
     /// <returns>The configurator instance for method chaining.</returns>
     public InMemorySubscriptionConfigurator AssumeExists()
@@ -330,7 +341,9 @@ public class InMemorySubscriptionConfigurator
     }
 
     /// <summary>
-    /// Validates the queue exists, throwing when it does not.
+    /// Validates the queue exists, throwing when it does not. The default is
+    /// <see cref="CreateOrOverrideQueue"/>; use this only when another publication or
+    /// subscription on the same gateway creates the queue.
     /// </summary>
     /// <returns>The configurator instance for method chaining.</returns>
     public InMemorySubscriptionConfigurator ValidateIfExists()
@@ -340,7 +353,8 @@ public class InMemorySubscriptionConfigurator
     }
 
     /// <summary>
-    /// Creates or replaces the queue channel used by this subscription.
+    /// Creates or replaces the queue channel used by this subscription. This is the default
+    /// when no provisioner is configured.
     /// </summary>
     /// <param name="configure">A delegate that configures how the queue is created.</param>
     /// <returns>The configurator instance for method chaining.</returns>
@@ -366,19 +380,18 @@ public class InMemorySubscriptionConfigurator
                 "A queue name is required for a subscription. Call QueueName to configure it.");
         }
 
-        var subscription = new InMemorySubscription(_toRoutingKey!)
+        var subscription = new InMemorySubscription(_toRoutingKey!, _queueName!)
         {
             Name = _name ?? Uuid.NewGuid().ToString(),
-            QueueName = _queueName!,
             MessageMapperType = _messageMapperType,
             CloudEventType = _cloudEventType,
-            Transformers = _transformers,
+            Transformers = [.. _transformers],
             NumberOfConsumers = _numberOfConsumers,
             BufferSize = _bufferSize,
             DefaultSpecVersion = _defaultSpecVersion,
             DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute),
             DefaultType = _defaultType ?? "default",
-            Provisioner = _provisioner,
+            Provisioner = _provisioner ?? new CreateOrOverrideQueue(),
             DeadLetterQueueRoutingKey = _deadLetterQueueRoutingKey,
             InvalidMessageRoutingKey = _invalidMessageRoutingKey
         };

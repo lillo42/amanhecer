@@ -47,6 +47,10 @@ public class InMemoryProducer(QueueManagement queues) : IProducer
             ? inMemoryPublication.RoutingKey
             : inMemoryPublication.QueueName;
 
+        // Resolve the queue before starting the activity, so a lookup failure does not
+        // leak an unreported span.
+        var channel = queues.GetChannel(queueName);
+
         // Low-cardinality tags shared by the metrics instruments (OTel messaging conventions).
         var metricTags = new List<KeyValuePair<string, object?>>
         {
@@ -75,7 +79,6 @@ public class InMemoryProducer(QueueManagement queues) : IProducer
         message.Enrich(activity);
 
         var duration = Stopwatch.StartNew();
-        var channel = queues.GetChannels(queueName);
         try
         {
             await channel.Writer.WriteAsync(message, context.CancellationToken)

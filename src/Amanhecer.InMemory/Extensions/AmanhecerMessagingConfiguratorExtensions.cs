@@ -1,5 +1,4 @@
 using System;
-using Amanhecer.Configurator;
 using Amanhecer.InMemory.Configurations;
 
 namespace Amanhecer.Configurator;

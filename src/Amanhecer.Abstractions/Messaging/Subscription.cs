@@ -19,7 +19,7 @@ public abstract class Subscription(string toRoutingKey) : ISubscription
     public string Name { get; set; } = Uuid.NewGuid().ToString();
 
     /// <inheritdoc cref="ISubscription.MessagingSystem" />
-    public virtual string MessagingSystem { get; set; } = "amanhecer";
+    public virtual string MessagingSystem => "amanhecer";
 
     /// <inheritdoc cref="ISubscription.NumberOfConsumers"/>
     public int NumberOfConsumers { get; set; } = 1;

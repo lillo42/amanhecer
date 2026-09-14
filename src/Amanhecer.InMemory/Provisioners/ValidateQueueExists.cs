@@ -27,10 +27,14 @@ public class ValidateQueueExists : IPublicationProvisioner, ISubscriptionProvisi
                 nameof(publication));
         }
 
-        if (!inMemoryGateway.Queues.Exists(inMemoryPublication.QueueName))
+        var queueName = string.IsNullOrEmpty(inMemoryPublication.QueueName)
+            ? inMemoryPublication.RoutingKey
+            : inMemoryPublication.QueueName;
+
+        if (!inMemoryGateway.Queues.Exists(queueName))
         {
             throw new InvalidOperationException(
-                $"Queue '{inMemoryPublication.QueueName}' does not exist.");
+                $"Queue '{queueName}' does not exist.");
         }
 
         return Task.CompletedTask;

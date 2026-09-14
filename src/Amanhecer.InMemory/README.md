@@ -27,9 +27,13 @@ services.AddAmanhecer(a => a
 
 - `AssumeExists()` - no provisioning.
 - `ValidateIfExists()` - fail if the queue is missing.
-- `CreateOrOverride(...)` - create or replace the in-memory channel.
+- `CreateOrOverride(...)` - create or replace the in-memory channel (the default when no
+  provisioner is configured, since an in-memory queue can never pre-exist).
 
 `CreateOrOverride` supports `Capacity(...)` and `FullMode(...)` for bounded channels.
+
+Queues are scoped to the gateway instance, so publishers and consumers must share the same
+host process.
 
 ## Error handling
 

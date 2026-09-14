@@ -41,7 +41,11 @@ public class CreateOrOverrideQueue : IPublicationProvisioner, ISubscriptionProvi
                 nameof(publication));
         }
 
-        CreateQueue(inMemoryGateway, inMemoryPublication.QueueName);
+        var queueName = string.IsNullOrEmpty(inMemoryPublication.QueueName)
+            ? inMemoryPublication.RoutingKey
+            : inMemoryPublication.QueueName;
+
+        CreateQueue(inMemoryGateway, queueName);
         return Task.CompletedTask;
     }
 

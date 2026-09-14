@@ -4,7 +4,6 @@ using System.Threading.Channels;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
-using Amanhecer.InMemory;
 
 namespace Amanhecer.InMemory.Tests;
 

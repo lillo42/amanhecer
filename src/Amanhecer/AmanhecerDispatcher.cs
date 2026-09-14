@@ -8,7 +8,6 @@ using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Exceptions;
 using Amanhecer.Abstractions.Messaging;
 using Amanhecer.Abstractions.Options;
-using Amanhecer.ExecutingStrategies;
 using Amanhecer.Messaging.Middlewares;
 using Microsoft.Extensions.Logging;
 

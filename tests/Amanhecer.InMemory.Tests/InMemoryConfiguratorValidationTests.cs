@@ -1,7 +1,6 @@
 using System;
 using System.Reflection;
 using System.Threading.Tasks;
-using Amanhecer.Abstractions;
 using Amanhecer.InMemory.Configurations;
 
 namespace Amanhecer.InMemory.Tests;

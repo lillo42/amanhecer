@@ -1,7 +1,5 @@
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
-using Amanhecer.Abstractions.Messaging;
-using Amanhecer.InMemory;
 using Amanhecer.InMemory.Provisioners;
 using Amanhecer.Messaging.Base.Tests;
 

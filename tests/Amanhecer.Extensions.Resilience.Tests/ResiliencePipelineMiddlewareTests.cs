@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Abstractions.Messaging;
-using Amanhecer.Extensions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http.Diagnostics;
 using Microsoft.Extensions.Logging;

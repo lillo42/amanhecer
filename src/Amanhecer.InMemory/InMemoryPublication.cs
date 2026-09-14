@@ -11,7 +11,14 @@ public class InMemoryPublication : Publication
     /// Gets or sets the queue name the publication writes to.
     /// </summary>
     /// <remarks>
-    /// When left empty, the gateway falls back to <see cref="IPublication.RoutingKey"/>.
+    /// When left empty, <see cref="IPublication.RoutingKey"/> is used instead.
     /// </remarks>
-    public string QueueName { get; set; } = null!;
+    public string QueueName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The queue name every producer and provisioner of this publication resolves to, so the
+    /// fallback to <see cref="IPublication.RoutingKey"/> is applied consistently regardless of
+    /// which of them runs first.
+    /// </summary>
+    internal string ResolvedQueueName => string.IsNullOrEmpty(QueueName) ? RoutingKey : QueueName;
 }

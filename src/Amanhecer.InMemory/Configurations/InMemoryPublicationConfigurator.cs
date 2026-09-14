@@ -326,6 +326,17 @@ public class InMemoryPublicationConfigurator
                 "A routing key is required for a publication. Call RoutingKey to configure it.");
         }
 
+        var transformers = _transformers;
+        if (_cloudEventType == Abstractions.Messaging.CloudEventType.Json)
+        {
+            // The envelope wrap runs last, once the attributes and defaults are set.
+            transformers =
+            [
+                .. _transformers,
+                new AmanhecerTransformerOptions(typeof(StructuredCloudEventTransformer), int.MaxValue, null)
+            ];
+        }
+
         return new InMemoryPublication
         {
             Name = _name ?? Uuid.NewGuid().ToString(),
@@ -333,7 +344,7 @@ public class InMemoryPublicationConfigurator
             QueueName = _queueName ?? _routingKey!,
             MessageMapperType = _messageMapperType,
             Provisioner = _provisioner,
-            Transformers = [.. _transformers.OrderBy(x => x.Order)],
+            Transformers = [.. transformers.OrderBy(x => x.Order)],
             DefaultContentType = _defaultContentType ?? new ContentType("text/plain"),
             DefaultDataSchema = _defaultDataSchema,
             DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute),

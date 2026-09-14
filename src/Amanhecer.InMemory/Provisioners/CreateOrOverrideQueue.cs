@@ -41,7 +41,7 @@ public class CreateOrOverrideQueue : IPublicationProvisioner, ISubscriptionProvi
                 nameof(publication));
         }
 
-        CreateQueue(inMemoryGateway, inMemoryPublication.QueueName);
+        CreateQueue(inMemoryGateway, inMemoryPublication.ResolvedQueueName);
         return Task.CompletedTask;
     }
 

@@ -55,9 +55,18 @@ routing key.
 
 Both publications and subscriptions support the same queue-provisioning modes:
 
-- `AssumeExists()` - no provisioning.
+- `AssumeExists()` - no provisioning. Because the queues of this transport only exist in
+  process, something else has to register the channel in the gateway's queue registry first,
+  or publishing and consuming fail.
 - `ValidateIfExists()` - fail if the queue is missing.
 - `CreateOrOverride(...)` - create or replace the in-memory channel.
+
+Provisioning runs once per gateway, on whichever happens first: the consumer host starting, or
+the first publish. Publish-only applications therefore get their queues without
+`AddAmanhecerHost()`, and restarting the consumer host does not replace the channels and
+discard the messages still queued in them.
+
+When a publication leaves `QueueName` unset, the routing key is used as the queue name.
 
 `CreateOrOverride` accepts channel settings:
 
@@ -72,6 +81,7 @@ Both publications and subscriptions support the same queue-provisioning modes:
 - `Ack` - acknowledge and drop the message.
 - `Nack` - negative-acknowledge and drop the message.
 - `Defer(delay)` - re-enqueue the same message (delay is honored by waiting before requeue).
+  The requeue is abandoned when the host stops.
 - `MoveToDeadLetter` / `MoveToInvalidMessage` - repost to the routing key configured by
   `DeadLetterQueueRoutingKey(...)` or `InvalidMessageRoutingKey(...)`.
 

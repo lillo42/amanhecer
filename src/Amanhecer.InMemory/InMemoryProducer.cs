@@ -43,9 +43,7 @@ public class InMemoryProducer(QueueManagement queues) : IProducer
                 nameof(publication));
         }
 
-        var queueName = string.IsNullOrEmpty(inMemoryPublication.QueueName)
-            ? inMemoryPublication.RoutingKey
-            : inMemoryPublication.QueueName;
+        var queueName = inMemoryPublication.ResolvedQueueName;
 
         // Low-cardinality tags shared by the metrics instruments (OTel messaging conventions).
         var metricTags = new List<KeyValuePair<string, object?>>
@@ -74,10 +72,15 @@ public class InMemoryProducer(QueueManagement queues) : IProducer
 
         message.Enrich(activity);
 
+        BinaryCloudEventHeaders.Apply(message, inMemoryPublication);
+
         var duration = Stopwatch.StartNew();
-        var channel = queues.GetChannels(queueName);
         try
         {
+            // Inside the try so a queue that was never provisioned is recorded by the metrics
+            // and the span, instead of escaping before either is settled.
+            var channel = queues.GetChannels(queueName);
+
             await channel.Writer.WriteAsync(message, context.CancellationToken)
                 .ConfigureAwait(context.ContinueOnCapturedContext);
 

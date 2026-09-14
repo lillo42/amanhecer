@@ -3,6 +3,8 @@
     <PropertyGroup>
         <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
         <IsPackable>true</IsPackable>
+        <Description>In-memory transport for Amanhecer: publish messages to channel-backed queues and consume them through the messaging gateway, with CloudEvents mapping and pluggable queue provisioning.</Description>
+        <PackageTags>mediator;cqrs;messaging;dispatcher;inmemory;channels;queue;cloudevents;middleware;pipeline</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>

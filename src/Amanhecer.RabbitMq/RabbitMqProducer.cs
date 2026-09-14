@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
@@ -128,7 +127,7 @@ public partial class RabbitMqProducer : IProducer
         // are built, so the published traceparent identifies this producer span.
         message.Enrich(activity);
 
-        SetCloudEventHeaders(message, publication);
+        BinaryCloudEventHeaders.Apply(message, publication);
 
         var duration = Stopwatch.StartNew();
         try
@@ -172,54 +171,6 @@ public partial class RabbitMqProducer : IProducer
         {
             ProducerDuration.Record(duration.Elapsed.TotalSeconds, metricTags);
             activity?.Stop();
-        }
-    }
-
-    // In structured content mode the attributes are members of the JSON envelope in the
-    // message body, so no cloudEvents:* headers are set.
-    private static void SetCloudEventHeaders(Message message, IPublication publication)
-    {
-        if (publication.CloudEventType == CloudEventType.Json)
-        {
-            return;
-        }
-
-        Set(message, "cloudEvents:id", message.Id);
-        Set(message, "cloudEvents:source", message.Source?.ToString());
-        Set(message, "cloudEvents:specversion", message.SpecVersion);
-        Set(message, "cloudEvents:type", message.Type);
-        Set(message, "cloudEvents:datacontenttype", message.ContentType?.ToString());
-        Set(message, "cloudEvents:dataschema", message.DataSchema?.ToString());
-        Set(message, "cloudEvents:subject", message.Subject);
-        Set(message, "cloudEvents:time", message.Time.ToString("O", CultureInfo.InvariantCulture));
-        Set(message, "cloudEvents:baggage", message.Baggage?.ToString());
-        Set(message, "cloudEvents:traceparent", message.TraceParent);
-        Set(message, "cloudEvents:tracestate", message.TraceState?.ToString());
-
-        // Extension attributes never overwrite the standard attributes set above.
-        foreach (var additional in publication.AdditionalCloudEvents)
-        {
-            Set(message, $"cloudEvents:{additional.Key}", additional.Value);
-        }
-
-        return;
-
-        static void Set(Message message, string key, object? value)
-        {
-            if (value == null)
-            {
-                return;
-            }
-
-            var headers = message.Headers;
-#if NETFRAMEWORK || NETSTANDARD
-            if (!headers.ContainsKey(key))
-            {
-                headers.Add(key, value);
-            }
-#else
-            headers.TryAdd(key, value);
-#endif
         }
     }
 

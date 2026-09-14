@@ -14,4 +14,7 @@ public class InMemorySubscription(string toRoutingKey) : Subscription(toRoutingK
     /// It should match the queue configured by the publication/provisioner pair.
     /// </remarks>
     public string QueueName { get; set; } = string.Empty;
+
+    /// <inheritdoc/>
+    public override string MessagingSystem { get; set; } = "inmemory";
 }

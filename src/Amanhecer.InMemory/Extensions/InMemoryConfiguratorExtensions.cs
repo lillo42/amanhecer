@@ -1,14 +1,14 @@
 using System;
-using Amanhecer.Configurator;
 using Amanhecer.InMemory.Configurations;
 
 namespace Amanhecer.Configurator;
 
 /// <summary>
 /// Extension methods for <see cref="AmanhecerMessagingConfigurator"/> that register an
-/// in-memory gateway.
+/// in-memory gateway. The type name is transport-specific so an application can reference this
+/// package and another transport package at the same time.
 /// </summary>
-public static class AmanhecerMessagingConfiguratorExtensions
+public static class InMemoryConfiguratorExtensions
 {
     /// <summary>
     /// Adds an in-memory gateway to the messaging configuration, using the provided delegate to

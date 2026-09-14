@@ -55,7 +55,8 @@ public class InMemoryPublicationConfigurator
     private string? _queueName;
 
     /// <summary>
-    /// Sets the in-memory queue name this publication writes to.
+    /// Sets the in-memory queue name this publication writes to. Defaults to the
+    /// publication's routing key when not set.
     /// </summary>
     /// <param name="queueName">The queue name.</param>
     /// <returns>The configurator instance for method chaining.</returns>

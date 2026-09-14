@@ -53,7 +53,8 @@ public class InMemorySubscriptionConfigurator
     private string? _queueName;
 
     /// <summary>
-    /// Sets the name of the in-memory queue messages are consumed from.
+    /// Sets the name of the in-memory queue messages are consumed from. Defaults to the
+    /// subscription's routing key when not set.
     /// </summary>
     /// <param name="queueName">The queue name.</param>
     /// <returns>The configurator instance for method chaining.</returns>
@@ -374,13 +375,7 @@ public class InMemorySubscriptionConfigurator
                 "A routing key is required for a subscription. Call ToRoutingKey to configure it.");
         }
 
-        if (string.IsNullOrEmpty(_queueName))
-        {
-            throw new InvalidOperationException(
-                "A queue name is required for a subscription. Call QueueName to configure it.");
-        }
-
-        var subscription = new InMemorySubscription(_toRoutingKey!, _queueName!)
+        var subscription = new InMemorySubscription(_toRoutingKey!, _queueName ?? _toRoutingKey!)
         {
             Name = _name ?? Uuid.NewGuid().ToString(),
             MessageMapperType = _messageMapperType,

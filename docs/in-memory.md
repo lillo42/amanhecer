@@ -28,6 +28,10 @@ services.AddAmanhecer(a => a
 The subscription's `ToRoutingKey` must match the routing key of the handler pipeline that
 processes the message (the type's full name, or its `[RoutingKey]` value).
 
+`QueueName` is optional on both sides: a publication defaults it to its `RoutingKey` and a
+subscription to its `ToRoutingKey`, so when neither is set the two sides meet on a queue
+named after the routing key.
+
 ## Publishing
 
 Post a request and the mapped `Message` is encoded and written to the configured in-memory

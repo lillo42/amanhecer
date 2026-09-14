@@ -19,13 +19,14 @@ public class InMemoryConfiguratorValidationTests
     }
 
     [Test]
-    public async Task When_Adding_A_Subscription_Without_A_Queue_Name_Should_Throw()
+    public async Task When_Subscription_Does_Not_Set_QueueName_Should_Default_To_RoutingKey()
     {
-        var configurator = new InMemorySubscriptionsConfigurator();
+        var cfg = new InMemorySubscriptionConfigurator();
+        cfg.ToRoutingKey("tests.routing");
 
-        await Assert.That(() => configurator.AddSubscription(subscription =>
-                subscription.ToRoutingKey("tests")))
-            .ThrowsExactly<InvalidOperationException>();
+        var subscription = CreateSubscription(cfg);
+
+        await Assert.That(subscription.QueueName).IsEqualTo("tests.routing");
     }
 
     [Test]
@@ -127,5 +128,13 @@ public class InMemoryConfiguratorValidationTests
             .GetMethod("ToPublication", BindingFlags.Instance | BindingFlags.NonPublic)!;
 
         return (InMemoryPublication)toPublication.Invoke(cfg, null)!;
+    }
+
+    private static InMemorySubscription CreateSubscription(InMemorySubscriptionConfigurator cfg)
+    {
+        var toSubscription = typeof(InMemorySubscriptionConfigurator)
+            .GetMethod("ToSubscription", BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+        return (InMemorySubscription)toSubscription.Invoke(cfg, null)!;
     }
 }

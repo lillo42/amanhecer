@@ -7,6 +7,8 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Amanhecer.Abstractions/Amanhecer.Abstractions.csproj" />
+    <Project Path="src/Amanhecer.ConfluentKafka/Amanhecer.ConfluentKafka.csproj" />
+    <Project Path="src/Amanhecer.Dekaf/Amanhecer.Dekaf.csproj" />
     <Project Path="src/Amanhecer.Extensions.Hosting/Amanhecer.Extensions.Hosting.csproj" />
     <Project Path="src/Amanhecer.Extensions.Resilience/Amanhecer.Extensions.Resilience.csproj" />
     <Project Path="src/Amanhecer.InMemory/Amanhecer.InMemory.csproj" />

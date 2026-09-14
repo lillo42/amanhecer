@@ -17,8 +17,10 @@ public class RabbitMqSubscription : Subscription
     public RabbitMqSubscription(string toRoutingKey, string queueName) : base(toRoutingKey)
     {
         QueueName = queueName;
-        MessagingSystem = "rabbitmq";
     }
+
+    /// <inheritdoc/>
+    public override string MessagingSystem => "rabbitmq";
 
     /// <summary>
     /// Gets or sets the name of the queue messages are consumed from.

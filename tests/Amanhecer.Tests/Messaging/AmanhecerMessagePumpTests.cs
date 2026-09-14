@@ -97,9 +97,8 @@ public class AmanhecerMessagePumpTests
     [Test]
     public async Task When_ProcessingMessage_Should_TagTheActivityWithTheMessagingSystem()
     {
-        var subscription = CreateSubscription();
+        var subscription = CreateSubscription("rabbitmq");
         subscription.Name = $"messaging-system-{Guid.NewGuid():N}";
-        subscription.MessagingSystem = "rabbitmq";
         var consumer = Substitute.For<IConsumer>();
         consumer.Subscription.Returns(subscription);
 
@@ -446,9 +445,9 @@ public class AmanhecerMessagePumpTests
             .QueryAsync<object?>(Arg.Any<object>(), Arg.Any<AmanhecerContext>(), Arg.Any<CancellationToken>());
     }
 
-    private static TestSubscription CreateSubscription()
+    private static TestSubscription CreateSubscription(string messagingSystem = "amanhecer")
     {
-        return new TestSubscription
+        return new TestSubscription(messagingSystem)
         {
             Name = "some-subscription",
             NoMessageDelay = TimeSpan.Zero,
@@ -457,7 +456,10 @@ public class AmanhecerMessagePumpTests
         };
     }
 
-    private sealed class TestSubscription() : Subscription("some.routing.key");
+    private sealed class TestSubscription(string messagingSystem) : Subscription("some.routing.key")
+    {
+        public override string MessagingSystem { get; } = messagingSystem;
+    }
 
     private sealed class SomeMessageMapper : IMessageMapper
     {

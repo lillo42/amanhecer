@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
+        <IsPackable>true</IsPackable>
+        <Description>In-memory transport for Amanhecer: publish messages to channel-backed queues and consume them through the messaging gateway, with CloudEvents mapping and pluggable queue provisioning.</Description>
+        <PackageTags>mediator;cqrs;messaging;dispatcher;inmemory;channels;queue;cloudevents;middleware;pipeline</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Amanhecer.Abstractions\Amanhecer.Abstractions.csproj" />
+      <ProjectReference Include="..\Amanhecer\Amanhecer.csproj" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' OR '$(TargetFramework)' == 'net462'">
+        <PackageReference Include="System.Threading.Channels" />
+    </ItemGroup>
+
+</Project>

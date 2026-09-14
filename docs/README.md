@@ -7,6 +7,7 @@ A lightweight request dispatcher (mediator) for .NET. Send commands, publish eve
 - **Send / Publish / Query / Post** — dispatch a command to a single handler, an event to any number of handlers, a query that returns a response, or a message to a broker publication.
 - **Middleware pipelines** — wrap handlers with cross-cutting concerns (logging, validation, retries) configured fluently or via attributes.
 - **Messaging gateway** — publish and consume `Message`s through publications and subscriptions, with pluggable message mappers and encode/decode transformers (CloudEvents mapping included).
+- **In-memory transport** — the `Amanhecer.InMemory` package binds the messaging gateway to in-memory queues (channel-backed), ideal for tests, local workflows and broker-free deployments.
 - **RabbitMQ transport** — the `Amanhecer.RabbitMq` package binds the messaging gateway to RabbitMQ exchanges and queues, with pluggable provisioning (classic, quorum, dead-letter topologies).
 - **Routing keys** — route requests to pipelines by convention (type name) or explicitly with `[RoutingKey]`.
 - **Executing strategies** — run published pipelines sequentially or in parallel.
@@ -21,6 +22,7 @@ A lightweight request dispatcher (mediator) for .NET. Send commands, publish eve
 | --- | --- |
 | `Amanhecer.Abstractions` | Interfaces, base classes, attributes and contexts. |
 | `Amanhecer` | The dispatcher, pipeline, factories, configurators, messaging abstractions and DI extensions. |
+| `Amanhecer.InMemory` | In-memory transport for the messaging gateway: channel-backed queues, publications, subscriptions and provisioning. |
 | `Amanhecer.RabbitMq` | RabbitMQ transport for the messaging gateway: exchanges, queues, provisioning and consumption. |
 | `Amanhecer.Extensions.Hosting` | Generic-host integration: runs the message consumers as a hosted service. |
 | `Amanhecer.OpenTelemetry` | OpenTelemetry trace and metric instrumentation for the request pipelines. |

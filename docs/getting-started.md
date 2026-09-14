@@ -61,8 +61,12 @@ var dispatcher = services.GetRequiredService<IDispatcher>();
 dispatcher.Send(new Greeting("world"));                     // exactly one pipeline required
 dispatcher.Publish(new OrderShipped(id));                   // any number of pipelines (zero is fine)
 var answer = dispatcher.Query<Ask, string>(new Ask("?"));   // returns a response
-await dispatcher.PostAsync(new Greeting("world"));          // produces the message to a broker (see [RabbitMQ](rabbitmq.md))
+await dispatcher.PostAsync(new Greeting("world"));          // produces the message through the configured transport
 ```
+
+`Post/PostAsync` dispatch through the configured messaging gateway transport: use
+[In-memory transport](in-memory.md) for channel-backed local queues or [RabbitMQ](rabbitmq.md)
+for broker-backed queues.
 
 All operations have `async` overloads (`SendAsync`, `PublishAsync`, `QueryAsync`, `PostAsync`) and accept an optional `AmanhecerContext` carrying:
 

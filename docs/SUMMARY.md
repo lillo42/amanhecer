@@ -5,6 +5,7 @@
 * [Middleware](middleware.md)
 * [Transformers](transformers.md)
 * [Routing keys](routing.md)
+* [In-memory transport](in-memory.md)
 * [RabbitMQ](rabbitmq.md)
 * [Executing strategies](executing-strategies.md)
 * [Observability](observability.md)

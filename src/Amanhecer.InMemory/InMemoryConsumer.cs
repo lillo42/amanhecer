@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Amanhecer.InMemory;
 
@@ -14,17 +15,33 @@ namespace Amanhecer.InMemory;
 /// Acknowledging or negatively acknowledging a message is a no-op because reading from the
 /// channel already removes the message from the queue.
 /// </remarks>
-public class InMemoryConsumer(
-    InMemorySubscription subscription,
-    QueueManagement queues,
-    ILogger<InMemoryConsumer>? logger = null) : IConsumer
+public partial class InMemoryConsumer : IConsumer
 {
+    private readonly InMemorySubscription _subscription;
+    private readonly QueueManagement _queues;
+    private readonly ILogger<InMemoryConsumer> _logger;
+
     // The token the message pump waits on. Captured so a delayed requeue stops with the host
     // instead of firing after shutdown.
     private CancellationToken _cancellationToken;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="InMemoryConsumer"/> class.
+    /// </summary>
+    /// <param name="subscription">The subscription this consumer consumes for.</param>
+    /// <param name="queues">The queue registry the subscription's queue is read from.</param>
+    /// <param name="logger">The logger used to report settlement problems.</param>
+    public InMemoryConsumer(InMemorySubscription subscription,
+        QueueManagement queues,
+        ILogger<InMemoryConsumer>? logger = null)
+    {
+        _subscription = subscription;
+        _queues = queues;
+        _logger = logger ?? NullLogger<InMemoryConsumer>.Instance;
+    }
+
     /// <inheritdoc />
-    public ISubscription Subscription => subscription;
+    public ISubscription Subscription => _subscription;
 
     /// <inheritdoc />
     public ValueTask AckAsync(Message message)
@@ -43,7 +60,7 @@ public class InMemoryConsumer(
     {
         if (delay == TimeSpan.Zero)
         {
-            return queues.GetChannels(subscription.QueueName)
+            return _queues.GetChannels(_subscription.QueueName)
                 .Writer
                 .WriteAsync(message, _cancellationToken);
         }
@@ -57,7 +74,7 @@ public class InMemoryConsumer(
             try
             {
                 await Task.Delay(delay, cancellationToken);
-                await queues.GetChannels(subscription.QueueName)
+                await _queues.GetChannels(_subscription.QueueName)
                     .Writer
                     .WriteAsync(message, cancellationToken);
             }
@@ -67,10 +84,7 @@ public class InMemoryConsumer(
             }
             catch (Exception e)
             {
-                logger?.LogError(e,
-                    "Failed to requeue the deferred message {MessageId} on queue {QueueName}; the message is lost",
-                    message.Id,
-                    subscription.QueueName);
+                Logger.RequeueFailed(_logger, e, message.Id, _subscription.QueueName);
             }
         }, cancellationToken);
 
@@ -82,8 +96,15 @@ public class InMemoryConsumer(
     {
         _cancellationToken = cancellationToken;
 
-        var channel = queues.GetChannels(subscription.QueueName);
+        var channel = _queues.GetChannels(_subscription.QueueName);
         var message = await channel.Reader.ReadAsync(cancellationToken);
         return [message];
+    }
+
+    private static partial class Logger
+    {
+        [LoggerMessage(LogLevel.Error,
+            "Failed to requeue the deferred message {MessageId} on queue {QueueName}: the message is lost")]
+        public static partial void RequeueFailed(ILogger logger, Exception exception, string messageId, string queueName);
     }
 }

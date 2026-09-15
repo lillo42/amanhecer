@@ -7,6 +7,7 @@
 * [Routing keys](routing.md)
 * [In-memory transport](in-memory.md)
 * [RabbitMQ](rabbitmq.md)
+* [Kafka](kafka.md)
 * [Executing strategies](executing-strategies.md)
 * [Observability](observability.md)
 * [Resilience](resilience.md)

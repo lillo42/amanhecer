@@ -7,19 +7,32 @@ using Confluent.Kafka;
 
 namespace Amanhecer.ConfluentKafka;
 
+/// <summary>
+/// An <see cref="IProducer"/> that produces messages to a Kafka topic through a
+/// Confluent.Kafka producer client.
+/// </summary>
+/// <param name="producer">The producer client shared by the publications of a gateway.</param>
 public class ConfluentKafkaProducer(IProducer<string?, byte[]> producer) : IProducer, IDisposable
 {
     /// <inheritdoc />
-    public ValueTask ProduceAsync(Message message, IPublication publication, AmanhecerContext context)
+    public async ValueTask ProduceAsync(Message message, IPublication publication, AmanhecerContext context)
     {
         if (publication is not ConfluentKafkaPublication kafkaPublication)
         {
-            return new ValueTask();
+            return;
+        }
+
+        if (kafkaPublication.WaitForConfirmation)
+        {
+            // Await the delivery report: broker errors surface as publish exceptions and the
+            // task only completes once the record is acknowledged.
+            await producer.ProduceAsync(kafkaPublication.Topic,
+                ToKafkaMessage(message, kafkaPublication));
+            return;
         }
 
         producer.Produce(kafkaPublication.Topic,
             ToKafkaMessage(message, kafkaPublication));
-        return new ValueTask();
     }
 
     private static Message<string?, byte[]> ToKafkaMessage(Message message,
@@ -44,6 +57,12 @@ public class ConfluentKafkaProducer(IProducer<string?, byte[]> producer) : IProd
         {
             kafkaMessage.Headers.Add("ce_id", publication.Encoding.GetBytes(message.Id));
             kafkaMessage.Headers.Add("ce_time", publication.Encoding.GetBytes(message.Time.ToString("O")));
+
+            if (!string.IsNullOrEmpty(message.CorrelationId))
+            {
+                kafkaMessage.Headers.Add("ce_correlationid",
+                    publication.Encoding.GetBytes(message.CorrelationId));
+            }
 
             if (message.Baggage != null)
             {

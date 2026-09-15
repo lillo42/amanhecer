@@ -8,17 +8,32 @@ using Dekaf.Serialization;
 
 namespace Amanhecer.Dekaf;
 
+/// <summary>
+/// An <see cref="IProducer"/> that produces messages to a Kafka topic through a Dekaf
+/// producer client.
+/// </summary>
+/// <param name="producer">The producer client shared by the publications of a gateway.</param>
 public class DeKafProducer(IKafkaProducer<string, byte[]> producer) : IProducer, IAsyncDisposable
 {
     /// <inheritdoc/>
-    public ValueTask ProduceAsync(Message message, IPublication publication, AmanhecerContext context)
+    public async ValueTask ProduceAsync(Message message, IPublication publication, AmanhecerContext context)
     {
         if (publication is not DekafPublication dekafPublication)
         {
-            return new ValueTask();
+            return;
         }
 
-        return producer.FireAsync(ToDeKafMessage(message, dekafPublication));
+        var producerMessage = ToDeKafMessage(message, dekafPublication);
+
+        if (dekafPublication.WaitForConfirmation)
+        {
+            // Await the delivery result: broker errors surface as publish exceptions and the
+            // task only completes once the record is acknowledged.
+            await producer.ProduceAsync(producerMessage);
+            return;
+        }
+
+        await producer.FireAsync(producerMessage);
     }
 
     private static ProducerMessage<string, byte[]> ToDeKafMessage(Message message,
@@ -38,6 +53,12 @@ public class DeKafProducer(IKafkaProducer<string, byte[]> producer) : IProducer,
         {
             headers.Add("ce_id", publication.Encoding.GetBytes(message.Id));
             headers.Add("ce_time", publication.Encoding.GetBytes(message.Time.ToString("O")));
+
+            if (!string.IsNullOrEmpty(message.CorrelationId))
+            {
+                headers.Add("ce_correlationid",
+                    publication.Encoding.GetBytes(message.CorrelationId));
+            }
 
             if (message.Baggage != null)
             {

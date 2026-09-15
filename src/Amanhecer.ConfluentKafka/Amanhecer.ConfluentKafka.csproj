@@ -1,12 +1,22 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
         <IsPackable>true</IsPackable>
+        <Description>Kafka transport for Amanhecer (Confluent.Kafka): publish messages to topics and consume them through the messaging gateway, with CloudEvents mapping and pluggable provisioning.</Description>
+        <PackageTags>mediator;cqrs;messaging;dispatcher;kafka;cloudevents;middleware;pipeline</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>
       <PackageReference Include="Confluent.Kafka" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' OR '$(TargetFramework)' == 'net462'">
+      <PackageReference Include="System.Threading.Channels" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <InternalsVisibleTo Include="Amanhecer.ConfluentKafka.Tests" />
     </ItemGroup>
 
     <ItemGroup>

@@ -57,11 +57,37 @@ is exposed on <http://localhost:15672> (guest/guest).
 dotnet run --project tests/Amanhecer.RabbitMq.Tests -f net10.0
 ```
 
+## Kafka tests
+
+`tests/Amanhecer.ConfluentKafka.Tests` and `tests/Amanhecer.Dekaf.Tests` follow the same
+split: broker-free unit tests (producer/consumer mapping, offset commit behavior, provisioner
+validation) and broker-backed messaging gateway contract tests. The Confluent tests run
+against Redpanda; the Dekaf tests need a Kafka 4.0+ broker, because Dekaf's consumer requires
+the KIP-848 consumer group protocol (unsupported by Redpanda). In CI they run in a `kafka`
+job with both containers; locally, start them with the compose files at the repository root:
+
+```bash
+podman compose -f docker-compose-redpanda.yaml up -d   # Confluent tests, port 9092
+podman compose -f docker-compose-kafka.yaml up -d      # Dekaf tests, port 29092
+# or: docker compose -f ... up -d
+```
+
+The tests connect to `localhost:9092` (Confluent) and `localhost:29092` (Dekaf) by default;
+set `AMANHECER_KAFKA_BOOTSTRAP_SERVERS` / `AMANHECER_DEKAF_BOOTSTRAP_SERVERS` to point at
+different clusters.
+
+```bash
+dotnet run --project tests/Amanhecer.ConfluentKafka.Tests -f net10.0
+dotnet run --project tests/Amanhecer.Dekaf.Tests -f net10.0
+```
+
 ## Project layout
 
 - `src/Amanhecer.Abstractions` — interfaces, base classes, attributes and contexts.
 - `src/Amanhecer` — the dispatcher, pipeline, factories, configurators, messaging abstractions and DI extensions.
 - `src/Amanhecer.RabbitMq` — RabbitMQ transport for the messaging gateway.
+- `src/Amanhecer.ConfluentKafka` — Kafka transport for the messaging gateway, built on Confluent.Kafka.
+- `src/Amanhecer.Dekaf` — Kafka transport for the messaging gateway, built on Dekaf (pure C#).
 - `src/Amanhecer.Extensions.Hosting` — generic-host integration running the message consumers.
 - `src/Amanhecer.OpenTelemetry` — OpenTelemetry instrumentation.
 - `src/Amanhecer.Polly` — Polly resilience middleware.

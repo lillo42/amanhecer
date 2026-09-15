@@ -7,6 +7,8 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/Amanhecer.Abstractions/Amanhecer.Abstractions.csproj" />
+    <Project Path="src/Amanhecer.ConfluentKafka/Amanhecer.ConfluentKafka.csproj" />
+    <Project Path="src/Amanhecer.Dekaf/Amanhecer.Dekaf.csproj" />
     <Project Path="src/Amanhecer.Extensions.Hosting/Amanhecer.Extensions.Hosting.csproj" />
     <Project Path="src/Amanhecer.Extensions.Resilience/Amanhecer.Extensions.Resilience.csproj" />
     <Project Path="src/Amanhecer.InMemory/Amanhecer.InMemory.csproj" />
@@ -17,6 +19,8 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Amanhecer.Abstractions.Tests/Amanhecer.Abstractions.Tests.csproj" />
+    <Project Path="tests/Amanhecer.ConfluentKafka.Tests/Amanhecer.ConfluentKafka.Tests.csproj" />
+    <Project Path="tests/Amanhecer.Dekaf.Tests/Amanhecer.Dekaf.Tests.csproj" />
     <Project Path="tests/Amanhecer.Messaging.Base.Tests/Amanhecer.Messaging.Base.Tests.csproj" />
     <Project Path="tests/Amanhecer.InMemory.Tests/Amanhecer.InMemory.Tests.csproj" />
     <Project Path="tests/Amanhecer.Extensions.Hosting.Tests/Amanhecer.Extensions.Hosting.Tests.csproj" />

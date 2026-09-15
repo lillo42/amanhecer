@@ -11,9 +11,7 @@ namespace Amanhecer.ConfluentKafka;
 /// <summary>
 /// A gateway that publishes messages to, and consumes messages from, a Kafka cluster.
 /// </summary>
-public class ConfluentKafkaGateway : Gateway<ConfluentKafkaPublication, ConfluentKafkaSubscription>
-    , ILoggerFactorySupport
-    , IDisposable
+public class ConfluentKafkaGateway : Gateway<ConfluentKafkaPublication, ConfluentKafkaSubscription>, ILoggerFactorySupport, IDisposable
 {
     private readonly SemaphoreSlim _provisioningLock = new(1, 1);
     private readonly List<ConfluentKafkaProducer> _producers = [];
@@ -109,16 +107,6 @@ public class ConfluentKafkaGateway : Gateway<ConfluentKafkaPublication, Confluen
     /// <inheritdoc />
     public override IReadOnlyDictionary<string, IProducer> CreateProducers()
     {
-        var seen = new HashSet<string>();
-        foreach (var publication in Publications)
-        {
-            if (!seen.Add(publication.RoutingKey))
-            {
-                throw new InvalidOperationException(
-                    $"Duplicate publication routing key '{publication.RoutingKey}': two publications are registered with the same routing key.");
-            }
-        }
-
         // The publish path provisions lazily: the first producer creation runs the
         // provisioners, so publish-only applications get their topics before the first publish.
         ProvisionerAsync().GetAwaiter().GetResult();
@@ -129,6 +117,7 @@ public class ConfluentKafkaGateway : Gateway<ConfluentKafkaPublication, Confluen
         {
             var config = new ProducerConfig { BootstrapServers = BootstrapServers };
             ConfigureProducer?.Invoke(config);
+            publication.ConfigureProducer.Invoke(config);
 
             var producer = new ConfluentKafkaProducer(
                 new ProducerBuilder<string?, byte[]>(config).Build());
@@ -158,9 +147,11 @@ public class ConfluentKafkaGateway : Gateway<ConfluentKafkaPublication, Confluen
             EnableAutoOffsetStore = false,
             EnableAutoCommit = false,
             // Topics are provisioned explicitly through the gateway's provisioners.
-            AllowAutoCreateTopics = false
+            AllowAutoCreateTopics = false,
         };
+
         ConfigureConsumer?.Invoke(config);
+        kafkaSubscription.ConfigureConsumer?.Invoke(config);
 
         var consumer = new ConfluentKafkaConsumer(config,
             kafkaSubscription,

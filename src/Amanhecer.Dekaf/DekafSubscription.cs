@@ -1,5 +1,6 @@
 using System;
 using Amanhecer.Abstractions.Messaging;
+using Dekaf;
 using Dekaf.Consumer;
 
 namespace Amanhecer.Dekaf;
@@ -39,7 +40,7 @@ public class DekafSubscription : Subscription
 
     /// <summary>
     /// Gets or sets where consumption starts when there is no committed offset for the
-    /// consumer group. Defaults to <see cref="Dekaf.Consumer.AutoOffsetReset.Earliest"/>.
+    /// consumer group. Defaults to <see cref="global::Dekaf.Consumer.AutoOffsetReset.Earliest"/>.
     /// </summary>
     public AutoOffsetReset AutoOffsetReset { get; set; } = AutoOffsetReset.Earliest;
 
@@ -57,4 +58,12 @@ public class DekafSubscription : Subscription
     /// uncommitted. Defaults to 30 seconds.
     /// </summary>
     public TimeSpan SweepUncommittedOffsetsInterval { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Gets or sets a callback invoked with the <see cref="ConsumerBuilder{TKey, TValue}"/>
+    /// before the consumer of this subscription is created. It runs after the gateway's
+    /// <see cref="DekafGateway.ConfigureConsumer"/> callback, so it can override the
+    /// gateway-wide configuration for this subscription alone.
+    /// </summary>
+    public Action<ConsumerBuilder<string, byte[]>>? Configure { get; set; }
 }

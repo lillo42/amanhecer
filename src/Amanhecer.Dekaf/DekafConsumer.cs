@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Net.Mime;
 using System.Text;
 using System.Threading;
@@ -36,7 +37,7 @@ namespace Amanhecer.Dekaf;
 public partial class DekafConsumer : IConsumer, IAsyncDisposable
 {
     // The Kafka revoke window is ~10s; use half to leave time for cleanup.
-    private static readonly TimeSpan s_commitSyncTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan SCommitSyncTimeout = TimeSpan.FromSeconds(5);
 
     private readonly IKafkaConsumer<string, byte[]> _consumer;
     private readonly DekafSubscription _subscription;
@@ -48,39 +49,18 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
     private bool _isClosed;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="DekafConsumer"/> class: builds the
-    /// consumer client from <paramref name="builder"/> and starts the offset sweeper.
+    /// Initializes a new instance of the <see cref="DekafConsumer"/> class over an
+    /// already-built consumer client, and starts the offset sweeper.
     /// </summary>
-    /// <param name="builder">The consumer builder, already configured with the bootstrap
+    /// <param name="consumer">The consumer client, already configured with the bootstrap
     /// servers, group id, offset commit mode and topic subscription.</param>
     /// <param name="subscription">The subscription this consumer consumes for.</param>
     /// <param name="logger">The logger used to report consumption and settlement problems.</param>
-    public DekafConsumer(ConsumerBuilder<string, byte[]> builder,
+    public DekafConsumer(IKafkaConsumer<string, byte[]> consumer,
         DekafSubscription subscription,
         ILogger<DekafConsumer>? logger = null)
     {
         _subscription = subscription;
-        Subscription = subscription;
-        _logger = logger ?? NullLogger<DekafConsumer>.Instance;
-
-        _consumer = builder.BuildAsync().GetAwaiter().GetResult();
-
-        _sweeperTimer = CreateSweeperTimer();
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="DekafConsumer"/> class over an
-    /// already-built consumer client. Used by tests to inject a client double.
-    /// </summary>
-    /// <param name="consumer">The consumer client.</param>
-    /// <param name="subscription">The subscription this consumer consumes for.</param>
-    /// <param name="logger">The logger used to report consumption and settlement problems.</param>
-    internal DekafConsumer(IKafkaConsumer<string, byte[]> consumer,
-        DekafSubscription subscription,
-        ILogger<DekafConsumer>? logger = null)
-    {
-        _subscription = subscription;
-        Subscription = subscription;
         _logger = logger ?? NullLogger<DekafConsumer>.Instance;
         _consumer = consumer;
 
@@ -96,19 +76,19 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public ISubscription Subscription { get; }
+    public ISubscription Subscription => _subscription;
 
     /// <inheritdoc />
     public async ValueTask<Message[]> GetMessagesAsync(CancellationToken cancellationToken = default)
     {
-        await foreach (var result in _consumer.ConsumeAsync(cancellationToken))
+        await foreach (var result in _consumer.ConsumeBatchAsync(cancellationToken))
         {
             if (result.IsPartitionEof)
             {
                 continue;
             }
 
-            return [ToMessage(result)];
+            return [.. result.Select(ToMessage)];
         }
 
         return [];
@@ -308,7 +288,8 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
             await Task.Delay(delay);
             _consumer.Partitions.Resume(topicPartition);
         }
-        catch (Exception e) when (e is global::Dekaf.Errors.KafkaException or InvalidOperationException or TaskCanceledException)
+        catch (Exception e) when (e is global::Dekaf.Errors.KafkaException or InvalidOperationException
+                                      or TaskCanceledException)
         {
             Logger.ErrorResumingPartition(_logger, e.Message);
         }
@@ -332,7 +313,7 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
             try
             {
                 // Wait for any in-flight background commit before committing what remains.
-                if (await _flushToken.WaitAsync(s_commitSyncTimeout))
+                if (await _flushToken.WaitAsync(SCommitSyncTimeout))
                 {
                     try
                     {
@@ -383,8 +364,8 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
 
     private bool TryGetTopicPartitionOffset(Message message, out TopicPartitionOffset topicPartitionOffset)
     {
-        if (message.Metadata.TryGetValue(MetadataName.TopicPartitionOffset, out var obj)
-            && obj is TopicPartitionOffset tpo)
+        if (message.Metadata.TryGetValue(MetadataName.TopicPartitionOffset, out var obj) &&
+            obj is TopicPartitionOffset tpo)
         {
             topicPartitionOffset = tpo;
             return true;
@@ -421,7 +402,7 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
             Headers = headers,
             Metadata = metadata,
             PartitionKey = result.Key,
-            Payload = result.Value,
+            Payload = result.Value.ToArray(),
             ReplyTo = GetHeaderValue(headers, "ce_replyto"),
             Subject = GetHeaderValue(headers, "ce_subject"),
             SpecVersion = GetHeaderValue(headers, "ce_specversion") ?? _subscription.DefaultSpecVersion,
@@ -506,7 +487,8 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
 
     private static partial class Logger
     {
-        [LoggerMessage(LogLevel.Information, "Deferring message at offset {Offset} on topic {Topic} partition {Partition}: seeking back for redelivery")]
+        [LoggerMessage(LogLevel.Information,
+            "Deferring message at offset {Offset} on topic {Topic} partition {Partition}: seeking back for redelivery")]
         public static partial void DeferringMessage(ILogger logger, long offset, string topic, int partition);
 
         [LoggerMessage(LogLevel.Warning, "Error seeking offset for defer: {ErrorMessage}")]
@@ -515,7 +497,8 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
         [LoggerMessage(LogLevel.Warning, "Error resuming partition after the defer delay: {ErrorMessage}")]
         public static partial void ErrorResumingPartition(ILogger logger, string errorMessage);
 
-        [LoggerMessage(LogLevel.Warning, "Cannot settle message {MessageId} from topic {TopicName}: no topic/partition/offset found in the message metadata")]
+        [LoggerMessage(LogLevel.Warning,
+            "Cannot settle message {MessageId} from topic {TopicName}: no topic/partition/offset found in the message metadata")]
         public static partial void MissingTopicPartitionOffset(ILogger logger, string messageId, string topicName);
 
         [LoggerMessage(LogLevel.Warning, "Error committing offsets: {ErrorMessage}")]
@@ -527,7 +510,8 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
         [LoggerMessage(LogLevel.Debug, "Skipped sweeping offsets, as another commit or sweep was running")]
         public static partial void SkippedSweepingOffsets(ILogger logger);
 
-        [LoggerMessage(LogLevel.Warning, "Skipped committing offsets before close, timed out waiting for the in-flight commit to complete")]
+        [LoggerMessage(LogLevel.Warning,
+            "Skipped committing offsets before close, timed out waiting for the in-flight commit to complete")]
         public static partial void SkippedCommittingOffsetsBeforeClose(ILogger logger);
 
         [LoggerMessage(LogLevel.Debug, "Error committing offsets before closing: {ErrorMessage}")]

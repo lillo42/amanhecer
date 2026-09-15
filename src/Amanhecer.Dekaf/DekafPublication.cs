@@ -2,6 +2,8 @@ using System;
 using System.Text;
 using System.Text.Json;
 using Amanhecer.Abstractions.Messaging;
+using Dekaf;
+using Dekaf.Producer;
 
 namespace Amanhecer.Dekaf;
 
@@ -36,4 +38,18 @@ public class DekafPublication : Publication
     /// record is acknowledged.
     /// </summary>
     public bool WaitForConfirmation { get; set; }
+
+    /// <summary>
+    /// Gets or sets a callback invoked with the <see cref="ProducerBuilder{TKey, TValue}"/>
+    /// before the producer of this publication is created. It runs after the gateway's
+    /// <see cref="DekafGateway.ConfigureProducer"/> callback, so it can override the
+    /// gateway-wide configuration for this publication alone. Defaults to selecting the
+    /// <see cref="PartitionerType.Murmur2Random"/> partitioner, which maps keys to partitions
+    /// the same way the Java client does; replacing the callback drops that default, so set
+    /// the partitioner again when other clients have to agree on the partition a key lands on.
+    /// </summary>
+    public Action<ProducerBuilder<string, byte[]>> Configure { get; set; } = cfg =>
+    {
+        cfg.WithPartitioner(PartitionerType.Murmur2Random);
+    };
 }

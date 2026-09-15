@@ -37,7 +37,7 @@ namespace Amanhecer.ConfluentKafka;
 public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
 {
     // The Kafka revoke window is ~10s; use half to leave time for cleanup.
-    private static readonly TimeSpan s_commitSyncTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan SCommitSyncTimeout = TimeSpan.FromSeconds(5);
 
     private readonly IConsumer<string?, byte[]> _consumer;
     private readonly ConfluentKafkaSubscription _subscription;
@@ -353,7 +353,7 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
         {
             // librdkafka is not thread-safe for concurrent commits: wait for any in-flight
             // background commit to finish first.
-            if (!_flushToken.Wait(s_commitSyncTimeout))
+            if (!_flushToken.Wait(SCommitSyncTimeout))
             {
                 Logger.SkippedCommittingOffsetsForRevokedPartitions(_logger);
                 return;
@@ -410,7 +410,7 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
             try
             {
                 // Wait for any in-flight background commit before committing what remains.
-                if (_flushToken.Wait(s_commitSyncTimeout))
+                if (_flushToken.Wait(SCommitSyncTimeout))
                 {
                     // Releases the flush token.
                     CommitAllOffsets(DateTime.UtcNow);

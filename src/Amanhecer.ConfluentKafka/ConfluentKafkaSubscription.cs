@@ -57,4 +57,12 @@ public class ConfluentKafkaSubscription : Subscription
     /// uncommitted. Defaults to 30 seconds.
     /// </summary>
     public TimeSpan SweepUncommittedOffsetsInterval { get; set; } = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// Gets or sets a callback invoked with the <see cref="ConsumerConfig"/> before the
+    /// consumer of this subscription is created. It runs after the gateway's
+    /// <see cref="ConfluentKafkaGateway.ConfigureConsumer"/> callback, so it can override the
+    /// gateway-wide configuration for this subscription alone.
+    /// </summary>
+    public Action<ConsumerConfig>? ConfigureConsumer { get; set; }
 }

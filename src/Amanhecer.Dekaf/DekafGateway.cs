@@ -13,14 +13,13 @@ namespace Amanhecer.Dekaf;
 /// <summary>
 /// A gateway that publishes messages to, and consumes messages from, a Kafka cluster.
 /// </summary>
-public class DekafGateway : Gateway<DekafPublication, DekafSubscription>
-    , ILoggerFactorySupport
-    , IAsyncDisposable
+public class DekafGateway : Gateway<DekafPublication, DekafSubscription>, ILoggerFactorySupport, IAsyncDisposable
 {
     private readonly SemaphoreSlim _provisioningLock = new(1, 1);
+    private readonly object _adminClientLock = new();
+
     private readonly List<DeKafProducer> _producers = [];
     private readonly List<DekafConsumer> _consumers = [];
-    private readonly object _adminClientLock = new();
     private IAdminClient? _adminClient;
     private bool _provisioned;
     private bool _disposed;
@@ -116,16 +115,6 @@ public class DekafGateway : Gateway<DekafPublication, DekafSubscription>
     /// <inheritdoc />
     public override IReadOnlyDictionary<string, IProducer> CreateProducers()
     {
-        var seen = new HashSet<string>();
-        foreach (var publication in Publications)
-        {
-            if (!seen.Add(publication.RoutingKey))
-            {
-                throw new InvalidOperationException(
-                    $"Duplicate publication routing key '{publication.RoutingKey}': two publications are registered with the same routing key.");
-            }
-        }
-
         // The publish path provisions lazily: the first producer creation runs the
         // provisioners, so publish-only applications get their topics before the first publish.
         ProvisionerAsync().GetAwaiter().GetResult();
@@ -141,8 +130,9 @@ public class DekafGateway : Gateway<DekafPublication, DekafSubscription>
             }
 
             ConfigureProducer?.Invoke(builder);
+            publication.Configure(builder);
 
-            var producer = new DeKafProducer(builder.BuildAsync().GetAwaiter().GetResult());
+            var producer = new DeKafProducer(builder.Build());
             producers.Add(publication.RoutingKey, producer);
             _producers.Add(producer);
         }
@@ -173,8 +163,9 @@ public class DekafGateway : Gateway<DekafPublication, DekafSubscription>
         }
 
         ConfigureConsumer?.Invoke(builder);
+        dekafSubscription.Configure?.Invoke(builder);
 
-        var consumer = new DekafConsumer(builder,
+        var consumer = new DekafConsumer(builder.Build(),
             dekafSubscription,
             LoggerFactory?.CreateLogger<DekafConsumer>());
         _consumers.Add(consumer);

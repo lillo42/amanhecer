@@ -6,7 +6,7 @@ namespace Amanhecer.ConfluentKafka.Tests;
 
 /// <summary>
 /// Runs the transport-agnostic messaging gateway contract tests against Kafka through the
-/// Confluent.Kafka transport. Requires a broker (see docker-compose-redpanda.yaml at the
+/// Confluent.Kafka transport. Requires a broker (see docker-compose-kafka.yaml at the
 /// repository root).
 /// </summary>
 [InheritsTests]

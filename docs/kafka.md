@@ -8,9 +8,8 @@ Two packages bind the messaging gateway to an Apache Kafka cluster:
 > **Broker requirements:** Dekaf's consumer uses the KIP-848 consumer group protocol, so the
 > Dekaf transport requires a Kafka 4.0+ broker — it cannot consume from Redpanda (which does
 > not implement KIP-848). The Confluent.Kafka transport works with any Kafka-compatible
-> broker, Redpanda included. For local development, `docker-compose-redpanda.yaml` starts a
-> Redpanda broker (port `9092`) and `docker-compose-kafka.yaml` an Apache Kafka 4 broker
-> (port `29092`).
+> broker, Redpanda included. For local development, `docker-compose-kafka.yaml` starts an
+> Apache Kafka 4 broker (port `9092`).
 
 Both expose the same model: publications produce messages to topics, subscriptions consume
 them through a consumer group. The examples below use `Amanhecer.ConfluentKafka`; the

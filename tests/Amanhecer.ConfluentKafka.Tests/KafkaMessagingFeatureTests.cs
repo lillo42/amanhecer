@@ -12,7 +12,7 @@ namespace Amanhecer.ConfluentKafka.Tests;
 /// <summary>
 /// Broker-backed feature tests for the Confluent.Kafka transport: delivery confirmation,
 /// provisioner behavior against the cluster and header/partition-key round trips. Requires
-/// a broker (see docker-compose-redpanda.yaml at the repository root).
+/// a broker (see docker-compose-kafka.yaml at the repository root).
 /// </summary>
 public class KafkaMessagingFeatureTests
 {

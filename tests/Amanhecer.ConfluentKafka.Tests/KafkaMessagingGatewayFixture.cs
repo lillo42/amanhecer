@@ -16,7 +16,7 @@ internal static class KafkaMessagingGatewayFixture
 {
     /// <summary>
     /// The bootstrap servers of the cluster the tests run against. Defaults to the broker
-    /// started by the repository's docker-compose-redpanda.yaml; override with the
+    /// started by the repository's docker-compose-kafka.yaml; override with the
     /// AMANHECER_KAFKA_BOOTSTRAP_SERVERS environment variable.
     /// </summary>
     public static readonly string BootstrapServers =

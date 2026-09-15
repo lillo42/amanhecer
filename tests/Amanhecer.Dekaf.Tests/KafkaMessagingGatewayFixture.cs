@@ -21,7 +21,7 @@ internal static class KafkaMessagingGatewayFixture
     /// AMANHECER_DEKAF_BOOTSTRAP_SERVERS environment variable.
     /// </summary>
     public static readonly string BootstrapServers =
-        Environment.GetEnvironmentVariable("AMANHECER_DEKAF_BOOTSTRAP_SERVERS") ?? "localhost:29092";
+        Environment.GetEnvironmentVariable("AMANHECER_DEKAF_BOOTSTRAP_SERVERS") ?? "localhost:9092";
 
     /// <summary>
     /// Provisions an isolated topic on the cluster and returns a fixture bound to it.

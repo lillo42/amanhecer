@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
@@ -96,26 +97,26 @@ public class DekafConsumerTests
         return consumer.ReceivedCalls().Any(c => c.GetMethodInfo().Name == nameof(IKafkaConsumer<string, byte[]>.CommitAsync));
     }
 
+    private static async Task<Message> MapToMessageAsync(ConsumeResult<string, byte[]> result)
+    {
+        var kafkaConsumer = Substitute.For<IKafkaConsumer<string, byte[]>>();
+        await using var consumer = new DekafConsumer(kafkaConsumer, CreateSubscription());
+        var toMessage = typeof(DekafConsumer).GetMethod("ToMessage", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        return (Message)toMessage.Invoke(consumer, [result])!;
+    }
+
     [Test]
     public async Task GetMessagesAsync_Should_Map_ConsumeResult_To_Message()
     {
-        var kafkaConsumer = Substitute.For<IKafkaConsumer<string, byte[]>>();
-        kafkaConsumer.ConsumeAsync(Arg.Any<CancellationToken>())
-            .Returns(Stream(CreateConsumeResult(41, headers: new Dictionary<string, string>
-            {
-                ["ce_id"] = "message-id",
-                ["ce_type"] = "tests.message",
-                ["ce_correlationid"] = "correlation-id",
-                ["ce_time"] = "2026-09-15T10:20:30.0000000+00:00",
-                ["custom"] = "custom-value"
-            })));
+        var message = await MapToMessageAsync(CreateConsumeResult(41, headers: new Dictionary<string, string>
+        {
+            ["ce_id"] = "message-id",
+            ["ce_type"] = "tests.message",
+            ["ce_correlationid"] = "correlation-id",
+            ["ce_time"] = "2026-09-15T10:20:30.0000000+00:00",
+            ["custom"] = "custom-value"
+        }));
 
-        await using var consumer = new DekafConsumer(kafkaConsumer, CreateSubscription());
-
-        var messages = await consumer.GetMessagesAsync(Token());
-
-        await Assert.That(messages).Count().IsEqualTo(1);
-        var message = messages[0];
         await Assert.That(message.Id).IsEqualTo("message-id");
         await Assert.That(message.Type).IsEqualTo("tests.message");
         await Assert.That(message.CorrelationId).IsEqualTo("correlation-id");
@@ -130,30 +131,19 @@ public class DekafConsumerTests
     [Test]
     public async Task GetMessagesAsync_Without_CeTime_Should_Use_Record_Timestamp()
     {
-        var kafkaConsumer = Substitute.For<IKafkaConsumer<string, byte[]>>();
         var recordTime = new DateTimeOffset(2026, 9, 15, 8, 0, 0, TimeSpan.Zero);
-        kafkaConsumer.ConsumeAsync(Arg.Any<CancellationToken>())
-            .Returns(Stream(CreateConsumeResult(41, timestampMs: recordTime.ToUnixTimeMilliseconds())));
+        var message = await MapToMessageAsync(
+            CreateConsumeResult(41, timestampMs: recordTime.ToUnixTimeMilliseconds()));
 
-        await using var consumer = new DekafConsumer(kafkaConsumer, CreateSubscription());
-
-        var messages = await consumer.GetMessagesAsync(Token());
-
-        await Assert.That(messages[0].Time).IsEqualTo(recordTime);
+        await Assert.That(message.Time).IsEqualTo(recordTime);
     }
 
     [Test]
     public async Task GetMessagesAsync_Without_Key_Should_Have_Null_PartitionKey()
     {
-        var kafkaConsumer = Substitute.For<IKafkaConsumer<string, byte[]>>();
-        kafkaConsumer.ConsumeAsync(Arg.Any<CancellationToken>())
-            .Returns(Stream(CreateConsumeResult(41, key: null)));
+        var message = await MapToMessageAsync(CreateConsumeResult(41, key: null));
 
-        await using var consumer = new DekafConsumer(kafkaConsumer, CreateSubscription());
-
-        var messages = await consumer.GetMessagesAsync(Token());
-
-        await Assert.That(messages[0].PartitionKey).IsNull();
+        await Assert.That(message.PartitionKey).IsNull();
     }
 
     [Test]

@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
 using Amanhecer.Configurator;
 using Amanhecer.Extensions;
-using Amanhecer.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 

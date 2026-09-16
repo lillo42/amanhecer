@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
-using Amanhecer.ConfluentKafka;
 using Confluent.Kafka;
 using NSubstitute;
 

@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
-using Amanhecer.ConfluentKafka;
 using Confluent.Kafka;
 using NSubstitute;
 
@@ -56,14 +55,14 @@ public class ConfluentKafkaConsumerTests
         };
     }
 
-    private static Message CreateMessage(long offset)
+    private static Message CreateMessage(long offset, int partition = 0)
     {
         return new Message
         {
             Payload = Encoding.UTF8.GetBytes("payload"),
             Metadata =
             {
-                [MetadataName.TopicPartitionOffset] = new TopicPartitionOffset(TopicName, 0, offset)
+                [MetadataName.TopicPartitionOffset] = new TopicPartitionOffset(TopicName, partition, offset)
             }
         };
     }
@@ -147,6 +146,62 @@ public class ConfluentKafkaConsumerTests
     }
 
     [Test]
+    public async Task GetMessagesAsync_At_Partition_Eof_Should_Return_No_Messages()
+    {
+        var kafkaConsumer = Substitute.For<IConsumer<string?, byte[]>>();
+        kafkaConsumer.Consume(Arg.Any<CancellationToken>()).Returns(new ConsumeResult<string?, byte[]>
+        {
+            Topic = TopicName,
+            Partition = 0,
+            Offset = 41,
+            IsPartitionEOF = true
+        });
+
+        using var consumer = new ConfluentKafkaConsumer(kafkaConsumer, CreateSubscription());
+
+        var messages = await consumer.GetMessagesAsync(Token());
+
+        await Assert.That(messages).IsEmpty();
+    }
+
+    [Test]
+    public async Task GetMessagesAsync_With_A_Buffer_Size_Should_Return_What_Is_Already_Fetched()
+    {
+        var kafkaConsumer = Substitute.For<IConsumer<string?, byte[]>>();
+        var subscription = CreateSubscription();
+        subscription.BufferSize = 3;
+
+        kafkaConsumer.Consume(Arg.Any<CancellationToken>()).Returns(CreateConsumeResult(41));
+        kafkaConsumer.Consume(TimeSpan.Zero).Returns(CreateConsumeResult(42), CreateConsumeResult(43));
+
+        using var consumer = new ConfluentKafkaConsumer(kafkaConsumer, subscription);
+
+        var messages = await consumer.GetMessagesAsync(Token());
+
+        await Assert.That(messages).Count().IsEqualTo(3);
+        await Assert.That(messages.Select(m => (long)m.Metadata[MetadataName.Offset]!).ToArray())
+            .IsEquivalentTo(new[] { 41L, 42L, 43L });
+    }
+
+    [Test]
+    public async Task GetMessagesAsync_With_A_Buffer_Size_Should_Stop_When_Nothing_Is_Fetched()
+    {
+        var kafkaConsumer = Substitute.For<IConsumer<string?, byte[]>>();
+        var subscription = CreateSubscription();
+        subscription.BufferSize = 10;
+
+        var drained = 0;
+        kafkaConsumer.Consume(Arg.Any<CancellationToken>()).Returns(CreateConsumeResult(41));
+        kafkaConsumer.Consume(TimeSpan.Zero).Returns(_ => drained++ == 0 ? CreateConsumeResult(42) : null);
+
+        using var consumer = new ConfluentKafkaConsumer(kafkaConsumer, subscription);
+
+        var messages = await consumer.GetMessagesAsync(Token());
+
+        await Assert.That(messages).Count().IsEqualTo(2);
+    }
+
+    [Test]
     public async Task When_Acking_Should_Commit_Offset_When_Batch_Size_Is_Reached()
     {
         var kafkaConsumer = Substitute.For<IConsumer<string?, byte[]>>();
@@ -172,13 +227,13 @@ public class ConfluentKafkaConsumerTests
         using var consumer = new ConfluentKafkaConsumer(kafkaConsumer, subscription);
 
         await consumer.AckAsync(CreateMessage(41));
-        await consumer.AckAsync(CreateMessage(42));
+        await consumer.AckAsync(CreateMessage(0, partition: 1));
 
         await UntilAsync(() => CommitWasCalled(kafkaConsumer));
         kafkaConsumer.Received(1).Commit(Arg.Is<IEnumerable<TopicPartitionOffset>>(offsets =>
             offsets.Count() == 2
-            && offsets.Any(o => o.Offset.Value == 42)
-            && offsets.Any(o => o.Offset.Value == 43)));
+            && offsets.Any(o => o.Partition.Value == 0 && o.Offset.Value == 42)
+            && offsets.Any(o => o.Partition.Value == 1 && o.Offset.Value == 1)));
     }
 
     [Test]
@@ -221,13 +276,71 @@ public class ConfluentKafkaConsumerTests
         var kafkaConsumer = Substitute.For<IConsumer<string?, byte[]>>();
         using var consumer = new ConfluentKafkaConsumer(kafkaConsumer, CreateSubscription());
 
-        var message = CreateMessage(41);
-        await consumer.AckAsync(message);
+        await consumer.AckAsync(CreateMessage(41));
 
-        consumer.CommitOffsetsFor([new TopicPartitionOffset(TopicName, 0, 10)]);
+        // The revoke handler reports the position the client had read to, which is always ahead
+        // of what has been acked: the offset acked here still has to be committed.
+        consumer.CommitOffsetsFor([new TopicPartitionOffset(TopicName, 0, 100)]);
 
         kafkaConsumer.Received(1).Commit(Arg.Is<IEnumerable<TopicPartitionOffset>>(offsets =>
             offsets.Single().Offset.Value == 42));
+    }
+
+    [Test]
+    public async Task When_Partitions_Are_Revoked_Should_Not_Commit_Their_Offsets_Again()
+    {
+        var kafkaConsumer = Substitute.For<IConsumer<string?, byte[]>>();
+        var subscription = CreateSubscription();
+        subscription.CommitBatchSize = 100;
+        var consumer = new ConfluentKafkaConsumer(kafkaConsumer, subscription);
+
+        await consumer.AckAsync(CreateMessage(41));
+        consumer.CommitOffsetsFor([new TopicPartitionOffset(TopicName, 0, 100)]);
+
+        // The partition belongs to another member of the group now, so closing must not commit
+        // for it again.
+        consumer.Dispose();
+
+        kafkaConsumer.Received(1).Commit(Arg.Any<IEnumerable<TopicPartitionOffset>>());
+        kafkaConsumer.Received(1).Commit(Arg.Is<IEnumerable<TopicPartitionOffset>>(offsets =>
+            offsets.Single().Offset.Value == 42));
+    }
+
+    [Test]
+    public async Task When_Acking_Several_Offsets_Of_A_Partition_Should_Commit_Only_The_Highest()
+    {
+        var kafkaConsumer = Substitute.For<IConsumer<string?, byte[]>>();
+        var subscription = CreateSubscription();
+        subscription.CommitBatchSize = 3;
+        using var consumer = new ConfluentKafkaConsumer(kafkaConsumer, subscription);
+
+        await consumer.AckAsync(CreateMessage(41));
+        await consumer.AckAsync(CreateMessage(42));
+        await consumer.AckAsync(CreateMessage(43));
+
+        await UntilAsync(() => CommitWasCalled(kafkaConsumer));
+        kafkaConsumer.Received(1).Commit(Arg.Is<IEnumerable<TopicPartitionOffset>>(offsets =>
+            offsets.Single().Offset.Value == 44));
+    }
+
+    [Test]
+    public async Task When_Acking_Behind_A_Committed_Offset_Should_Not_Commit_Backwards()
+    {
+        var kafkaConsumer = Substitute.For<IConsumer<string?, byte[]>>();
+        var subscription = CreateSubscription();
+        subscription.CommitBatchSize = 1;
+        using var consumer = new ConfluentKafkaConsumer(kafkaConsumer, subscription);
+
+        await consumer.AckAsync(CreateMessage(50));
+        await UntilAsync(() => CommitWasCalled(kafkaConsumer));
+
+        // A redelivery settled after the higher offset was committed must not move the group's
+        // committed offset back, which would replay everything in between.
+        await consumer.AckAsync(CreateMessage(30));
+
+        kafkaConsumer.Received(1).Commit(Arg.Any<IEnumerable<TopicPartitionOffset>>());
+        kafkaConsumer.Received(1).Commit(Arg.Is<IEnumerable<TopicPartitionOffset>>(offsets =>
+            offsets.Single().Offset.Value == 51));
     }
 
     [Test]

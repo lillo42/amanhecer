@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using Amanhecer.ConfluentKafka;
 using Amanhecer.ConfluentKafka.Provisioners;
 using Amanhecer.Messaging.Base.Tests;
 using Confluent.Kafka;

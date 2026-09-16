@@ -5,7 +5,6 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
-using Amanhecer.Dekaf;
 using Dekaf;
 using Dekaf.Consumer;
 using Dekaf.Serialization;
@@ -66,14 +65,14 @@ public class DekafConsumerTests
         }
     }
 
-    private static Message CreateMessage(long offset)
+    private static Message CreateMessage(long offset, int partition = 0)
     {
         return new Message
         {
             Payload = Encoding.UTF8.GetBytes("payload"),
             Metadata =
             {
-                [MetadataName.TopicPartitionOffset] = new TopicPartitionOffset(TopicName, 0, offset)
+                [MetadataName.TopicPartitionOffset] = new TopicPartitionOffset(TopicName, partition, offset)
             }
         };
     }
@@ -185,14 +184,55 @@ public class DekafConsumerTests
         await using var consumer = new DekafConsumer(kafkaConsumer, subscription);
 
         await consumer.AckAsync(CreateMessage(41));
-        await consumer.AckAsync(CreateMessage(42));
+        await consumer.AckAsync(CreateMessage(0, partition: 1));
 
         await UntilAsync(() => CommitWasCalled(kafkaConsumer));
         await kafkaConsumer.Received(1).CommitAsync(
             Arg.Is<IEnumerable<TopicPartitionOffset>>(offsets =>
                 offsets.Count() == 2
-                && offsets.Any(o => o.Offset == 42)
-                && offsets.Any(o => o.Offset == 43)),
+                && offsets.Any(o => o.Partition == 0 && o.Offset == 42)
+                && offsets.Any(o => o.Partition == 1 && o.Offset == 1)),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task When_Acking_Several_Offsets_Of_A_Partition_Should_Commit_Only_The_Highest()
+    {
+        var kafkaConsumer = Substitute.For<IKafkaConsumer<string, byte[]>>();
+        var subscription = CreateSubscription();
+        subscription.CommitBatchSize = 3;
+        await using var consumer = new DekafConsumer(kafkaConsumer, subscription);
+
+        await consumer.AckAsync(CreateMessage(41));
+        await consumer.AckAsync(CreateMessage(42));
+        await consumer.AckAsync(CreateMessage(43));
+
+        await UntilAsync(() => CommitWasCalled(kafkaConsumer));
+        await kafkaConsumer.Received(1).CommitAsync(
+            Arg.Is<IEnumerable<TopicPartitionOffset>>(offsets => offsets.Single().Offset == 44),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Test]
+    public async Task When_Acking_Behind_A_Committed_Offset_Should_Not_Commit_Backwards()
+    {
+        var kafkaConsumer = Substitute.For<IKafkaConsumer<string, byte[]>>();
+        var subscription = CreateSubscription();
+        subscription.CommitBatchSize = 1;
+        await using var consumer = new DekafConsumer(kafkaConsumer, subscription);
+
+        await consumer.AckAsync(CreateMessage(50));
+        await UntilAsync(() => CommitWasCalled(kafkaConsumer));
+
+        // A redelivery settled after the higher offset was committed must not move the group's
+        // committed offset back, which would replay everything in between.
+        await consumer.AckAsync(CreateMessage(30));
+
+        await kafkaConsumer.Received(1).CommitAsync(
+            Arg.Any<IEnumerable<TopicPartitionOffset>>(),
+            Arg.Any<CancellationToken>());
+        await kafkaConsumer.Received(1).CommitAsync(
+            Arg.Is<IEnumerable<TopicPartitionOffset>>(offsets => offsets.Single().Offset == 51),
             Arg.Any<CancellationToken>());
     }
 

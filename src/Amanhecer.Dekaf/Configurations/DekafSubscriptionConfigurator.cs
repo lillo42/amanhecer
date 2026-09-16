@@ -93,7 +93,7 @@ public class DekafSubscriptionConfigurator
 
     /// <summary>
     /// Sets where consumption starts when there is no committed offset for the consumer
-    /// group. Defaults to <see cref="Consumer.AutoOffsetReset.Earliest"/>.
+    /// group. Defaults to <see cref="global::Dekaf.Consumer.AutoOffsetReset.Earliest"/>.
     /// </summary>
     /// <param name="autoOffsetReset">The offset reset strategy.</param>
     /// <returns>The configurator instance for method chaining.</returns>
@@ -194,22 +194,20 @@ public class DekafSubscriptionConfigurator
         return this;
     }
 
-    private int _bufferSize = 1;
+    private Action<global::Dekaf.ConsumerBuilder<string, byte[]>>? _configure;
 
     /// <summary>
-    /// Sets the size of the buffer of messages prefetched by each consumer. Defaults to <c>1</c>.
+    /// Sets the callback invoked with the consumer builder before the consumer of this
+    /// subscription is created (see <see cref="DekafSubscription.Configure"/>). It runs after
+    /// the gateway-wide callback, so it can override the gateway configuration for this
+    /// subscription alone. This is also how the size of the batch each poll returns is set,
+    /// through the builder's throughput presets.
     /// </summary>
-    /// <param name="bufferSize">The buffer size.</param>
+    /// <param name="configure">The consumer builder callback.</param>
     /// <returns>The configurator instance for method chaining.</returns>
-    public DekafSubscriptionConfigurator BufferSize(int bufferSize)
+    public DekafSubscriptionConfigurator Configure(Action<global::Dekaf.ConsumerBuilder<string, byte[]>> configure)
     {
-        if (bufferSize <= 0)
-        {
-            throw new ArgumentOutOfRangeException(nameof(bufferSize),
-                "Buffer size must be greater than zero.");
-        }
-
-        _bufferSize = bufferSize;
+        _configure = configure ?? throw new ArgumentNullException(nameof(configure));
         return this;
     }
 
@@ -419,8 +417,8 @@ public class DekafSubscriptionConfigurator
             AutoOffsetReset = _autoOffsetReset,
             CommitBatchSize = _commitBatchSize,
             SweepUncommittedOffsetsInterval = _sweepUncommittedOffsetsInterval,
+            Configure = _configure,
             NumberOfConsumers = _numberOfConsumers,
-            BufferSize = _bufferSize,
             DefaultSpecVersion = _defaultSpecVersion,
             DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute),
             DefaultType = _defaultType ?? "default",

@@ -33,8 +33,11 @@ public class CreateTopic : IPublicationProvisioner, ISubscriptionProvisioner
 
     /// <summary>
     /// Gets or sets the time to wait for the topic creation to complete on the broker.
+    /// Defaults to 30 seconds. Without it the request returns as soon as the controller
+    /// accepts it, so a consumer subscribing right after provisioning can still fail with
+    /// <see cref="ErrorCode.UnknownTopicOrPart"/>.
     /// </summary>
-    public TimeSpan? Timeout { get; set; }
+    public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(30);
 
     /// <inheritdoc />
     public Task ExecuteAsync(IGateway gateway, IPublication publication)

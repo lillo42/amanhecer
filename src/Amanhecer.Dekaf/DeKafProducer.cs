@@ -278,6 +278,7 @@ public class DeKafProducer(IKafkaProducer<string, byte[]> producer) : IProducer,
     /// <inheritdoc />
     public async ValueTask DisposeAsync()
     {
-        await producer.DisposeAsync().ConfigureAwait(false);
+        await producer.FlushAsync();
+        await producer.DisposeAsync();
     }
 }

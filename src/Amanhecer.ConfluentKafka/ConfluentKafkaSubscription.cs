@@ -64,5 +64,5 @@ public class ConfluentKafkaSubscription : Subscription
     /// <see cref="ConfluentKafkaGateway.ConfigureConsumer"/> callback, so it can override the
     /// gateway-wide configuration for this subscription alone.
     /// </summary>
-    public Action<ConsumerConfig>? ConfigureConsumer { get; set; }
+    public Action<ConsumerConfig>? Configure { get; set; }
 }

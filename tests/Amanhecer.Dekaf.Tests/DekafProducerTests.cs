@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
-using Amanhecer.Dekaf;
 using Dekaf.Producer;
 using NSubstitute;
 

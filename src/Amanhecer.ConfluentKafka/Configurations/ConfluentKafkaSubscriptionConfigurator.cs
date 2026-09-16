@@ -194,10 +194,27 @@ public class ConfluentKafkaSubscriptionConfigurator
         return this;
     }
 
+    private Action<ConsumerConfig>? _configureConsumer;
+
+    /// <summary>
+    /// Sets a callback invoked with the <see cref="ConsumerConfig"/> before the consumer of
+    /// this subscription is created. It runs after the gateway-wide callback, so it can
+    /// override the gateway configuration for this subscription alone.
+    /// </summary>
+    /// <param name="configureConsumer">The consumer configuration callback.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public ConfluentKafkaSubscriptionConfigurator ConfigureConsumer(Action<ConsumerConfig> configureConsumer)
+    {
+        _configureConsumer = configureConsumer ?? throw new ArgumentNullException(nameof(configureConsumer));
+        return this;
+    }
+
     private int _bufferSize = 1;
 
     /// <summary>
-    /// Sets the size of the buffer of messages prefetched by each consumer. Defaults to <c>1</c>.
+    /// Sets how many messages a single poll returns at most: the consumer takes the records
+    /// the client has already fetched, up to this many, so they are processed as one batch.
+    /// Defaults to <c>1</c>.
     /// </summary>
     /// <param name="bufferSize">The buffer size.</param>
     /// <returns>The configurator instance for method chaining.</returns>
@@ -419,6 +436,7 @@ public class ConfluentKafkaSubscriptionConfigurator
             AutoOffsetReset = _autoOffsetReset,
             CommitBatchSize = _commitBatchSize,
             SweepUncommittedOffsetsInterval = _sweepUncommittedOffsetsInterval,
+            Configure = _configureConsumer,
             NumberOfConsumers = _numberOfConsumers,
             BufferSize = _bufferSize,
             DefaultSpecVersion = _defaultSpecVersion,

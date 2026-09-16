@@ -276,6 +276,7 @@ public class ConfluentKafkaProducer(IProducer<string?, byte[]> producer) : IProd
     /// <inheritdoc />
     public void Dispose()
     {
+        producer.Flush();
         producer.Dispose();
     }
 }

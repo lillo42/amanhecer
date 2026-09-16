@@ -86,6 +86,23 @@ public class DekafPublicationConfigurator
         return this;
     }
 
+    private Action<global::Dekaf.ProducerBuilder<string, byte[]>>? _configure;
+
+    /// <summary>
+    /// Sets the callback invoked with the producer builder before the producer of this
+    /// publication is created (see <see cref="DekafPublication.Configure"/>). It runs after the
+    /// gateway-wide callback, so it can override the gateway configuration for this publication
+    /// alone. Replacing it drops the default Murmur2Random partitioner, so set the partitioner
+    /// again when other clients have to agree on the partition a key lands on.
+    /// </summary>
+    /// <param name="configure">The producer builder callback.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public DekafPublicationConfigurator Configure(Action<global::Dekaf.ProducerBuilder<string, byte[]>> configure)
+    {
+        _configure = configure ?? throw new ArgumentNullException(nameof(configure));
+        return this;
+    }
+
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     private Type? _messageMapperType;
 
@@ -365,7 +382,7 @@ public class DekafPublicationConfigurator
             ];
         }
 
-        return new DekafPublication
+        var publication = new DekafPublication
         {
             RoutingKey = _routingKey!,
             Topic = _topic ?? _routingKey!,
@@ -384,5 +401,12 @@ public class DekafPublicationConfigurator
             DefaultContentType = _defaultContentType ?? new ContentType("text/plain"),
             DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute)
         };
+
+        if (_configure is not null)
+        {
+            publication.Configure = _configure;
+        }
+
+        return publication;
     }
 }

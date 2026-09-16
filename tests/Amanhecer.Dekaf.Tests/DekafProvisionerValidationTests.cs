@@ -1,7 +1,6 @@
 using System;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
-using Amanhecer.Dekaf;
 using Amanhecer.Dekaf.Provisioners;
 using NSubstitute;
 

@@ -55,10 +55,14 @@ public class ValidateTopicExists : IPublicationProvisioner, ISubscriptionProvisi
         }
 
         var adminClient = kafkaGateway.GetOrCreateAdminClient();
-        var metadata = adminClient.GetMetadata(topic, Timeout);
 
-        if (metadata.Topics.Count == 0
-            || metadata.Topics.Any(t => t.Error.Code == ErrorCode.UnknownTopicOrPart))
+        // Requesting the metadata of a named topic makes a broker with auto.create.topics.enable
+        // (the Kafka default) create it, which is exactly what this provisioner must not do, so
+        // the topic is looked up in the full cluster metadata instead.
+        var metadata = adminClient.GetMetadata(Timeout);
+
+        if (metadata.Topics.All(t => t.Topic != topic
+                || t.Error.Code == ErrorCode.UnknownTopicOrPart))
         {
             throw new InvalidOperationException($"The topic '{topic}' does not exist on the cluster.");
         }

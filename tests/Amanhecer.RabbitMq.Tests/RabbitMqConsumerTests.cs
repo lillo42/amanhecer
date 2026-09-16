@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
-using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
 using Microsoft.Extensions.Logging;
 using NSubstitute;

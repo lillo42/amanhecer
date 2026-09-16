@@ -1,5 +1,4 @@
 using System;
-using System.Threading.Channels;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
 using Amanhecer.InMemory.Provisioners;

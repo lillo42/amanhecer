@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -42,9 +41,12 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
     private readonly IConsumer<string?, byte[]> _consumer;
     private readonly ConfluentKafkaSubscription _subscription;
     private readonly ILogger<ConfluentKafkaConsumer> _logger;
-    private readonly ConcurrentBag<TopicPartitionOffset> _offsetStorage = [];
+    private readonly object _offsetLock = new();
+    private readonly Dictionary<TopicPartition, long> _pendingOffsets = [];
+    private readonly Dictionary<TopicPartition, long> _committedOffsets = [];
     private readonly SemaphoreSlim _flushToken = new(1, 1);
     private readonly Timer _sweeperTimer;
+    private long _acksSinceLastCommit;
     private DateTime _lastFlushAt = DateTime.UtcNow;
     private bool _hasFatalError;
     private bool _isClosed;
@@ -126,7 +128,30 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
         }
 
         var result = _consumer.Consume(cancellationToken);
-        return new ValueTask<Message[]>([ToMessage(result)]);
+
+        // Reaching the end of a partition is only reported when EnablePartitionEof is set, and
+        // carries no record: the result's message is null.
+        if (result.IsPartitionEOF)
+        {
+            return new ValueTask<Message[]>([]);
+        }
+
+        var messages = new List<Message>(_subscription.BufferSize) { ToMessage(result) };
+
+        // Take whatever the client has already fetched, up to the subscription's buffer size,
+        // so one pump iteration can process a batch instead of a single record.
+        while (messages.Count < _subscription.BufferSize)
+        {
+            var buffered = _consumer.Consume(TimeSpan.Zero);
+            if (buffered == null || buffered.IsPartitionEOF)
+            {
+                break;
+            }
+
+            messages.Add(ToMessage(buffered));
+        }
+
+        return new ValueTask<Message[]>([.. messages]);
     }
 
     /// <summary>
@@ -225,15 +250,96 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
             error.IsFatal);
     }
 
+    // Kafka commits one offset per partition, so only the highest acked offset of a partition
+    // is worth keeping: coalescing here keeps a commit to a single entry per partition and
+    // stops an out-of-order settlement from committing behind a higher offset.
     private void StoreOffset(TopicPartitionOffset topicPartitionOffset)
     {
-        _offsetStorage.Add(new TopicPartitionOffset(topicPartitionOffset.TopicPartition,
-            topicPartitionOffset.Offset + 1));
+        var nextOffset = topicPartitionOffset.Offset.Value + 1;
+        bool reachedBatchSize;
 
-        if (_offsetStorage.Count % _subscription.CommitBatchSize == 0)
+        lock (_offsetLock)
+        {
+            if (!_pendingOffsets.TryGetValue(topicPartitionOffset.TopicPartition, out var pending)
+                || nextOffset > pending)
+            {
+                _pendingOffsets[topicPartitionOffset.TopicPartition] = nextOffset;
+            }
+
+            // The counter is only reset once a commit actually takes the offsets, so a batch
+            // that cannot flush right away flushes on the next ack instead of being skipped.
+            _acksSinceLastCommit++;
+            reachedBatchSize = _acksSinceLastCommit >= _subscription.CommitBatchSize;
+        }
+
+        if (reachedBatchSize)
         {
             FlushOffsets();
         }
+    }
+
+    // Takes the partitions whose acked offset is ahead of the offset already committed for
+    // them, so a commit neither repeats nor regresses an offset.
+    private List<TopicPartitionOffset> TakeUncommittedOffsets()
+    {
+        lock (_offsetLock)
+        {
+            _acksSinceLastCommit = 0;
+
+            var offsets = new List<TopicPartitionOffset>(_pendingOffsets.Count);
+            foreach (var pending in _pendingOffsets)
+            {
+                if (IsUncommitted(pending.Key, pending.Value))
+                {
+                    offsets.Add(new TopicPartitionOffset(pending.Key, pending.Value));
+                }
+            }
+
+            return offsets;
+        }
+    }
+
+    // Takes the uncommitted offsets of the given partitions and forgets them: they are about
+    // to belong to another member of the group, whose committed offsets are authoritative.
+    private List<TopicPartitionOffset> TakeUncommittedOffsetsFor(List<TopicPartitionOffset> partitions)
+    {
+        lock (_offsetLock)
+        {
+            var offsets = new List<TopicPartitionOffset>(partitions.Count);
+            foreach (var partition in partitions)
+            {
+                if (_pendingOffsets.TryGetValue(partition.TopicPartition, out var pending)
+                    && IsUncommitted(partition.TopicPartition, pending))
+                {
+                    offsets.Add(new TopicPartitionOffset(partition.TopicPartition, pending));
+                }
+
+                _pendingOffsets.Remove(partition.TopicPartition);
+                _committedOffsets.Remove(partition.TopicPartition);
+            }
+
+            return offsets;
+        }
+    }
+
+    private void MarkCommitted(List<TopicPartitionOffset> offsets)
+    {
+        lock (_offsetLock)
+        {
+            foreach (var offset in offsets)
+            {
+                if (IsUncommitted(offset.TopicPartition, offset.Offset.Value))
+                {
+                    _committedOffsets[offset.TopicPartition] = offset.Offset.Value;
+                }
+            }
+        }
+    }
+
+    // Callers must hold _offsetLock.
+    private bool IsUncommitted(TopicPartition topicPartition, long offset)
+    {
+        return !_committedOffsets.TryGetValue(topicPartition, out var committed) || offset > committed;
     }
 
     // The batch size has been reached: commit on a background thread, unless another commit
@@ -255,29 +361,20 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
         }
     }
 
-    // Commits up to one batch's worth of stored offsets, so a busy pump keeps triggering
-    // batches instead of one commit draining the bag indefinitely.
+    // Commits every offset acked since the last commit. A failed commit leaves the pending
+    // offsets in place, so the next batch or sweep retries them.
     private void CommitOffsets()
     {
         try
         {
-            var offsets = new List<TopicPartitionOffset>();
-            for (var i = 0; i < _subscription.CommitBatchSize; i++)
-            {
-                if (_offsetStorage.TryTake(out var offset))
-                {
-                    offsets.Add(offset);
-                }
-                else
-                {
-                    break;
-                }
-            }
-
+            var offsets = TakeUncommittedOffsets();
             if (offsets.Count > 0)
             {
                 _consumer.Commit(offsets);
+                MarkCommitted(offsets);
             }
+
+            _lastFlushAt = DateTime.UtcNow;
         }
         catch (Exception e)
         {
@@ -289,7 +386,7 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
         }
     }
 
-    // If it has been too long since the last flush, commit everything stored, so partially
+    // If it has been too long since the last commit, commit everything pending, so partially
     // complete batches on low-traffic topics do not linger uncommitted.
     private void SweepOffsets()
     {
@@ -298,8 +395,7 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
             return;
         }
 
-        var now = DateTime.UtcNow;
-        if (now - _lastFlushAt < _subscription.SweepUncommittedOffsetsInterval)
+        if (DateTime.UtcNow - _lastFlushAt < _subscription.SweepUncommittedOffsetsInterval)
         {
             return;
         }
@@ -311,42 +407,17 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
         }
 
         Task.Factory.StartNew(
-            _ => CommitAllOffsets(now),
+            _ => CommitOffsets(),
             null,
             CancellationToken.None,
             TaskCreationOptions.DenyChildAttach,
             TaskScheduler.Default);
     }
 
-    private void CommitAllOffsets(DateTime flushTime)
-    {
-        try
-        {
-            var offsets = new List<TopicPartitionOffset>();
-            while (_offsetStorage.TryTake(out var offset))
-            {
-                offsets.Add(offset);
-            }
-
-            if (offsets.Count > 0)
-            {
-                _consumer.Commit(offsets);
-            }
-
-            _lastFlushAt = flushTime;
-        }
-        catch (Exception e)
-        {
-            Logger.ErrorCommittingOffsets(_logger, e.Message);
-        }
-        finally
-        {
-            _flushToken.Release(1);
-        }
-    }
-
-    // Called during a rebalance: commit the stored offsets of the revoked partitions before
-    // they are assigned to another member of the group.
+    // Called during a rebalance: commit the offsets acked for the revoked partitions before
+    // they are assigned to another member of the group. The positions the handler reports are
+    // where this consumer had read to, which is always ahead of what has been settled, so they
+    // are no bound on what can be committed.
     internal void CommitOffsetsFor(List<TopicPartitionOffset> revokedPartitions)
     {
         try
@@ -361,13 +432,7 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
 
             try
             {
-                var revokedOffsets = _offsetStorage
-                    .Where(tpo => revokedPartitions.Any(r =>
-                        r.TopicPartition == tpo.TopicPartition
-                        && r.Offset.Value != Offset.Unset.Value
-                        && tpo.Offset.Value > r.Offset.Value))
-                    .ToList();
-
+                var revokedOffsets = TakeUncommittedOffsetsFor(revokedPartitions);
                 if (revokedOffsets.Count > 0)
                 {
                     _consumer.Commit(revokedOffsets);
@@ -405,15 +470,21 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
     {
         _sweeperTimer.Dispose();
 
+        // A background commit holds the flush token while it uses the client, so taking the
+        // token is what makes closing the client safe.
+        var flushTokenTaken = _flushToken.Wait(SCommitSyncTimeout);
+
         if (!_isClosed)
         {
             try
             {
-                // Wait for any in-flight background commit before committing what remains.
-                if (_flushToken.Wait(SCommitSyncTimeout))
+                if (flushTokenTaken)
                 {
-                    // Releases the flush token.
-                    CommitAllOffsets(DateTime.UtcNow);
+                    var offsets = TakeUncommittedOffsets();
+                    if (offsets.Count > 0)
+                    {
+                        _consumer.Commit(offsets);
+                    }
                 }
                 else
                 {
@@ -427,13 +498,24 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
             }
             finally
             {
+                if (flushTokenTaken)
+                {
+                    _flushToken.Release(1);
+                }
+
                 _consumer.Close();
                 _isClosed = true;
             }
         }
 
         _consumer.Dispose();
-        _flushToken.Dispose();
+
+        // A commit that is still in flight releases the token when it finishes, and releasing
+        // a disposed semaphore throws, so the token outlives the consumer in that case.
+        if (flushTokenTaken)
+        {
+            _flushToken.Dispose();
+        }
     }
 
     private bool TryGetTopicPartitionOffset(Message message, out TopicPartitionOffset topicPartitionOffset)

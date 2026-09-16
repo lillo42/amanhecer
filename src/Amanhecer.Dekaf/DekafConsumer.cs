@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -42,9 +41,12 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
     private readonly IKafkaConsumer<string, byte[]> _consumer;
     private readonly DekafSubscription _subscription;
     private readonly ILogger<DekafConsumer> _logger;
-    private readonly ConcurrentBag<TopicPartitionOffset> _offsetStorage = [];
+    private readonly object _offsetLock = new();
+    private readonly Dictionary<(string Topic, int Partition), long> _pendingOffsets = [];
+    private readonly Dictionary<(string Topic, int Partition), long> _committedOffsets = [];
     private readonly SemaphoreSlim _flushToken = new(1, 1);
     private readonly Timer _sweeperTimer;
+    private long _acksSinceLastCommit;
     private DateTime _lastFlushAt = DateTime.UtcNow;
     private bool _isClosed;
 
@@ -85,7 +87,7 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
         {
             if (result.IsPartitionEof)
             {
-                continue;
+                break;
             }
 
             return [.. result.Select(ToMessage)];
@@ -170,15 +172,67 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
         return new ValueTask();
     }
 
+    // Kafka commits one offset per partition, so only the highest acked offset of a partition
+    // is worth keeping: coalescing here keeps a commit to a single entry per partition and
+    // stops an out-of-order settlement from committing behind a higher offset.
     private void StoreOffset(TopicPartitionOffset topicPartitionOffset)
     {
-        _offsetStorage.Add(new TopicPartitionOffset(topicPartitionOffset.Topic,
-            topicPartitionOffset.Partition,
-            topicPartitionOffset.Offset + 1));
+        var topicPartition = (topicPartitionOffset.Topic, topicPartitionOffset.Partition);
+        var nextOffset = topicPartitionOffset.Offset + 1;
+        bool reachedBatchSize;
 
-        if (_offsetStorage.Count % _subscription.CommitBatchSize == 0)
+        lock (_offsetLock)
+        {
+            if (!_pendingOffsets.TryGetValue(topicPartition, out var pending) || nextOffset > pending)
+            {
+                _pendingOffsets[topicPartition] = nextOffset;
+            }
+
+            // The counter is only reset once a commit actually takes the offsets, so a batch
+            // that cannot flush right away flushes on the next ack instead of being skipped.
+            _acksSinceLastCommit++;
+            reachedBatchSize = _acksSinceLastCommit >= _subscription.CommitBatchSize;
+        }
+
+        if (reachedBatchSize)
         {
             FlushOffsets();
+        }
+    }
+
+    // Takes the partitions whose acked offset is ahead of the offset already committed for
+    // them, so a commit neither repeats nor regresses an offset.
+    private List<TopicPartitionOffset> TakeUncommittedOffsets()
+    {
+        lock (_offsetLock)
+        {
+            _acksSinceLastCommit = 0;
+
+            var offsets = new List<TopicPartitionOffset>(_pendingOffsets.Count);
+            foreach (var pending in _pendingOffsets)
+            {
+                if (!_committedOffsets.TryGetValue(pending.Key, out var committed) || pending.Value > committed)
+                {
+                    offsets.Add(new TopicPartitionOffset(pending.Key.Topic, pending.Key.Partition, pending.Value));
+                }
+            }
+
+            return offsets;
+        }
+    }
+
+    private void MarkCommitted(List<TopicPartitionOffset> offsets)
+    {
+        lock (_offsetLock)
+        {
+            foreach (var offset in offsets)
+            {
+                var topicPartition = (offset.Topic, offset.Partition);
+                if (!_committedOffsets.TryGetValue(topicPartition, out var committed) || offset.Offset > committed)
+                {
+                    _committedOffsets[topicPartition] = offset.Offset;
+                }
+            }
         }
     }
 
@@ -196,29 +250,20 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
         }
     }
 
-    // Commits up to one batch's worth of stored offsets, so a busy pump keeps triggering
-    // batches instead of one commit draining the bag indefinitely.
+    // Commits every offset acked since the last commit. A failed commit leaves the pending
+    // offsets in place, so the next batch or sweep retries them.
     private async Task CommitOffsetsAsync()
     {
         try
         {
-            var offsets = new List<TopicPartitionOffset>();
-            for (var i = 0; i < _subscription.CommitBatchSize; i++)
-            {
-                if (_offsetStorage.TryTake(out var offset))
-                {
-                    offsets.Add(offset);
-                }
-                else
-                {
-                    break;
-                }
-            }
-
+            var offsets = TakeUncommittedOffsets();
             if (offsets.Count > 0)
             {
                 await _consumer.CommitAsync(offsets);
+                MarkCommitted(offsets);
             }
+
+            _lastFlushAt = DateTime.UtcNow;
         }
         catch (Exception e)
         {
@@ -230,7 +275,7 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
         }
     }
 
-    // If it has been too long since the last flush, commit everything stored, so partially
+    // If it has been too long since the last commit, commit everything pending, so partially
     // complete batches on low-traffic topics do not linger uncommitted.
     private void SweepOffsets()
     {
@@ -239,8 +284,7 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
             return;
         }
 
-        var now = DateTime.UtcNow;
-        if (now - _lastFlushAt < _subscription.SweepUncommittedOffsetsInterval)
+        if (DateTime.UtcNow - _lastFlushAt < _subscription.SweepUncommittedOffsetsInterval)
         {
             return;
         }
@@ -251,34 +295,7 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
             return;
         }
 
-        _ = Task.Run(() => CommitAllOffsetsAsync(now));
-    }
-
-    private async Task CommitAllOffsetsAsync(DateTime flushTime)
-    {
-        try
-        {
-            var offsets = new List<TopicPartitionOffset>();
-            while (_offsetStorage.TryTake(out var offset))
-            {
-                offsets.Add(offset);
-            }
-
-            if (offsets.Count > 0)
-            {
-                await _consumer.CommitAsync(offsets);
-            }
-
-            _lastFlushAt = flushTime;
-        }
-        catch (Exception e)
-        {
-            Logger.ErrorCommittingOffsets(_logger, e.Message);
-        }
-        finally
-        {
-            _flushToken.Release(1);
-        }
+        _ = Task.Run(CommitOffsetsAsync);
     }
 
     private async Task ResumeAfterDelay(TopicPartition topicPartition, TimeSpan delay)
@@ -308,29 +325,20 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
         _sweeperTimer.Dispose();
 #endif
 
+        // A background commit holds the flush token while it uses the client, so taking the
+        // token is what makes closing the client safe.
+        var flushTokenTaken = await _flushToken.WaitAsync(SCommitSyncTimeout);
+
         if (!_isClosed)
         {
             try
             {
-                // Wait for any in-flight background commit before committing what remains.
-                if (await _flushToken.WaitAsync(SCommitSyncTimeout))
+                if (flushTokenTaken)
                 {
-                    try
+                    var offsets = TakeUncommittedOffsets();
+                    if (offsets.Count > 0)
                     {
-                        var offsets = new List<TopicPartitionOffset>();
-                        while (_offsetStorage.TryTake(out var offset))
-                        {
-                            offsets.Add(offset);
-                        }
-
-                        if (offsets.Count > 0)
-                        {
-                            await _consumer.CommitAsync(offsets);
-                        }
-                    }
-                    finally
-                    {
-                        _flushToken.Release(1);
+                        await _consumer.CommitAsync(offsets);
                     }
                 }
                 else
@@ -345,6 +353,11 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
             }
             finally
             {
+                if (flushTokenTaken)
+                {
+                    _flushToken.Release(1);
+                }
+
                 _isClosed = true;
             }
         }
@@ -359,7 +372,13 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
         }
 
         await _consumer.DisposeAsync();
-        _flushToken.Dispose();
+
+        // A commit that is still in flight releases the token when it finishes, and releasing
+        // a disposed semaphore throws, so the token outlives the consumer in that case.
+        if (flushTokenTaken)
+        {
+            _flushToken.Dispose();
+        }
     }
 
     private bool TryGetTopicPartitionOffset(Message message, out TopicPartitionOffset topicPartitionOffset)

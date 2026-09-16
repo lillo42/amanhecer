@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
 using Dekaf;
 using Dekaf.Admin;
 using Dekaf.Consumer;
+using Dekaf.Security.Sasl;
 using Microsoft.Extensions.Logging;
 
 namespace Amanhecer.Dekaf;
@@ -15,13 +15,7 @@ namespace Amanhecer.Dekaf;
 /// </summary>
 public class DekafGateway : Gateway<DekafPublication, DekafSubscription>, ILoggerFactorySupport, IAsyncDisposable
 {
-    private readonly SemaphoreSlim _provisioningLock = new(1, 1);
-    private readonly object _adminClientLock = new();
-
-    private readonly List<DeKafProducer> _producers = [];
-    private readonly List<DekafConsumer> _consumers = [];
     private IAdminClient? _adminClient;
-    private bool _provisioned;
     private bool _disposed;
 
     /// <inheritdoc />
@@ -32,6 +26,10 @@ public class DekafGateway : Gateway<DekafPublication, DekafSubscription>, ILogge
     /// <c>host1:port1,host2:port2</c> form.
     /// </summary>
     public string? BootstrapServers { get; set; }
+
+    public SaslMechanism? SaslMechanism { get; set; }
+    public string? SaslUsername { get; set; }
+    public string? SaslPassword { get; set; }
 
     /// <summary>
     /// Gets or sets a callback invoked with the <see cref="ProducerBuilder{TKey, TValue}"/>
@@ -58,67 +56,37 @@ public class DekafGateway : Gateway<DekafPublication, DekafSubscription>, ILogge
             throw new ObjectDisposedException(nameof(DekafGateway));
         }
 
-        lock (_adminClientLock)
+        if (_adminClient == null)
         {
-            if (_disposed)
+            var builder = Kafka.CreateAdminClient();
+            if (BootstrapServers != null)
             {
-                throw new ObjectDisposedException(nameof(DekafGateway));
+                builder.WithBootstrapServers(BootstrapServers);
             }
 
-            if (_adminClient == null)
+            if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.None)
             {
-                var builder = Kafka.CreateAdminClient();
-                if (BootstrapServers != null)
-                {
-                    builder.WithBootstrapServers(BootstrapServers);
-                }
-
-                ConfigureAdmin?.Invoke(builder);
-                _adminClient = builder.Build();
+                builder.WithSaslPlain(SaslUsername!, SaslPassword!);
+            }
+            else if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.ScramSha256)
+            {
+                builder.WithSaslScramSha256(SaslUsername!, SaslPassword!);
+            }
+            else if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.ScramSha512)
+            {
+                builder.WithSaslScramSha512(SaslUsername!, SaslPassword!);
             }
 
-            return _adminClient;
-        }
-    }
-
-    /// <summary>
-    /// Executes the provisioners declared by the publications and subscriptions. Provisioning
-    /// runs at most once per gateway: later calls are no-ops, unless the first attempt failed,
-    /// in which case the next call retries.
-    /// </summary>
-    /// <returns>A <see cref="ValueTask"/> that completes when all provisioners have run.</returns>
-    public override async ValueTask ProvisionerAsync()
-    {
-        if (_provisioned)
-        {
-            return;
+            ConfigureAdmin?.Invoke(builder);
+            _adminClient = builder.Build();
         }
 
-        await _provisioningLock.WaitAsync();
-        try
-        {
-            if (_provisioned)
-            {
-                return;
-            }
-
-            await base.ProvisionerAsync();
-
-            _provisioned = true;
-        }
-        finally
-        {
-            _provisioningLock.Release();
-        }
+        return _adminClient;
     }
 
     /// <inheritdoc />
     public override IReadOnlyDictionary<string, IProducer> CreateProducers()
     {
-        // The publish path provisions lazily: the first producer creation runs the
-        // provisioners, so publish-only applications get their topics before the first publish.
-        ProvisionerAsync().GetAwaiter().GetResult();
-
         var producers = new Dictionary<string, IProducer>();
 
         foreach (var publication in Publications)
@@ -129,18 +97,38 @@ public class DekafGateway : Gateway<DekafPublication, DekafSubscription>, ILogge
                 builder.WithBootstrapServers(BootstrapServers);
             }
 
+            if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.None)
+            {
+                builder.WithSaslPlain(SaslUsername!, SaslPassword!);
+            }
+            else if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.ScramSha256)
+            {
+                builder.WithSaslScramSha256(SaslUsername!, SaslPassword!);
+            }
+            else if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.ScramSha512)
+            {
+                builder.WithSaslScramSha512(SaslUsername!, SaslPassword!);
+            }
+
             ConfigureProducer?.Invoke(builder);
             publication.Configure(builder);
 
             var producer = new DeKafProducer(builder.Build());
             producers.Add(publication.RoutingKey, producer);
-            _producers.Add(producer);
         }
 
         return producers;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Creates, or hands back, one of the consumers of the subscription. Each consumer is a
+    /// member of the subscription's consumer group, so the gateway keeps
+    /// <see cref="Subscription.NumberOfConsumers"/> of them per subscription and reuses them:
+    /// the hosted service creates its consumers again on every start, and building new clients
+    /// would leave the previous ones joined to the group without anything polling them.
+    /// </summary>
+    /// <param name="subscription">The subscription to consume for.</param>
+    /// <returns>The consumer to poll.</returns>
     public override IConsumer CreateConsumer(ISubscription subscription)
     {
         if (subscription is not DekafSubscription dekafSubscription)
@@ -162,15 +150,25 @@ public class DekafGateway : Gateway<DekafPublication, DekafSubscription>, ILogge
             builder.WithBootstrapServers(BootstrapServers);
         }
 
+        if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.None)
+        {
+            builder.WithSaslPlain(SaslUsername!, SaslPassword!);
+        }
+        else if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.ScramSha256)
+        {
+            builder.WithSaslScramSha256(SaslUsername!, SaslPassword!);
+        }
+        else if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.ScramSha512)
+        {
+            builder.WithSaslScramSha512(SaslUsername!, SaslPassword!);
+        }
+
         ConfigureConsumer?.Invoke(builder);
         dekafSubscription.Configure?.Invoke(builder);
 
-        var consumer = new DekafConsumer(builder.Build(),
+        return new DekafConsumer(builder.Build(),
             dekafSubscription,
             LoggerFactory?.CreateLogger<DekafConsumer>());
-        _consumers.Add(consumer);
-
-        return consumer;
     }
 
     /// <summary>
@@ -185,26 +183,9 @@ public class DekafGateway : Gateway<DekafPublication, DekafSubscription>, ILogge
         }
 
         _disposed = true;
-
-        foreach (var consumer in _consumers)
-        {
-            await consumer.DisposeAsync();
-        }
-
-        _consumers.Clear();
-
-        foreach (var producer in _producers)
-        {
-            await producer.DisposeAsync();
-        }
-
-        _producers.Clear();
-
         if (_adminClient != null)
         {
             await _adminClient.DisposeAsync();
         }
-
-        _provisioningLock.Dispose();
     }
 }

@@ -7,6 +7,8 @@ using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
 using Amanhecer.ConfluentKafka.Provisioners;
 using Amanhecer.Messaging.Transformers;
+using Confluent.Kafka;
+using Uuid = Amanhecer.Abstractions.Uuid;
 
 namespace Amanhecer.ConfluentKafka.Configurations;
 
@@ -83,6 +85,23 @@ public class ConfluentKafkaPublicationConfigurator
     public ConfluentKafkaPublicationConfigurator WaitForConfirmation(bool waitForConfirmation = true)
     {
         _waitForConfirmation = waitForConfirmation;
+        return this;
+    }
+
+    private Action<ProducerConfig>? _configureProducer;
+
+    /// <summary>
+    /// Sets a callback invoked with the <see cref="ProducerConfig"/> before the producer of
+    /// this publication is created. It runs after the gateway-wide callback, so it can
+    /// override the gateway configuration for this publication alone. Replacing it drops the
+    /// default <see cref="Partitioner.Murmur2Random"/> partitioner, so set the partitioner
+    /// again when other clients have to agree on the partition a key lands on.
+    /// </summary>
+    /// <param name="configureProducer">The producer configuration callback.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public ConfluentKafkaPublicationConfigurator ConfigureProducer(Action<ProducerConfig> configureProducer)
+    {
+        _configureProducer = configureProducer ?? throw new ArgumentNullException(nameof(configureProducer));
         return this;
     }
 
@@ -365,7 +384,7 @@ public class ConfluentKafkaPublicationConfigurator
             ];
         }
 
-        return new ConfluentKafkaPublication
+        var publication = new ConfluentKafkaPublication
         {
             RoutingKey = _routingKey!,
             Topic = _topic ?? _routingKey!,
@@ -384,5 +403,12 @@ public class ConfluentKafkaPublicationConfigurator
             DefaultContentType = _defaultContentType ?? new ContentType("text/plain"),
             DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute)
         };
+
+        if (_configureProducer is not null)
+        {
+            publication.ConfigureProducer = _configureProducer;
+        }
+
+        return publication;
     }
 }

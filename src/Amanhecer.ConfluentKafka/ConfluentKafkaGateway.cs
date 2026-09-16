@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
 using Confluent.Kafka;
 using Microsoft.Extensions.Logging;
@@ -11,15 +9,11 @@ namespace Amanhecer.ConfluentKafka;
 /// <summary>
 /// A gateway that publishes messages to, and consumes messages from, a Kafka cluster.
 /// </summary>
-public class ConfluentKafkaGateway : Gateway<ConfluentKafkaPublication, ConfluentKafkaSubscription>, ILoggerFactorySupport, IDisposable
+public class ConfluentKafkaGateway : Gateway<ConfluentKafkaPublication, ConfluentKafkaSubscription>,
+    ILoggerFactorySupport, IDisposable
 {
-    private readonly SemaphoreSlim _provisioningLock = new(1, 1);
-    private readonly List<ConfluentKafkaProducer> _producers = [];
-    private readonly List<ConfluentKafkaConsumer> _consumers = [];
-    private readonly object _adminClientLock = new();
-    private IAdminClient? _adminClient;
-    private bool _provisioned;
     private bool _disposed;
+    private IAdminClient? _adminClient;
 
     /// <inheritdoc />
     public ILoggerFactory? LoggerFactory { get; set; }
@@ -55,62 +49,19 @@ public class ConfluentKafkaGateway : Gateway<ConfluentKafkaPublication, Confluen
             throw new ObjectDisposedException(nameof(ConfluentKafkaGateway));
         }
 
-        lock (_adminClientLock)
+        if (_adminClient == null)
         {
-            if (_disposed)
-            {
-                throw new ObjectDisposedException(nameof(ConfluentKafkaGateway));
-            }
-
-            if (_adminClient == null)
-            {
-                var config = new AdminClientConfig { BootstrapServers = BootstrapServers };
-                ConfigureAdmin?.Invoke(config);
-                _adminClient = new AdminClientBuilder(config).Build();
-            }
-
-            return _adminClient;
-        }
-    }
-
-    /// <summary>
-    /// Executes the provisioners declared by the publications and subscriptions. Provisioning
-    /// runs at most once per gateway: later calls are no-ops, unless the first attempt failed,
-    /// in which case the next call retries.
-    /// </summary>
-    /// <returns>A <see cref="ValueTask"/> that completes when all provisioners have run.</returns>
-    public override async ValueTask ProvisionerAsync()
-    {
-        if (_provisioned)
-        {
-            return;
+            var config = new AdminClientConfig { BootstrapServers = BootstrapServers };
+            ConfigureAdmin?.Invoke(config);
+            _adminClient = new AdminClientBuilder(config).Build();
         }
 
-        await _provisioningLock.WaitAsync();
-        try
-        {
-            if (_provisioned)
-            {
-                return;
-            }
-
-            await base.ProvisionerAsync();
-
-            _provisioned = true;
-        }
-        finally
-        {
-            _provisioningLock.Release();
-        }
+        return _adminClient;
     }
 
     /// <inheritdoc />
     public override IReadOnlyDictionary<string, IProducer> CreateProducers()
     {
-        // The publish path provisions lazily: the first producer creation runs the
-        // provisioners, so publish-only applications get their topics before the first publish.
-        ProvisionerAsync().GetAwaiter().GetResult();
-
         var producers = new Dictionary<string, IProducer>();
 
         foreach (var publication in Publications)
@@ -119,16 +70,22 @@ public class ConfluentKafkaGateway : Gateway<ConfluentKafkaPublication, Confluen
             ConfigureProducer?.Invoke(config);
             publication.ConfigureProducer.Invoke(config);
 
-            var producer = new ConfluentKafkaProducer(
-                new ProducerBuilder<string?, byte[]>(config).Build());
+            var producer = new ConfluentKafkaProducer(new ProducerBuilder<string?, byte[]>(config).Build());
             producers.Add(publication.RoutingKey, producer);
-            _producers.Add(producer);
         }
 
         return producers;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Creates, or hands back, one of the consumers of the subscription. Each consumer is a
+    /// member of the subscription's consumer group, so the gateway keeps
+    /// <see cref="Subscription.NumberOfConsumers"/> of them per subscription and reuses them:
+    /// the hosted service creates its consumers again on every start, and building new clients
+    /// would leave the previous ones joined to the group without anything polling them.
+    /// </summary>
+    /// <param name="subscription">The subscription to consume for.</param>
+    /// <returns>The consumer to poll.</returns>
     public override IConsumer CreateConsumer(ISubscription subscription)
     {
         if (subscription is not ConfluentKafkaSubscription kafkaSubscription)
@@ -147,18 +104,15 @@ public class ConfluentKafkaGateway : Gateway<ConfluentKafkaPublication, Confluen
             EnableAutoOffsetStore = false,
             EnableAutoCommit = false,
             // Topics are provisioned explicitly through the gateway's provisioners.
-            AllowAutoCreateTopics = false,
+            AllowAutoCreateTopics = false
         };
 
         ConfigureConsumer?.Invoke(config);
-        kafkaSubscription.ConfigureConsumer?.Invoke(config);
+        kafkaSubscription.Configure?.Invoke(config);
 
-        var consumer = new ConfluentKafkaConsumer(config,
+        return new ConfluentKafkaConsumer(config,
             kafkaSubscription,
             LoggerFactory?.CreateLogger<ConfluentKafkaConsumer>());
-        _consumers.Add(consumer);
-
-        return consumer;
     }
 
     /// <summary>
@@ -172,21 +126,6 @@ public class ConfluentKafkaGateway : Gateway<ConfluentKafkaPublication, Confluen
         }
 
         _disposed = true;
-
-        foreach (var consumer in _consumers)
-        {
-            consumer.Dispose();
-        }
-
-        _consumers.Clear();
-
-        foreach (var producer in _producers)
-        {
-            producer.Dispose();
-        }
-
-        _producers.Clear();
         _adminClient?.Dispose();
-        _provisioningLock.Dispose();
     }
 }

@@ -15,7 +15,7 @@ public class DekafPublication : Publication
     /// <summary>
     /// Gets or sets the name of the topic messages are produced to.
     /// </summary>
-    public string Topic { get; set; }
+    public string Topic { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets the encoding used to encode string message headers and CloudEvents attributes

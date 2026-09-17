@@ -83,6 +83,7 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
     /// <inheritdoc />
     public async ValueTask<Message[]> GetMessagesAsync(CancellationToken cancellationToken = default)
     {
+        await _consumer.InitializeAsync(cancellationToken);
         await foreach (var batch in _consumer.ConsumeBatchAsync(cancellationToken))
         {
             if (batch.IsPartitionEof)

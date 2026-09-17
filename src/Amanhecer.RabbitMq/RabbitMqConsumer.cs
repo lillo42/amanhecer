@@ -86,7 +86,7 @@ public partial class RabbitMqConsumer : IConsumer
         }
 
         var attempts = message.Metadata.TryGetValue(MetadataName.DeliveryAttempts, out var value)
-            && value is int count
+                       && value is int count
             ? count
             : 1;
 
@@ -107,8 +107,20 @@ public partial class RabbitMqConsumer : IConsumer
     /// <inheritdoc />
     public async ValueTask<Message[]> GetMessagesAsync(CancellationToken cancellationToken = default)
     {
-        var message = await _poller.Messages.ReadAsync(cancellationToken);
-        return [message];
+        await _poller.Messages.WaitToReadAsync(cancellationToken);
+
+        var buffer = new Message[_subscription.BufferSize];
+        for (var i = 0; i < _subscription.BufferSize && !cancellationToken.IsCancellationRequested; i++)
+        {
+            if (!_poller.Messages.TryRead(out var message))
+            {
+                break;
+            }
+
+            buffer[i] = message;
+        }
+
+        return buffer;
     }
 
     private bool TryGetDeliveryTag(Message message, out ulong deliveryTag)
@@ -133,7 +145,8 @@ public partial class RabbitMqConsumer : IConsumer
 
         [LoggerMessage(LogLevel.Warning,
             "Message {MessageId} from queue {QueueName} reached the maximum of {MaxDeliveryAttempts} delivery attempts: nacking without requeue")]
-        public static partial void MaxDeliveryAttemptsReached(ILogger logger, string messageId, string queueName, int maxDeliveryAttempts);
+        public static partial void MaxDeliveryAttemptsReached(ILogger logger, string messageId, string queueName,
+            int maxDeliveryAttempts);
 
         [LoggerMessage(LogLevel.Warning,
             "No maximum delivery attempts configured for queue {QueueName}: a persistently failing message is requeued and redelivered immediately, forever. Configure a broker-side redelivery policy (e.g. a quorum queue delivery-limit with a dead-letter exchange) or set MaxDeliveryAttempts on the subscription to bound redeliveries.")]

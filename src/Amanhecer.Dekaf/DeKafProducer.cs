@@ -25,15 +25,17 @@ public class DeKafProducer(IKafkaProducer<string, byte[]> producer) : IProducer,
 
         var producerMessage = ToDeKafMessage(message, dekafPublication);
 
+        
+        await producer.InitializeAsync().ConfigureAwait(context.ContinueOnCapturedContext);
         if (dekafPublication.WaitForConfirmation)
         {
             // Await the delivery result: broker errors surface as publish exceptions and the
             // task only completes once the record is acknowledged.
-            await producer.ProduceAsync(producerMessage);
+            await producer.ProduceAsync(producerMessage).ConfigureAwait(context.ContinueOnCapturedContext);
             return;
         }
 
-        await producer.FireAsync(producerMessage);
+        await producer.FireAsync(producerMessage).ConfigureAwait(context.ContinueOnCapturedContext);
     }
 
     private static ProducerMessage<string, byte[]> ToDeKafMessage(Message message,

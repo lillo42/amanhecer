@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Mime;
 using System.Text;
 using System.Threading;
@@ -70,6 +71,33 @@ public abstract class MessagingGatewayTests
         return messages[0];
     }
 
+    /// <summary>
+    /// Receives at least <paramref name="count"/> messages from the fixture's consumer,
+    /// polling until all are collected or <paramref name="timeout"/> elapses.
+    /// </summary>
+    /// <param name="fixture">The fixture whose consumer receives the messages.</param>
+    /// <param name="count">The minimum number of messages to receive.</param>
+    /// <param name="timeout">How long to wait in total.</param>
+    /// <returns>The received messages.</returns>
+    protected static async Task<Message[]> ReceiveManyAsync(MessagingGatewayFixture fixture, int count, TimeSpan timeout)
+    {
+        using var cts = new CancellationTokenSource(timeout);
+        var received = new List<Message>(count);
+
+        while (received.Count < count)
+        {
+            var batch = await fixture.Consumer.GetMessagesAsync(cts.Token);
+            if (batch.Length == 0)
+            {
+                continue;
+            }
+
+            received.AddRange(batch);
+        }
+
+        return [.. received.Take(count)];
+    }
+
     [Test]
     public async Task When_Producing_A_Message_Should_Be_Received()
     {
@@ -98,13 +126,13 @@ public abstract class MessagingGatewayTests
             await fixture.Producer.ProduceAsync(message, fixture.Publication, new AmanhecerContext());
         }
 
-        var receivedIds = new List<string>();
-        for (var i = 0; i < messages.Length; i++)
+        var received = await ReceiveManyAsync(fixture, messages.Length, ReceiveTimeout);
+        foreach (var message in received)
         {
-            var received = await ReceiveOneAsync(fixture, ReceiveTimeout);
-            receivedIds.Add(received.Id);
-            await fixture.Consumer.AckAsync(received);
+            await fixture.Consumer.AckAsync(message);
         }
+
+        var receivedIds = received.Select(m => m.Id).ToArray();
 
         await Assert.That(receivedIds).Count().IsEqualTo(messages.Length);
         foreach (var message in messages)

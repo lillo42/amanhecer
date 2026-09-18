@@ -171,7 +171,7 @@ public class ParallelBatchProcessingStrategy : BatchProcessingStrategyBase, IBat
         var tasks = new List<Task>(ParallelExecutionOptions.MaxDegreeOfParallelism);
         foreach (var message in groupedMessages)
         {
-            tasks.Add(Action(message, cancellationToken));
+            tasks.Add(Action(message, cts.Token));
 
             if (tasks.Count == ParallelExecutionOptions.MaxDegreeOfParallelism)
             {

@@ -57,6 +57,36 @@ public class AmanhecerMessagePumpTests
     }
 
     [Test]
+    public async Task When_SubscriptionDefinesBatchProcessingStrategy_Should_UseIt()
+    {
+        var subscription = CreateSubscription();
+        var consumer = Substitute.For<IConsumer>();
+        consumer.Subscription.Returns(subscription);
+
+        var messages = new[] { new Message(), new Message() };
+        consumer.GetMessagesAsync(Arg.Any<CancellationToken>())
+            .Returns(new ValueTask<Message[]>(messages));
+
+        using var cts = new CancellationTokenSource();
+        var strategy = new TestBatchProcessingStrategy((_, _, _, _, _) =>
+        {
+            cts.Cancel();
+            return ValueTask.CompletedTask;
+        });
+        subscription.BatchProcessingStrategy = strategy;
+
+        await _pump.ExecuteAsync(consumer, cts.Token);
+
+        await Assert.That(strategy.CallCount).IsEqualTo(1);
+        await Assert.That(ReferenceEquals(strategy.Messages, messages)).IsTrue();
+        await _dispatcher.DidNotReceive()
+            .QueryAsync<object?>(Arg.Any<object>(), Arg.Any<AmanhecerContext>(), Arg.Any<CancellationToken>());
+        await consumer.DidNotReceive().AckAsync(Arg.Any<Message>());
+        await consumer.DidNotReceive().NackAsync(Arg.Any<Message>());
+        await consumer.DidNotReceive().DeferAsync(Arg.Any<Message>(), Arg.Any<TimeSpan>());
+    }
+
+    [Test]
     public async Task When_ProcessingMessage_Should_DispatchWithSubscriptionContext()
     {
         var subscription = CreateSubscription();
@@ -471,6 +501,26 @@ public class AmanhecerMessagePumpTests
         public ValueTask<object> ToRequestAsync(Message message, AmanhecerContext context)
         {
             return new ValueTask<object>(new object());
+        }
+    }
+
+    private sealed class TestBatchProcessingStrategy(
+        Func<IServiceProvider, ISubscription, IConsumer, Message[], CancellationToken, ValueTask> executeAsync)
+        : IBatchProcessingStrategy
+    {
+        public int CallCount { get; private set; }
+
+        public Message[]? Messages { get; private set; }
+
+        public ValueTask ExecuteAsync(IServiceProvider provider,
+            ISubscription subscription,
+            IConsumer consumer,
+            Message[] messages,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            Messages = messages;
+            return executeAsync(provider, subscription, consumer, messages, cancellationToken);
         }
     }
 }

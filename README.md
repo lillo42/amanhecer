@@ -8,6 +8,7 @@ A lightweight request dispatcher (mediator) for .NET. Send commands, publish eve
 - **Middleware pipelines** — wrap handlers with cross-cutting concerns (logging, validation, retries) configured fluently or via attributes.
 - **Messaging gateway** — publish and consume `Message`s through publications and subscriptions, with pluggable message mappers and encode/decode transformers.
 - **RabbitMQ transport** — bind the messaging gateway to RabbitMQ exchanges and queues (classic, quorum, dead-letter topologies) via the `Amanhecer.RabbitMq` package.
+- **Kafka transports** — bind the messaging gateway to Kafka topics and consumer groups via the `Amanhecer.ConfluentKafka` (Confluent.Kafka) or `Amanhecer.Dekaf` (Dekaf, pure C#) packages, with batched offset commits and pluggable topic provisioning.
 - **Routing keys** — route requests to pipelines by convention (type name) or explicitly with `[RoutingKey]`.
 - **Executing strategies** — run published pipelines sequentially or in parallel.
 - **DI-first** — built on `Microsoft.Extensions.DependencyInjection`; everything is resolved from the container.
@@ -124,6 +125,8 @@ services.AddAmanhecer(a => a
 - `src/Amanhecer.Abstractions` — interfaces, base classes, attributes and contexts.
 - `src/Amanhecer` — the dispatcher, pipeline, factories, configurators, messaging abstractions and DI extensions.
 - `src/Amanhecer.RabbitMq` — RabbitMQ transport for the messaging gateway.
+- `src/Amanhecer.ConfluentKafka` — Kafka transport for the messaging gateway, built on Confluent.Kafka.
+- `src/Amanhecer.Dekaf` — Kafka transport for the messaging gateway, built on Dekaf (pure C#).
 - `src/Amanhecer.Extensions.Hosting` — generic-host integration that runs the message consumers as a hosted service.
 - `src/Amanhecer.Polly` — middleware that wraps handlers in [Polly](https://www.pollydocs.org/) resilience pipelines.
 - `src/Amanhecer.Extensions.Resilience` — the same resilience middleware built on `Microsoft.Extensions.Resilience`.

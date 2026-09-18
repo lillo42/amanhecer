@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
@@ -21,8 +22,6 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
 {
     private IConnection? _connection;
     private readonly SemaphoreSlim _connectionLock = new(1, 1);
-    private readonly SemaphoreSlim _provisioningLock = new(1, 1);
-    private bool _provisioned;
     private bool _disposed;
 
     /// <inheritdoc />
@@ -107,83 +106,46 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
     /// <returns>A <see cref="ValueTask"/> that completes when all provisioners have run.</returns>
     public override async ValueTask ProvisionerAsync()
     {
-        if (_provisioned)
+        var exchanges = new List<Exchange>();
+        if (Exchange != null)
         {
-            return;
+            exchanges.Add(Exchange);
         }
 
-        await _provisioningLock.WaitAsync();
-        try
+        foreach (var publication in Publications)
         {
-            if (_provisioned)
+            if (publication.Exchange != null)
             {
-                return;
+                exchanges.Add(publication.Exchange);
             }
+        }
 
-            var exchanges = new List<Exchange>();
-            if (Exchange != null)
-            {
-                exchanges.Add(Exchange);
-            }
-
-            foreach (var publication in Publications)
-            {
-                if (publication.Exchange != null)
-                {
-                    exchanges.Add(publication.Exchange);
-                }
-            }
-
-            if (exchanges.Count > 0)
-            {
-                var connection = await GetOrCreateAsync();
+        if (exchanges.Count > 0)
+        {
+            var connection = await GetOrCreateAsync();
 
 #if NETFRAMEWORK
-                using var channel = connection.CreateModel();
+            using var channel = connection.CreateModel();
 #else
                 await using var channel = await connection.CreateChannelAsync(ChannelOptions);
 #endif
 
-                var provisioned = new HashSet<string>();
-                foreach (var exchange in exchanges)
-                {
-                    if (provisioned.Add(exchange.Name))
-                    {
-                        await exchange
-                            .Provisioner
-                            .ExecuteAsync(channel, exchange);
-                    }
-                }
+            var provisioned = new HashSet<string>();
+            foreach (var exchange in exchanges.Where(exchange => provisioned.Add(exchange.Name)))
+            {
+                await exchange
+                    .Provisioner
+                    .ExecuteAsync(channel, exchange);
             }
-
-            await base.ProvisionerAsync();
-
-            _provisioned = true;
         }
-        finally
-        {
-            _provisioningLock.Release();
-        }
+
+        await base.ProvisionerAsync();
     }
 
 
     /// <inheritdoc />
     public override IReadOnlyDictionary<string, IProducer> CreateProducers()
     {
-        var seen = new HashSet<string>();
-        foreach (var publication in Publications)
-        {
-            if (!seen.Add(publication.RoutingKey))
-            {
-                throw new InvalidOperationException(
-                    $"Duplicate publication routing key '{publication.RoutingKey}': two publications are registered with the same routing key.");
-            }
-        }
-
-        // The publish path provisions lazily: the first producer creation declares the
-        // exchanges, so publish-only applications get their topology before the first publish.
-        ProvisionerAsync().GetAwaiter().GetResult();
-
         var producers = new Dictionary<string, IProducer>();
         var connection = GetOrCreateAsync().GetAwaiter().GetResult();
 
@@ -240,7 +202,7 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
             channel.BasicQos(rabbitMqSubscription.PrefetchSize,
                 (ushort)prefetchCount,
                 false);
-            
+
             poller = new RabbitMqMessagePoller(rabbitMqSubscription, channel);
             channel.BasicConsume(rabbitMqSubscription.QueueName, false, poller);
 #else
@@ -294,7 +256,6 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
         _pollers.Clear();
         _connection?.Dispose();
         _connectionLock.Dispose();
-        _provisioningLock.Dispose();
     }
 #else
     /// <summary>
@@ -331,7 +292,6 @@ public class RabbitMqGateway : Gateway<RabbitMqPublication, RabbitMqSubscription
         }
 
         _connectionLock.Dispose();
-        _provisioningLock.Dispose();
     }
 #endif
 }

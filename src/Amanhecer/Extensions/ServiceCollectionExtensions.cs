@@ -59,20 +59,6 @@ public static class ServiceCollectionExtensions
         var cfg = new AmanhecerConfigurator(services);
         configure?.Invoke(cfg);
 
-        // Publications and subscriptions without a message mapper fall back to the JSON mapper.
-        foreach (var gateway in cfg.Gateways)
-        {
-            foreach (var publication in gateway.Publications)
-            {
-                publication.MessageMapperType ??= typeof(JsonMessageMapper);
-            }
-
-            foreach (var subscription in gateway.Subscriptions)
-            {
-                subscription.MessageMapperType ??= typeof(JsonMessageMapper);
-            }
-        }
-
         cfg.AddRoutingKey("Amanhecer.Messaging.Post", routing => routing.UseHandler<PostMessageHandler>());
 
         // Publication routing keys resolve the producer and the publication, so duplicates

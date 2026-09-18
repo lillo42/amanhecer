@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
@@ -86,7 +87,7 @@ public partial class RabbitMqConsumer : IConsumer
         }
 
         var attempts = message.Metadata.TryGetValue(MetadataName.DeliveryAttempts, out var value)
-            && value is int count
+                       && value is int count
             ? count
             : 1;
 
@@ -107,8 +108,17 @@ public partial class RabbitMqConsumer : IConsumer
     /// <inheritdoc />
     public async ValueTask<Message[]> GetMessagesAsync(CancellationToken cancellationToken = default)
     {
-        var message = await _poller.Messages.ReadAsync(cancellationToken);
-        return [message];
+        await _poller.Messages.WaitToReadAsync(cancellationToken);
+
+        var buffer = new List<Message>(_subscription.BufferSize);
+        while (buffer.Count < _subscription.BufferSize 
+               && !cancellationToken.IsCancellationRequested
+               && _poller.Messages.TryRead(out var message))
+        {
+            buffer.Add(message);
+        }
+
+        return [.. buffer];
     }
 
     private bool TryGetDeliveryTag(Message message, out ulong deliveryTag)
@@ -133,7 +143,8 @@ public partial class RabbitMqConsumer : IConsumer
 
         [LoggerMessage(LogLevel.Warning,
             "Message {MessageId} from queue {QueueName} reached the maximum of {MaxDeliveryAttempts} delivery attempts: nacking without requeue")]
-        public static partial void MaxDeliveryAttemptsReached(ILogger logger, string messageId, string queueName, int maxDeliveryAttempts);
+        public static partial void MaxDeliveryAttemptsReached(ILogger logger, string messageId, string queueName,
+            int maxDeliveryAttempts);
 
         [LoggerMessage(LogLevel.Warning,
             "No maximum delivery attempts configured for queue {QueueName}: a persistently failing message is requeued and redelivered immediately, forever. Configure a broker-side redelivery policy (e.g. a quorum queue delivery-limit with a dead-letter exchange) or set MaxDeliveryAttempts on the subscription to bound redeliveries.")]

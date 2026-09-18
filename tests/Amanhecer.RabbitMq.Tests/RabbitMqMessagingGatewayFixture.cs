@@ -100,6 +100,7 @@ internal static class RabbitMqMessagingGatewayFixture
 
         var subscription = new RabbitMqSubscription(routingKey, queueName)
         {
+            BufferSize = 3,
             Provisioner = subscriptionProvisioner ?? queueProvisioner
         };
 

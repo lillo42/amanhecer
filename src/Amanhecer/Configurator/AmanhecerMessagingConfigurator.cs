@@ -197,6 +197,7 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
                 logging.LoggerFactory ??= provider.GetService<ILoggerFactory>();
             }
 
+            gateway.ProvisionerAsync().GetAwaiter().GetResult();
             return gateway;
         });
         return this;

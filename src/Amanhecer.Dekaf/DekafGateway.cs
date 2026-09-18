@@ -1,0 +1,191 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Amanhecer.Abstractions.Messaging;
+using Dekaf;
+using Dekaf.Admin;
+using Dekaf.Consumer;
+using Dekaf.Security.Sasl;
+using Microsoft.Extensions.Logging;
+
+namespace Amanhecer.Dekaf;
+
+/// <summary>
+/// A gateway that publishes messages to, and consumes messages from, a Kafka cluster.
+/// </summary>
+public class DekafGateway : Gateway<DekafPublication, DekafSubscription>, ILoggerFactorySupport, IAsyncDisposable
+{
+    private IAdminClient? _adminClient;
+    private bool _disposed;
+
+    /// <inheritdoc />
+    public ILoggerFactory? LoggerFactory { get; set; }
+
+    /// <summary>
+    /// Gets or sets the bootstrap servers used to connect to the cluster, in the
+    /// <c>host1:port1,host2:port2</c> form.
+    /// </summary>
+    public string? BootstrapServers { get; set; }
+
+    public SaslMechanism? SaslMechanism { get; set; }
+    public string? SaslUsername { get; set; }
+    public string? SaslPassword { get; set; }
+
+    /// <summary>
+    /// Gets or sets a callback invoked with the <see cref="ProducerBuilder{TKey, TValue}"/>
+    /// before a producer is created, allowing further customization.
+    /// </summary>
+    public Action<ProducerBuilder<string, byte[]>>? ConfigureProducer { get; set; }
+
+    /// <summary>
+    /// Gets or sets a callback invoked with the <see cref="ConsumerBuilder{TKey, TValue}"/>
+    /// before a consumer is created, allowing further customization.
+    /// </summary>
+    public Action<ConsumerBuilder<string, byte[]>>? ConfigureConsumer { get; set; }
+
+    /// <summary>
+    /// Gets or sets a callback invoked with the <see cref="AdminClientBuilder"/> before the
+    /// admin client is created, allowing further customization.
+    /// </summary>
+    public Action<AdminClientBuilder>? ConfigureAdmin { get; set; }
+
+    internal IAdminClient GetOrCreateAdminClient()
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(DekafGateway));
+        }
+
+        if (_adminClient == null)
+        {
+            var builder = Kafka.CreateAdminClient();
+            if (BootstrapServers != null)
+            {
+                builder.WithBootstrapServers(BootstrapServers);
+            }
+
+            if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.None)
+            {
+                builder.WithSaslPlain(SaslUsername!, SaslPassword!);
+            }
+            else if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.ScramSha256)
+            {
+                builder.WithSaslScramSha256(SaslUsername!, SaslPassword!);
+            }
+            else if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.ScramSha512)
+            {
+                builder.WithSaslScramSha512(SaslUsername!, SaslPassword!);
+            }
+
+            ConfigureAdmin?.Invoke(builder);
+            _adminClient = builder.Build();
+        }
+
+        return _adminClient;
+    }
+
+    /// <inheritdoc />
+    public override IReadOnlyDictionary<string, IProducer> CreateProducers()
+    {
+        var producers = new Dictionary<string, IProducer>();
+
+        foreach (var publication in Publications)
+        {
+            var builder = Kafka.CreateProducer<string, byte[]>();
+            if (BootstrapServers != null)
+            {
+                builder.WithBootstrapServers(BootstrapServers);
+            }
+
+            if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.None)
+            {
+                builder.WithSaslPlain(SaslUsername!, SaslPassword!);
+            }
+            else if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.ScramSha256)
+            {
+                builder.WithSaslScramSha256(SaslUsername!, SaslPassword!);
+            }
+            else if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.ScramSha512)
+            {
+                builder.WithSaslScramSha512(SaslUsername!, SaslPassword!);
+            }
+
+            ConfigureProducer?.Invoke(builder);
+            publication.Configure(builder);
+
+            var producer = new DeKafProducer(builder.Build());
+            producers.Add(publication.RoutingKey, producer);
+        }
+
+        return producers;
+    }
+
+    /// <summary>
+    /// Creates, or hands back, one of the consumers of the subscription. Each consumer is a
+    /// member of the subscription's consumer group, so the gateway keeps
+    /// <see cref="Subscription.NumberOfConsumers"/> of them per subscription and reuses them:
+    /// the hosted service creates its consumers again on every start, and building new clients
+    /// would leave the previous ones joined to the group without anything polling them.
+    /// </summary>
+    /// <param name="subscription">The subscription to consume for.</param>
+    /// <returns>The consumer to poll.</returns>
+    public override IConsumer CreateConsumer(ISubscription subscription)
+    {
+        if (subscription is not DekafSubscription dekafSubscription)
+        {
+            throw new ArgumentException(
+                $"The subscription must be a {nameof(DekafSubscription)}.",
+                nameof(subscription));
+        }
+
+        var builder = Kafka.CreateConsumer<string, byte[]>()
+            .WithGroupId(dekafSubscription.GroupId)
+            // Offsets are stored on settlement and committed explicitly, in batches.
+            .WithOffsetCommitMode(OffsetCommitMode.Manual)
+            .WithAutoOffsetReset(dekafSubscription.AutoOffsetReset)
+            .SubscribeTo(dekafSubscription.Topic);
+
+        if (BootstrapServers != null)
+        {
+            builder.WithBootstrapServers(BootstrapServers);
+        }
+
+        if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.None)
+        {
+            builder.WithSaslPlain(SaslUsername!, SaslPassword!);
+        }
+        else if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.ScramSha256)
+        {
+            builder.WithSaslScramSha256(SaslUsername!, SaslPassword!);
+        }
+        else if (SaslMechanism == global::Dekaf.Security.Sasl.SaslMechanism.ScramSha512)
+        {
+            builder.WithSaslScramSha512(SaslUsername!, SaslPassword!);
+        }
+
+        ConfigureConsumer?.Invoke(builder);
+        dekafSubscription.Configure?.Invoke(builder);
+
+        return new DekafConsumer(builder.Build(),
+            dekafSubscription,
+            LoggerFactory?.CreateLogger<DekafConsumer>());
+    }
+
+    /// <summary>
+    /// Disposes the consumers, producers and the admin client owned by this gateway.
+    /// </summary>
+    /// <returns>A <see cref="ValueTask"/> that completes when the gateway has been disposed.</returns>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        if (_adminClient != null)
+        {
+            await _adminClient.DisposeAsync();
+        }
+    }
+}

@@ -27,9 +27,9 @@ jobs:
           set -e
           for project in tests/*/*.csproj; do
             case "$project" in
-              # Shared contract-test library (not runnable) and the RabbitMQ
-              # tests, which need the broker and run in their own job.
-              *Messaging.Base.Tests*|*RabbitMq.Tests*) continue ;;
+              # Shared contract-test library (not runnable) and the RabbitMQ/Kafka
+              # tests, which need a broker and run in their own jobs.
+              *Messaging.Base.Tests*|*RabbitMq.Tests*|*ConfluentKafka.Tests*|*Dekaf.Tests*) continue ;;
             esac
             dotnet test "$project" --configuration Release
           done
@@ -63,3 +63,54 @@ jobs:
 
       - name: Test RabbitMQ (requires the broker service)
         run: dotnet test tests/Amanhecer.RabbitMq.Tests/Amanhecer.RabbitMq.Tests.csproj --configuration Release
+
+  kafka:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Amanhecer.slnx
+
+      - name: Start Apache Kafka 4 (required by the Dekaf tests, which need KIP-848)
+        run: |
+          docker run -d --name kafka -p 9092:9092 \
+            -e KAFKA_NODE_ID=1 \
+            -e KAFKA_PROCESS_ROLES=broker,controller \
+            -e KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093 \
+            -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 \
+            -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER \
+            -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT \
+            -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9093 \
+            -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 \
+            -e KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1 \
+            -e KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1 \
+            -e KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS=0 \
+            -e KAFKA_AUTO_CREATE_TOPICS_ENABLE=false \
+            apache/kafka:4.0.0
+          # Topics are provisioned explicitly by the transports; auto-creation is disabled
+          # so missing-topic validation is meaningful.
+
+      - name: Wait for the broker
+        run: |
+          for i in $(seq 1 30); do
+            if docker exec kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          docker exec kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null
+
+      - name: Test Kafka (requires the broker container)
+        run: |
+          set -e
+          dotnet test tests/Amanhecer.ConfluentKafka.Tests/Amanhecer.ConfluentKafka.Tests.csproj --configuration Release
+          dotnet test tests/Amanhecer.Dekaf.Tests/Amanhecer.Dekaf.Tests.csproj --configuration Release

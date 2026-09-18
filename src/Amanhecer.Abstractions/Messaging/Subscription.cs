@@ -88,4 +88,13 @@ public abstract class Subscription(string toRoutingKey) : ISubscription
 
     /// <inheritdoc cref="ISubscription.Transformers"/>
     public IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; set; } = [];
+
+    /// <inheritdoc cref="ISubscription.BatchProcessingTimeout"/>
+    public TimeSpan BatchProcessingTimeout { get; set; }
+
+    /// <inheritdoc cref="ISubscription.MessageProcessingTimeout"/>
+    public TimeSpan MessageProcessingTimeout { get; set; }
+
+    /// <inheritdoc cref="ISubscription.BatchProcessingStrategy"/>
+    public IBatchProcessingStrategy? BatchProcessingStrategy { get; set; } 
 }

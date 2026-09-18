@@ -84,9 +84,18 @@ public abstract class MessagingGatewayTests
         using var cts = new CancellationTokenSource(timeout);
         var received = new List<Message>(count);
 
-        while (received.Count < count)
+        while (received.Count < count && !cts.IsCancellationRequested)
         {
-            var batch = await fixture.Consumer.GetMessagesAsync(cts.Token);
+            Message[] batch;
+            try
+            {
+                batch = await fixture.Consumer.GetMessagesAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            
             if (batch.Length == 0)
             {
                 continue;

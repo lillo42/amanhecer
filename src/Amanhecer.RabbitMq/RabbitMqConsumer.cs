@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
@@ -109,18 +110,15 @@ public partial class RabbitMqConsumer : IConsumer
     {
         await _poller.Messages.WaitToReadAsync(cancellationToken);
 
-        var buffer = new Message[_subscription.BufferSize];
-        for (var i = 0; i < _subscription.BufferSize && !cancellationToken.IsCancellationRequested; i++)
+        var buffer = new List<Message>(_subscription.BufferSize);
+        while (buffer.Count < _subscription.BufferSize 
+               && !cancellationToken.IsCancellationRequested
+               && _poller.Messages.TryRead(out var message))
         {
-            if (!_poller.Messages.TryRead(out var message))
-            {
-                break;
-            }
-
-            buffer[i] = message;
+            buffer.Add(message);
         }
 
-        return buffer;
+        return [.. buffer];
     }
 
     private bool TryGetDeliveryTag(Message message, out ulong deliveryTag)

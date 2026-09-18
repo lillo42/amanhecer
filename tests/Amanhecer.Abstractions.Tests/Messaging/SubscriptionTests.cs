@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Exceptions;
 using Amanhecer.Abstractions.Messaging;
@@ -38,6 +39,19 @@ public class SubscriptionTests
         await Assert.That(subscription.DeadLetterQueueRoutingKey).IsNull();
         await Assert.That(subscription.InvalidMessageRoutingKey).IsNull();
         await Assert.That(subscription.ContinueOnCapturedContext).IsFalse();
+        await Assert.That(subscription.BatchProcessingTimeout).IsEqualTo(TimeSpan.Zero);
+        await Assert.That(subscription.MessageProcessingTimeout).IsEqualTo(TimeSpan.Zero);
+    }
+
+    [Test]
+    public async Task BatchProcessingStrategy_Should_StoreAssignedValue()
+    {
+        var subscription = new TestSubscription("orders");
+        var strategy = new TestBatchProcessingStrategy();
+
+        subscription.BatchProcessingStrategy = strategy;
+
+        await Assert.That(ReferenceEquals(subscription.BatchProcessingStrategy, strategy)).IsTrue();
     }
 
     [Test]
@@ -73,4 +87,16 @@ public class SubscriptionTests
     }
 
     private class TestSubscription(string toRoutingKey) : Subscription(toRoutingKey);
+
+    private sealed class TestBatchProcessingStrategy : IBatchProcessingStrategy
+    {
+        public ValueTask ExecuteAsync(IServiceProvider provider,
+            ISubscription subscription,
+            IConsumer consumer,
+            Message[] messages,
+            CancellationToken cancellationToken)
+        {
+            return ValueTask.CompletedTask;
+        }
+    }
 }

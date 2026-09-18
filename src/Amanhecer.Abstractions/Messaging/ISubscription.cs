@@ -48,12 +48,12 @@ public interface ISubscription
     /// messages, if any.
     /// </summary>
     string? DefaultSubject { get; }
-    
+
     /// <summary>
     /// Gets the type (the CloudEvents <c>type</c> attribute) expected on consumed messages.
     /// </summary>
     string DefaultType { get; }
-    
+
     /// <summary>
     /// Gets the CloudEvents content mode expected on consumed messages: binary (attributes
     /// in transport headers) or structured JSON envelope.
@@ -122,7 +122,7 @@ public interface ISubscription
     /// invalid-message destination, if configured.
     /// </summary>
     string? InvalidMessageRoutingKey { get; }
-    
+
     /// <summary>
     /// Gets a value indicating whether awaits while processing the consumed messages should
     /// continue on the captured synchronization context.
@@ -140,4 +140,19 @@ public interface ISubscription
     /// on top of any globally registered transformers.
     /// </summary>
     IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; }
+
+    /// <summary>
+    /// Gets the maximum time allowed to process a batch of consumed messages.
+    /// </summary>
+    TimeSpan BatchProcessingTimeout { get; }
+
+    /// <summary>
+    /// Gets the maximum time allowed to process a single consumed message.
+    /// </summary>
+    TimeSpan MessageProcessingTimeout { get; }
+    
+    /// <summary>
+    /// Gets the strategy used to process batches of consumed messages.
+    /// </summary>
+    IBatchProcessingStrategy? BatchProcessingStrategy { get; }
 }

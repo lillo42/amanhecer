@@ -22,6 +22,8 @@ public class AmanhecerMessagePumpTests
         _dispatcher = Substitute.For<IDispatcher>();
         var provider = new ServiceCollection()
             .AddSingleton(_dispatcher)
+            .AddSingleton(Substitute.For<ILogger<SequentialBatchProcessingStrategy>>())
+            .AddSingleton(Substitute.For<ILogger<ParallelBatchProcessingStrategy>>())
             .BuildServiceProvider();
         _pump = new AmanhecerMessagePump(provider, Substitute.For<ILogger<AmanhecerMessagePump>>());
     }

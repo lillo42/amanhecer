@@ -80,7 +80,7 @@ public abstract partial class BatchProcessingStrategyBase
         };
 
         var activity = AmanhecerDiagnostics.ActivitySource.StartActivity(
-            $"{subscription.Name} message process",
+            $"{subscription.Name} process",
             ActivityKind.Consumer,
             parentContext,
             tags: spanTags);

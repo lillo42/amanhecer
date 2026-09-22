@@ -80,7 +80,7 @@ internal static class KafkaMessagingGatewayFixture
         }
     }
 
-    private static async Task DeleteTopicAsync(string topic)
+    public static async Task DeleteTopicAsync(string topic)
     {
         try
         {

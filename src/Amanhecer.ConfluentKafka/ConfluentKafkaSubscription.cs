@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using Amanhecer.Abstractions.Messaging;
 using Confluent.Kafka;
 
@@ -65,4 +66,6 @@ public class ConfluentKafkaSubscription : Subscription
     /// gateway-wide configuration for this subscription alone.
     /// </summary>
     public Action<ConsumerConfig>? Configure { get; set; }
+    
+    public Encoding Encoding { get; set; } = Encoding.UTF8;
 }

@@ -23,9 +23,9 @@ public class DeKafProducer(IKafkaProducer<string, byte[]> producer) : IProducer,
             return;
         }
 
+        InjectCloudEventHeaders(message, dekafPublication);
         var producerMessage = ToDeKafMessage(message, dekafPublication);
 
-        
         await producer.InitializeAsync().ConfigureAwait(context.ContinueOnCapturedContext);
         if (dekafPublication.WaitForConfirmation)
         {
@@ -36,6 +36,60 @@ public class DeKafProducer(IKafkaProducer<string, byte[]> producer) : IProducer,
         }
 
         await producer.FireAsync(producerMessage).ConfigureAwait(context.ContinueOnCapturedContext);
+    }
+
+    private static void InjectCloudEventHeaders(Message message, DekafPublication publication)
+    {
+        message.Headers.Add("ce_id", message.Id);
+        message.Headers.Add("ce_time", message.Time);
+        if (!string.IsNullOrEmpty(message.CorrelationId))
+        {
+            message.Headers.Add("ce_correlationid", message.CorrelationId);
+        }
+
+        if (message.Baggage != null)
+        {
+            message.Headers.Add("ce_baggage", message.Baggage.ToString());
+        }
+
+        if (message.ContentType != null)
+        {
+            message.Headers.Add("ce_datacontenttype", message.ContentType.ToString());
+        }
+
+        if (!string.IsNullOrEmpty(message.DataRef))
+        {
+            message.Headers.Add("ce_dataref", message.DataRef);
+        }
+
+        if (message.DataSchema != null)
+        {
+            message.Headers.Add("ce_dataschema", message.DataSchema.ToString());
+        }
+
+        if (!string.IsNullOrEmpty(message.ReplyTo))
+        {
+            message.Headers.Add("ce_replyto", message.ReplyTo);
+        }
+
+        if (!string.IsNullOrEmpty(message.Subject))
+        {
+            message.Headers.Add("ce_subject", message.Subject);
+        }
+
+        message.Headers.Add("ce_specversion", message.SpecVersion);
+        message.Headers.Add("ce_source", message.Source.ToString());
+        message.Headers.Add("ce_type", message.Type);
+
+        if (!string.IsNullOrEmpty(message.TraceParent))
+        {
+            message.Headers.Add("ce_traceparent", message.TraceParent);
+        }
+
+        if (message.TraceState != null)
+        {
+            message.Headers.Add("ce_tracestate", message.TraceState.ToString());
+        }
     }
 
     private static ProducerMessage<string, byte[]> ToDeKafMessage(Message message,
@@ -49,75 +103,6 @@ public class DeKafProducer(IKafkaProducer<string, byte[]> producer) : IProducer,
                 ToBinary(header.Value,
                     publication.Encoding,
                     publication.ConvertToByteArray));
-        }
-
-        if (publication.CloudEventType == CloudEventType.Binary)
-        {
-            headers.Add("ce_id", publication.Encoding.GetBytes(message.Id));
-            headers.Add("ce_time", publication.Encoding.GetBytes(message.Time.ToString("O")));
-
-            if (!string.IsNullOrEmpty(message.CorrelationId))
-            {
-                headers.Add("ce_correlationid",
-                    publication.Encoding.GetBytes(message.CorrelationId));
-            }
-
-            if (message.Baggage != null)
-            {
-                headers.Add("ce_baggage",
-                    publication.Encoding.GetBytes(message.Baggage.ToString()));
-            }
-
-            if (message.ContentType != null)
-            {
-                headers.Add("ce_datacontenttype",
-                    publication.Encoding.GetBytes(message.ContentType.ToString()));
-            }
-
-            if (!string.IsNullOrEmpty(message.DataRef))
-            {
-                headers.Add("ce_dataref", publication.Encoding.GetBytes(message.DataRef));
-            }
-
-            if (message.DataSchema != null)
-            {
-                headers.Add("ce_dataschema", publication.Encoding.GetBytes(message.DataSchema.ToString()));
-            }
-
-            if (!string.IsNullOrEmpty(message.ReplyTo))
-            {
-                headers.Add("ce_replyto", publication.Encoding.GetBytes(message.ReplyTo));
-            }
-
-            if (!string.IsNullOrEmpty(message.Subject))
-            {
-                headers.Add("ce_subject", publication.Encoding.GetBytes(message.Subject));
-            }
-
-            if (!string.IsNullOrEmpty(message.SpecVersion))
-            {
-                headers.Add("ce_specversion", publication.Encoding.GetBytes(message.SpecVersion));
-            }
-
-            if (message.Source != null)
-            {
-                headers.Add("ce_source", publication.Encoding.GetBytes(message.Source.ToString()));
-            }
-
-            if (!string.IsNullOrEmpty(message.Type))
-            {
-                headers.Add("ce_type", publication.Encoding.GetBytes(message.Type));
-            }
-
-            if (!string.IsNullOrEmpty(message.TraceParent))
-            {
-                headers.Add("ce_traceparent", publication.Encoding.GetBytes(message.TraceParent));
-            }
-
-            if (message.TraceState != null)
-            {
-                headers.Add("ce_tracestate", publication.Encoding.GetBytes(message.TraceState.ToString()));
-            }
         }
 
         return new ProducerMessage<string, byte[]>
@@ -266,7 +251,7 @@ public class DeKafProducer(IKafkaProducer<string, byte[]> producer) : IProducer,
 
         if (obj is TimeSpan timeSpan)
         {
-            return BitConverter.GetBytes(timeSpan.Ticks);
+            return encoding.GetBytes(timeSpan.ToString("c"));
         }
 
         if (obj is Uri uri)

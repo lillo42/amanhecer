@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using Amanhecer.Abstractions.Messaging;
 using Dekaf;
 using Dekaf.Consumer;
@@ -66,4 +67,6 @@ public class DekafSubscription : Subscription
     /// gateway-wide configuration for this subscription alone.
     /// </summary>
     public Action<ConsumerBuilder<string, byte[]>>? Configure { get; set; }
+    
+    public Encoding Encoding { get; set; } = Encoding.UTF8;
 }

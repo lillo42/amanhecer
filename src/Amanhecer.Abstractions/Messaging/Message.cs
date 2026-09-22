@@ -77,16 +77,19 @@ public class Message
     /// </summary>
     public string? Subject { get; set; }
 
+    public const string DefaultSpecVersion = "1.0";
     /// <summary>
     /// Gets or sets the CloudEvents spec version the message conforms to.
     /// </summary>
-    public string? SpecVersion { get; set; }
+    public string SpecVersion { get; set; } = DefaultSpecVersion;
+
+    public static readonly Uri DefaultSource = new("amanhecer", UriKind.RelativeOrAbsolute);
 
     /// <summary>
     /// Gets or sets the context in which the message was produced (the CloudEvents
     /// <c>source</c> attribute).
     /// </summary>
-    public Uri? Source { get; set; }
+    public Uri Source { get; set; } = DefaultSource;
 
     /// <summary>
     /// Gets or sets the time the message was produced (the CloudEvents <c>time</c>
@@ -94,11 +97,13 @@ public class Message
     /// </summary>
     public DateTimeOffset Time { get; set; } = DateTimeOffset.UtcNow;
 
+    public const string DefaultType = "Amanhecer";
+
     /// <summary>
     /// Gets or sets the type of the event the message describes (the CloudEvents
     /// <c>type</c> attribute).
     /// </summary>
-    public string? Type { get; set; }
+    public string Type { get; set; } = DefaultType;
 
     /// <summary>
     /// Gets or sets the W3C Trace Context trace parent propagated with the message.

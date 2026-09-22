@@ -41,9 +41,20 @@ public class StructuredCloudEventTransformer : ITransformer
             return next(message, context);
         }
 
-        message.Source ??= publication.DefaultSource;
-        message.SpecVersion ??= publication.DefaultSpecVersion;
-        message.Type ??= publication.DefaultType;
+        if (message.Source == Message.DefaultSource && publication.DefaultSource != null)
+        {
+            message.Source = publication.DefaultSource;
+        }
+
+        if (message.SpecVersion == Message.DefaultSpecVersion && publication.DefaultSpecVersion != null)
+        {
+            message.SpecVersion = publication.DefaultSpecVersion;
+        }
+
+        if (message.Type == Message.DefaultType && publication.DefaultType != null)
+        {
+            message.Type = publication.DefaultType;
+        }
         if (string.IsNullOrEmpty(message.Id))
         {
             message.Id = context.RequestId;

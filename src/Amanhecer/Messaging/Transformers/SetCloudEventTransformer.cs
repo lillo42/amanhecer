@@ -191,9 +191,20 @@ public partial class SetCloudEventTransformer(ILogger<SetCloudEventTransformer> 
         message.DataSchema ??= subscription.DefaultDataSchema;
         message.ReplyTo ??= subscription.DefaultReplyTo;
         message.Subject ??= subscription.DefaultSubject;
-        message.Source ??= subscription.DefaultSource;
-        message.SpecVersion ??= subscription.DefaultSpecVersion;
-        message.Type ??= subscription.DefaultType;
+        if (message.Source == Message.DefaultSource)
+        {
+            message.Source = subscription.DefaultSource;
+        }
+
+        if (message.SpecVersion == Message.DefaultSpecVersion)
+        {
+            message.SpecVersion = subscription.DefaultSpecVersion;
+        }
+
+        if (message.Type == Message.DefaultType)
+        {
+            message.Type = subscription.DefaultType;
+        }
     }
 
     private static partial class Logger

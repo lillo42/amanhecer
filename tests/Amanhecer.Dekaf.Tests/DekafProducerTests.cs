@@ -58,11 +58,11 @@ public class DekafProducerTests
             && HeaderBytesEqual(m.Headers, "guid-header", s_guidHeader.ToByteArray());
     }
 
-    private static bool HasNoCloudEventHeaders(ProducerMessage<string, byte[]> m)
+    private static bool HasCloudEventHeaders(ProducerMessage<string, byte[]> m, Message message)
     {
-        return GetHeader(m.Headers, "ce_id") == null
-            && GetHeader(m.Headers, "ce_type") == null
-            && GetHeader(m.Headers, "ce_correlationid") == null;
+        return GetHeader(m.Headers, "ce_id") == message.Id
+            && GetHeader(m.Headers, "ce_type") == message.Type
+            && GetHeader(m.Headers, "ce_correlationid") == message.CorrelationId;
     }
 
     [Test]
@@ -116,18 +116,22 @@ public class DekafProducerTests
     }
 
     [Test]
-    public async Task When_CloudEventType_Is_Not_Binary_Should_Not_Write_CloudEvent_Headers()
+    public async Task When_CloudEventType_Is_Not_Binary_Should_Still_Write_CloudEvent_Headers()
     {
         var kafkaProducer = Substitute.For<IKafkaProducer<string, byte[]>>();
         var producer = new DeKafProducer(kafkaProducer);
         var publication = CreatePublication();
         publication.CloudEventType = CloudEventType.Json;
-        var message = new Message { Payload = Array.Empty<byte>() };
+        var message = new Message
+        {
+            Payload = Array.Empty<byte>(),
+            Type = "tests.message"
+        };
 
         await producer.ProduceAsync(message, publication, new AmanhecerContext());
 
         await kafkaProducer.Received(1).FireAsync(
-            Arg.Is<ProducerMessage<string, byte[]>>(m => HasNoCloudEventHeaders(m)));
+            Arg.Is<ProducerMessage<string, byte[]>>(m => HasCloudEventHeaders(m, message)));
     }
 
     [Test]

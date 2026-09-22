@@ -16,6 +16,8 @@ public abstract class MessagingGateway2Tests<TGateway>
 {
     protected TGateway Gateway { get; private set; } = null!;
 
+    protected virtual TimeSpan NoMessageTimeout { get; } = TimeSpan.FromMilliseconds(500);
+
     protected abstract TGateway CreateGateway();
 
     protected abstract IPublication CreatePublication(ProvisionerStrategy strategy = ProvisionerStrategy.CreateOrUpdate,
@@ -43,6 +45,31 @@ public abstract class MessagingGateway2Tests<TGateway>
         return messageBuilder.Build();
     }
 
+    protected virtual Message CloneMessage(Message message)
+    {
+        return new Message
+        {
+            Baggage = message.Baggage == null ? null : new Baggage(message.Baggage),
+            ContentType = message.ContentType,
+            CorrelationId = message.CorrelationId,
+            DataRef = message.DataRef,
+            DataSchema = message.DataSchema,
+            Headers = new Dictionary<string, object?>(message.Headers),
+            Id = message.Id,
+            Metadata = new Dictionary<string, object?>(message.Metadata),
+            PartitionKey = message.PartitionKey,
+            Payload = message.Payload,
+            ReplyTo = message.ReplyTo,
+            Source = message.Source,
+            SpecVersion = message.SpecVersion,
+            Subject = message.Subject,
+            Time = message.Time,
+            TraceParent = message.TraceParent,
+            TraceState = message.TraceState == null ? null : new TraceState(message.TraceState),
+            Type = message.Type
+        };
+    }
+
     [RequiresUnreferencedCode("")]
     protected virtual async Task AssertMessageAsync(Message expected, Message received)
     {
@@ -56,29 +83,25 @@ public abstract class MessagingGateway2Tests<TGateway>
             .And.Member(x => x.ReplyTo, x => x.IsEqualTo(expected.ReplyTo))
             .And.Member(x => x.Subject, x => x.IsEqualTo(expected.Subject))
             .And.Member(x => x.Source, x => x.IsEqualTo(expected.Source))
-            .And.Member(x => x.Time, x => x.IsEqualTo(expected.Time))
-            .And.Member(x => x.TraceParent, x => x.IsEqualTo(expected.TraceParent));
+            .And.Member(x => x.Time, x => x.IsEqualTo(expected.Time));
+
+        if (!string.IsNullOrEmpty(expected.TraceParent))
+        {
+            await Assert.That(received.TraceParent).IsEqualTo(expected.TraceParent);
+        }
 
         if (expected.Baggage != null)
         {
-            await Assert.That(received.Baggage!)
-                .IsNotNull()
-                .IsEquivalentTo(expected.Baggage.ToString());
-        }
-        else
-        {
-            await Assert.That(received.Baggage).IsNull();
+            await Assert.That(received.Baggage).IsNotNull();
+            foreach (var pairValue in expected.Baggage)
+            {
+                await Assert.That(received.Baggage!).ContainsKeyWithValue(pairValue.Key, pairValue.Value);
+            }
         }
 
         if (expected.TraceState != null)
         {
-            await Assert.That(received.TraceState!)
-                .IsNotNull()
-                .IsEquivalentTo(expected.TraceState.ToString());
-        }
-        else
-        {
-            await Assert.That(received.TraceState).IsNull();
+            await Assert.That(received.TraceState?.ToString()).IsEqualTo(expected.TraceState.ToString());
         }
 
 
@@ -97,6 +120,48 @@ public abstract class MessagingGateway2Tests<TGateway>
     }
 
     protected virtual TimeSpan MessagePropagateDelay { get; } = TimeSpan.FromSeconds(5);
+
+    protected virtual async Task<Message[]> ReceiveManyAsync(IConsumer consumer, int count, TimeSpan timeout)
+    {
+        using var cts = new CancellationTokenSource(timeout);
+        var receivedMessages = new List<Message>(count);
+
+        while (receivedMessages.Count < count && !cts.IsCancellationRequested)
+        {
+            Message[] received;
+            try
+            {
+                received = await consumer.GetMessagesAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+
+            if (received.Length == 0)
+            {
+                continue;
+            }
+
+            receivedMessages.AddRange(received);
+        }
+
+        return [.. receivedMessages.Take(count)];
+    }
+
+    protected virtual async Task AssertNoMessageAsync(IConsumer consumer, TimeSpan timeout)
+    {
+        using var cts = new CancellationTokenSource(timeout);
+
+        try
+        {
+            var received = await consumer.GetMessagesAsync(cts.Token);
+            await Assert.That(received).IsEmpty();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
 
     protected virtual async Task WaitMessageToBePropagated()
     {
@@ -135,6 +200,29 @@ public abstract class MessagingGateway2Tests<TGateway>
     }
 
     [Test]
+    public async Task When_Producing_A_Message_Should_Be_Received()
+    {
+        Gateway.Publications = [CreatePublication()];
+        Gateway.Subscriptions = [CreateSubscription()];
+
+        await Gateway.ProvisionerAsync();
+
+        var producer = CreateProducer();
+        var consumer = CreateConsumer();
+        var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
+        var expected = CloneMessage(message);
+
+        await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
+
+        await WaitMessageToBePropagated();
+
+        var timeout = Gateway.Subscriptions.First().ReceiveMessageTimeout;
+        var received = await ReceiveManyAsync(consumer, 1, timeout);
+        await Assert.That(received).Count().IsEqualTo(1);
+        await AssertMessageAsync(expected, received[0]);
+    }
+
+    [Test]
     public async Task When_A_Consumer_Receives_Multiple_Messages_Should_Return_All()
     {
         Gateway.Publications = [CreatePublication()];
@@ -152,6 +240,7 @@ public abstract class MessagingGateway2Tests<TGateway>
             CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString())),
             CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString())),
         };
+        var expectedMessages = messages.Select(CloneMessage).ToArray();
 
         await messages.EachAsync(async m => await producer
             .ProduceAsync(m, Gateway.Publications.First(), new AmanhecerContext()));
@@ -162,21 +251,13 @@ public abstract class MessagingGateway2Tests<TGateway>
         var timeout = MessagePropagateDelay > subs.ReceiveMessageTimeout
             ? MessagePropagateDelay
             : subs.ReceiveMessageTimeout;
-        var receivedMessages = new List<Message>(messages.Length);
-        var counter = 0;
-        while (counter < messages.Length)
-        {
-            using var cts = new CancellationTokenSource(timeout);
-            var received = await consumer.GetMessagesAsync(cts.Token);
-            await received.EachAsync(async message =>
-            {
-                var expected = await Assert.That(messages).HasSingleItem(m => m.Id == message.Id);
-                await AssertMessageAsync(expected, message);
-            });
+        var receivedMessages = await ReceiveManyAsync(consumer, messages.Length, timeout);
 
-            receivedMessages.AddRange(received);
-            counter += received.Length;
-        }
+        await receivedMessages.EachAsync(async message =>
+        {
+            var expected = await Assert.That(expectedMessages).HasSingleItem(m => m.Id == message.Id);
+            await AssertMessageAsync(expected, message);
+        });
 
         var receivedIds = receivedMessages.Select(x => x.Id).ToArray();
         await Assert.That(receivedIds).Count().IsEqualTo(messages.Length);
@@ -184,5 +265,117 @@ public abstract class MessagingGateway2Tests<TGateway>
         {
             await Assert.That(receivedIds).Contains(message.Id);
         }
+    }
+
+    [Test]
+    public async Task When_Acking_A_Message_Should_Not_Be_Redelivered()
+    {
+        Gateway.Publications = [CreatePublication()];
+        Gateway.Subscriptions = [CreateSubscription()];
+
+        await Gateway.ProvisionerAsync();
+
+        var producer = CreateProducer();
+        var consumer = CreateConsumer();
+        var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
+        var expected = CloneMessage(message);
+
+        await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
+
+        await WaitMessageToBePropagated();
+
+        var timeout = Gateway.Subscriptions.First().ReceiveMessageTimeout;
+        var received = await ReceiveManyAsync(consumer, 1, timeout);
+        await Assert.That(received).Count().IsEqualTo(1);
+        await AssertMessageAsync(expected, received[0]);
+
+        await consumer.AckAsync(received[0]);
+
+        await AssertNoMessageAsync(consumer, NoMessageTimeout);
+    }
+
+    [Test]
+    public async Task When_Nacking_A_Message_Should_Not_Be_Redelivered()
+    {
+        Gateway.Publications = [CreatePublication()];
+        Gateway.Subscriptions = [CreateSubscription()];
+
+        await Gateway.ProvisionerAsync();
+
+        var producer = CreateProducer();
+        var consumer = CreateConsumer();
+        var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
+        var expected = CloneMessage(message);
+
+        await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
+
+        await WaitMessageToBePropagated();
+
+        var timeout = Gateway.Subscriptions.First().ReceiveMessageTimeout;
+        var received = await ReceiveManyAsync(consumer, 1, timeout);
+        await Assert.That(received).Count().IsEqualTo(1);
+        await AssertMessageAsync(expected, received[0]);
+
+        await consumer.NackAsync(received[0]);
+
+        await AssertNoMessageAsync(consumer, NoMessageTimeout);
+    }
+
+    [Test]
+    public async Task When_Deferring_A_Message_Should_Be_Redelivered()
+    {
+        Gateway.Publications = [CreatePublication()];
+        Gateway.Subscriptions = [CreateSubscription()];
+
+        await Gateway.ProvisionerAsync();
+
+        var producer = CreateProducer();
+        var consumer = CreateConsumer();
+        var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
+        var expected = CloneMessage(message);
+
+        await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
+
+        await WaitMessageToBePropagated();
+
+        var timeout = Gateway.Subscriptions.First().ReceiveMessageTimeout;
+        var received = await ReceiveManyAsync(consumer, 1, timeout);
+        await Assert.That(received).Count().IsEqualTo(1);
+        await AssertMessageAsync(expected, received[0]);
+
+        await consumer.DeferAsync(received[0], TimeSpan.FromMilliseconds(50));
+
+        var redelivered = await ReceiveManyAsync(consumer, 1, timeout);
+        await Assert.That(redelivered).Count().IsEqualTo(1);
+        await AssertMessageAsync(expected, redelivered[0]);
+    }
+
+    [Test]
+    public async Task When_Producing_A_Message_With_Trace_Context_Should_Propagate()
+    {
+        Gateway.Publications = [CreatePublication()];
+        Gateway.Subscriptions = [CreateSubscription()];
+
+        await Gateway.ProvisionerAsync();
+
+        var producer = CreateProducer();
+        var consumer = CreateConsumer();
+        var message = CreateMessage(x =>
+        {
+            x.SetPayload(Uuid.NewGuid().ToString());
+            x.SetTraceParent("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
+            x.SetTraceState(TraceState.FromString("congo=t61rcWkgMzE"));
+            x.SetBaggage(Baggage.FromString("userId=alice,serverNode=DF28"));
+        });
+        var expected = CloneMessage(message);
+
+        await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
+
+        await WaitMessageToBePropagated();
+
+        var timeout = Gateway.Subscriptions.First().ReceiveMessageTimeout;
+        var received = await ReceiveManyAsync(consumer, 1, timeout);
+        await Assert.That(received).Count().IsEqualTo(1);
+        await AssertMessageAsync(expected, received[0]);
     }
 }

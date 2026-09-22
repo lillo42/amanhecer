@@ -214,6 +214,15 @@ public partial class RabbitMqProducer : IProducer
         {
             message.Headers["cloudEvents:tracestate"] = message.TraceState.ToString();
         }
+
+        foreach (var additional in publication.AdditionalCloudEvents)
+        {
+            var key = $"cloudEvents:{additional.Key}";
+            if (!message.Headers.ContainsKey(key))
+            {
+                message.Headers[key] = additional.Value;
+            }
+        }
     }
 
 #if NETFRAMEWORK

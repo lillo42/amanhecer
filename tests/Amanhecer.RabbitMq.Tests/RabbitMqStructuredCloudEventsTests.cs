@@ -27,7 +27,7 @@ namespace Amanhecer.RabbitMq.Tests;
 public class RabbitMqStructuredCloudEventsTests
 {
     [Test]
-    public async Task When_Producing_In_Structured_Mode_Should_Not_Set_CloudEvents_Headers()
+    public async Task When_Producing_In_Structured_Mode_Should_Set_CloudEvents_Headers()
     {
         var (producer, publishes) = CreateProducer();
         var publication = CreatePublication();
@@ -45,7 +45,10 @@ public class RabbitMqStructuredCloudEventsTests
 
         var headers = publishes[0].Properties.Headers;
         var cloudEventsHeaders = headers?.Keys.Where(key => key.StartsWith("cloudEvents:")).ToArray() ?? [];
-        await Assert.That(cloudEventsHeaders).IsEmpty();
+        await Assert.That(cloudEventsHeaders).Contains("cloudEvents:id");
+        await Assert.That(cloudEventsHeaders).Contains("cloudEvents:source");
+        await Assert.That(cloudEventsHeaders).Contains("cloudEvents:specversion");
+        await Assert.That(cloudEventsHeaders).Contains("cloudEvents:type");
     }
 
     [Test]

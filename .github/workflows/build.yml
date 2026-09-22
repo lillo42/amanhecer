@@ -22,7 +22,7 @@ jobs:
       - name: Restore
         run: dotnet restore Amanhecer.slnx
 
-      - name: Test InMemory (TUnit timeout: 5 minutes)
+      - name: "Test InMemory (TUnit timeout: 5 minutes)"
         run: dotnet test tests/Amanhecer.InMemory.Tests/Amanhecer.InMemory.Tests.csproj --configuration Release
 
       - name: Build and test (other projects with no external dependencies)
@@ -64,7 +64,7 @@ jobs:
       - name: Restore
         run: dotnet restore Amanhecer.slnx
 
-      - name: Test RabbitMQ (requires the broker service; TUnit timeout: 10 minutes)
+      - name: "Test RabbitMQ (requires the broker service; TUnit timeout: 10 minutes)"
         run: dotnet test tests/Amanhecer.RabbitMq.Tests/Amanhecer.RabbitMq.Tests.csproj --configuration Release
 
   kafka:
@@ -112,7 +112,7 @@ jobs:
           done
           docker exec kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null
 
-      - name: Test Kafka (requires the broker container; TUnit timeout: 10 minutes)
+      - name: "Test Kafka (requires the broker container; TUnit timeout: 10 minutes)"
         run: |
           set -e
           dotnet test tests/Amanhecer.ConfluentKafka.Tests/Amanhecer.ConfluentKafka.Tests.csproj --configuration Release

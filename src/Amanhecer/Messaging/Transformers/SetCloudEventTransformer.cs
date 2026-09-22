@@ -126,7 +126,7 @@ public partial class SetCloudEventTransformer(ILogger<SetCloudEventTransformer> 
             message.ReplyTo = attribute.ReplyTo;
         }
 
-        if (!string.IsNullOrEmpty(attribute.Source) && message.Source == null)
+        if (!string.IsNullOrEmpty(attribute.Source) && message.Source == Message.DefaultSource)
         {
             if (Uri.TryCreate(attribute.Source, UriKind.RelativeOrAbsolute, out var sourceUri))
             {
@@ -138,7 +138,7 @@ public partial class SetCloudEventTransformer(ILogger<SetCloudEventTransformer> 
             }
         }
 
-        if (!string.IsNullOrEmpty(attribute.SpecVersion) && string.IsNullOrEmpty(message.SpecVersion))
+        if (!string.IsNullOrEmpty(attribute.SpecVersion) && message.SpecVersion == Message.DefaultSpecVersion)
         {
             message.SpecVersion = attribute.SpecVersion!;
         }
@@ -148,9 +148,9 @@ public partial class SetCloudEventTransformer(ILogger<SetCloudEventTransformer> 
             message.Subject = attribute.Subject;
         }
 
-        if (!string.IsNullOrEmpty(attribute.Type) && message.Type == null)
+        if (!string.IsNullOrEmpty(attribute.Type) && message.Type == Message.DefaultType)
         {
-            message.Type = attribute.Type;
+            message.Type = attribute.Type!;
         }
     }
 
@@ -160,9 +160,21 @@ public partial class SetCloudEventTransformer(ILogger<SetCloudEventTransformer> 
         message.DataSchema ??= publication.DefaultDataSchema;
         message.ReplyTo ??= publication.DefaultReplyTo;
         message.Subject ??= publication.DefaultSubject;
-        message.Source ??= publication.DefaultSource;
-        message.SpecVersion ??= publication.DefaultSpecVersion;
-        message.Type ??= publication.DefaultType;
+        if(message.Source == Message.DefaultSource && publication.DefaultSource != null)
+        {
+            message.Source = publication.DefaultSource;
+        }
+        
+        if(message.SpecVersion == Message.DefaultSpecVersion  && publication.DefaultSpecVersion != null)
+        {
+            message.SpecVersion = publication.DefaultSpecVersion;
+        }
+        
+        if(message.Type == Message.DefaultType && publication.DefaultType != null)
+        {
+            message.Type = publication.DefaultType;
+        }
+        
 
         foreach (var keyPairValue in publication.DefaultHeaders)
         {
@@ -179,9 +191,20 @@ public partial class SetCloudEventTransformer(ILogger<SetCloudEventTransformer> 
         message.DataSchema ??= subscription.DefaultDataSchema;
         message.ReplyTo ??= subscription.DefaultReplyTo;
         message.Subject ??= subscription.DefaultSubject;
-        message.Source ??= subscription.DefaultSource;
-        message.SpecVersion ??= subscription.DefaultSpecVersion;
-        message.Type ??= subscription.DefaultType;
+        if (message.Source == Message.DefaultSource)
+        {
+            message.Source = subscription.DefaultSource;
+        }
+
+        if (message.SpecVersion == Message.DefaultSpecVersion)
+        {
+            message.SpecVersion = subscription.DefaultSpecVersion;
+        }
+
+        if (message.Type == Message.DefaultType)
+        {
+            message.Type = subscription.DefaultType;
+        }
     }
 
     private static partial class Logger

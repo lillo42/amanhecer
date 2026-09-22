@@ -18,9 +18,9 @@ public class MessageTests
         await Assert.That(message.PartitionKey).IsNull();
         await Assert.That(message.ReplyTo).IsNull();
         await Assert.That(message.Subject).IsNull();
-        await Assert.That(message.SpecVersion).IsNull();
-        await Assert.That(message.Source).IsNull();
-        await Assert.That(message.Type).IsNull();
+        await Assert.That(message.SpecVersion).IsEqualTo(Message.DefaultSpecVersion);
+        await Assert.That(message.Source).IsEqualTo(Message.DefaultSource);
+        await Assert.That(message.Type).IsEqualTo(Message.DefaultType);
         await Assert.That(message.TraceParent).IsNull();
         await Assert.That(message.TraceState).IsNull();
         await Assert.That(message.Headers).IsEmpty();

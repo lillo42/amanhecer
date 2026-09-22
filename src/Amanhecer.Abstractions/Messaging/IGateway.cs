@@ -17,13 +17,12 @@ public interface IGateway
     /// <summary>
     /// Gets the publications declared on this gateway.
     /// </summary>
-    IEnumerable<IPublication> Publications { get; }
+    IEnumerable<IPublication> Publications { get; set; }
 
     /// <summary>
     /// Gets the subscriptions declared on this gateway.
     /// </summary>
-    IEnumerable<ISubscription> Subscriptions { get; }
-
+    IEnumerable<ISubscription> Subscriptions { get; set; }
 
     /// <summary>
     /// Executes the provisioner of every publication and subscription that declares one,

@@ -8,7 +8,7 @@ using Uuid = Amanhecer.Abstractions.Uuid;
 namespace Amanhecer.ConfluentKafka.Tests;
 
 /// <summary>
-/// Builds <see cref="MessagingGatewayFixture"/>s backed by a Kafka cluster. Each fixture
+/// Builds <see cref="MessagingTestFixture"/>s backed by a Kafka cluster. Each fixture
 /// gets its own topic and consumer group, so tests stay isolated and can run in parallel.
 /// </summary>
 internal static class KafkaMessagingGatewayFixture
@@ -27,7 +27,7 @@ internal static class KafkaMessagingGatewayFixture
     /// <param name="waitForConfirmation">Whether the fixture's publication waits for the
     /// broker's delivery confirmation when publishing.</param>
     /// <returns>The fixture used by the test; disposed once the test has run.</returns>
-    public static async Task<MessagingGatewayFixture> CreateAsync(bool waitForConfirmation = false)
+    public static async Task<MessagingTestFixture> CreateAsync(bool waitForConfirmation = false)
     {
         var suffix = Uuid.NewGuid().ToString("N");
         var topic = $"amanhecer.tests.{suffix}";
@@ -58,7 +58,7 @@ internal static class KafkaMessagingGatewayFixture
         {
             await gateway.ProvisionerAsync();
 
-            return new MessagingGatewayFixture
+            return new MessagingTestFixture
             {
                 Producer = gateway.CreateProducers()[publication.RoutingKey],
                 Publication = publication,
@@ -79,7 +79,7 @@ internal static class KafkaMessagingGatewayFixture
         }
     }
 
-    private static async Task DeleteTopicAsync(string topic)
+    public static async Task DeleteTopicAsync(string topic)
     {
         try
         {

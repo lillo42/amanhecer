@@ -61,7 +61,7 @@ public class SetCloudEventTransformerTests
         {
             ContentType = new ContentType("text/plain"),
             Subject = "message-subject",
-            SpecVersion = "1.0",
+            SpecVersion = "0.2",
             Type = "com.example.existing"
         };
 
@@ -69,7 +69,7 @@ public class SetCloudEventTransformerTests
 
         await Assert.That(message.ContentType.MediaType).IsEqualTo("text/plain");
         await Assert.That(message.Subject).IsEqualTo("message-subject");
-        await Assert.That(message.SpecVersion).IsEqualTo("1.0");
+        await Assert.That(message.SpecVersion).IsEqualTo("0.2");
         await Assert.That(message.Type).IsEqualTo("com.example.existing");
     }
 
@@ -151,8 +151,8 @@ public class SetCloudEventTransformerTests
 
         await Assert.That(message.ContentType).IsNull();
         await Assert.That(message.DataSchema).IsNull();
-        await Assert.That(message.Source).IsNull();
-        await Assert.That(message.Type).IsNull();
+        await Assert.That(message.Source).IsEqualTo(Message.DefaultSource);
+        await Assert.That(message.Type).IsEqualTo(Message.DefaultType);
         await next.Received(1).Invoke(message, context);
     }
 
@@ -207,7 +207,7 @@ public class SetCloudEventTransformerTests
         await _transformer.DecodeAsync(message, context, Substitute.For<Func<Message, AmanhecerContext, ValueTask>>());
 
         await Assert.That(message.ContentType).IsNull();
-        await Assert.That(message.Type).IsNull();
-        await Assert.That(message.Source).IsNull();
+        await Assert.That(message.Type).IsEqualTo(Message.DefaultType);
+        await Assert.That(message.Source).IsEqualTo(Message.DefaultSource);
     }
 }

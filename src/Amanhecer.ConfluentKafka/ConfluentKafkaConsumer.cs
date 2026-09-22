@@ -643,15 +643,18 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
 
     private static partial class Logger
     {
-        public static void KafkaError(ILogger logger, LogLevel logLevel, ErrorCode errorCode, string reason, bool isFatal)
+        public static void KafkaError(ILogger logger, LogLevel logLevel, ErrorCode errorCode, string reason,
+            bool isFatal)
         {
-            logger.Log(logLevel, "Kafka consumer error. Code: {ErrorCode}, Reason: {Reason}, Fatal: {IsFatal}", errorCode, reason, isFatal);
+            logger.Log(logLevel, "Kafka consumer error. Code: {ErrorCode}, Reason: {Reason}, Fatal: {IsFatal}",
+                errorCode, reason, isFatal);
         }
 
         [LoggerMessage(LogLevel.Information, "Partitions for consumer lost {Partitions}")]
         public static partial void PartitionsLost(ILogger logger, string partitions);
 
-        [LoggerMessage(LogLevel.Information, "Deferring message at offset {Offset} on topic {Topic} partition {Partition}: seeking back for redelivery")]
+        [LoggerMessage(LogLevel.Information,
+            "Deferring message at offset {Offset} on topic {Topic} partition {Partition}: seeking back for redelivery")]
         public static partial void DeferringMessage(ILogger logger, long offset, string topic, int partition);
 
         [LoggerMessage(LogLevel.Warning, "Error seeking offset for defer: {ErrorMessage}")]
@@ -660,7 +663,8 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
         [LoggerMessage(LogLevel.Warning, "Error resuming partition after the defer delay: {ErrorMessage}")]
         public static partial void ErrorResumingPartition(ILogger logger, string errorMessage);
 
-        [LoggerMessage(LogLevel.Warning, "Cannot settle message {MessageId} from topic {TopicName}: no topic/partition/offset found in the message metadata")]
+        [LoggerMessage(LogLevel.Warning,
+            "Cannot settle message {MessageId} from topic {TopicName}: no topic/partition/offset found in the message metadata")]
         public static partial void MissingTopicPartitionOffset(ILogger logger, string messageId, string topicName);
 
         [LoggerMessage(LogLevel.Warning, "Error committing offsets: {ErrorMessage}")]
@@ -672,10 +676,12 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
         [LoggerMessage(LogLevel.Debug, "Skipped sweeping offsets, as another commit or sweep was running")]
         public static partial void SkippedSweepingOffsets(ILogger logger);
 
-        [LoggerMessage(LogLevel.Warning, "Skipped committing offsets for revoked partitions, timed out waiting for the in-flight commit to complete")]
+        [LoggerMessage(LogLevel.Warning,
+            "Skipped committing offsets for revoked partitions, timed out waiting for the in-flight commit to complete")]
         public static partial void SkippedCommittingOffsetsForRevokedPartitions(ILogger logger);
 
-        [LoggerMessage(LogLevel.Warning, "Skipped committing offsets before close, timed out waiting for the in-flight commit to complete")]
+        [LoggerMessage(LogLevel.Warning,
+            "Skipped committing offsets before close, timed out waiting for the in-flight commit to complete")]
         public static partial void SkippedCommittingOffsetsBeforeClose(ILogger logger);
 
         [LoggerMessage(LogLevel.Debug, "Error committing offsets before closing: {ErrorMessage}")]

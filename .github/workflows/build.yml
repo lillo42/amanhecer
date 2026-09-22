@@ -22,14 +22,17 @@ jobs:
       - name: Restore
         run: dotnet restore Amanhecer.slnx
 
-      - name: Build and test (no external dependencies)
+      - name: "Test InMemory (TUnit timeout: 5 minutes)"
+        run: dotnet test tests/Amanhecer.InMemory.Tests/Amanhecer.InMemory.Tests.csproj --configuration Release
+
+      - name: Build and test (other projects with no external dependencies)
         run: |
           set -e
           for project in tests/*/*.csproj; do
             case "$project" in
               # Shared contract-test library (not runnable) and the RabbitMQ/Kafka
               # tests, which need a broker and run in their own jobs.
-              *Messaging.Base.Tests*|*RabbitMq.Tests*|*ConfluentKafka.Tests*|*Dekaf.Tests*) continue ;;
+              *Messaging.Base.Tests*|*InMemory.Tests*|*RabbitMq.Tests*|*ConfluentKafka.Tests*|*Dekaf.Tests*) continue ;;
             esac
             dotnet test "$project" --configuration Release
           done
@@ -61,7 +64,7 @@ jobs:
       - name: Restore
         run: dotnet restore Amanhecer.slnx
 
-      - name: Test RabbitMQ (requires the broker service)
+      - name: "Test RabbitMQ (requires the broker service; TUnit timeout: 10 minutes)"
         run: dotnet test tests/Amanhecer.RabbitMq.Tests/Amanhecer.RabbitMq.Tests.csproj --configuration Release
 
   kafka:
@@ -109,7 +112,7 @@ jobs:
           done
           docker exec kafka /opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null
 
-      - name: Test Kafka (requires the broker container)
+      - name: "Test Kafka (requires the broker container; TUnit timeout: 10 minutes)"
         run: |
           set -e
           dotnet test tests/Amanhecer.ConfluentKafka.Tests/Amanhecer.ConfluentKafka.Tests.csproj --configuration Release

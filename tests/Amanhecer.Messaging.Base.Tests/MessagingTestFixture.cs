@@ -5,11 +5,11 @@ using Amanhecer.Abstractions.Messaging;
 namespace Amanhecer.Messaging.Base.Tests;
 
 /// <summary>
-/// Everything a <see cref="MessagingGatewayTests"/> test needs to exercise a transport: the
+/// Everything a test needs to exercise a transport: the
 /// producer and consumer created for a fresh, isolated publication/subscription pair, plus a
 /// cleanup callback that tears the transport resources (and the gateway) down.
 /// </summary>
-public sealed class MessagingGatewayFixture : IAsyncDisposable
+public sealed class MessagingTestFixture : IAsyncDisposable
 {
     /// <summary>
     /// Gets or sets the producer used to publish messages through <see cref="Publication"/>.

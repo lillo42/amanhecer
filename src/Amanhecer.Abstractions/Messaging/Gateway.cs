@@ -30,9 +30,17 @@ public abstract class Gateway<TPublication, TSubscription> : IGateway
     public List<TSubscription> Subscriptions { get; set; } = [];
 
 
-    IEnumerable<IPublication> IGateway.Publications => Publications.Cast<IPublication>();
+    IEnumerable<IPublication> IGateway.Publications
+    {
+        get => Publications.Cast<IPublication>();
+        set => Publications = value.Cast<TPublication>().ToList();
+    }
 
-    IEnumerable<ISubscription> IGateway.Subscriptions => Subscriptions.Cast<ISubscription>();
+    IEnumerable<ISubscription> IGateway.Subscriptions
+    {
+        get => Subscriptions.Cast<ISubscription>();
+        set => Subscriptions = value.Cast<TSubscription>().ToList();
+    }
 
     /// <summary>
     /// Executes the provisioner of every publication and subscription that declares one,

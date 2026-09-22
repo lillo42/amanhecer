@@ -63,6 +63,7 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
         ILogger<DekafConsumer>? logger = null)
     {
         _subscription = subscription;
+        Subscription = subscription;
         _logger = logger ?? NullLogger<DekafConsumer>.Instance;
         _consumer = consumer;
 
@@ -78,7 +79,7 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
     }
 
     /// <inheritdoc />
-    public ISubscription Subscription => _subscription;
+    public ISubscription Subscription { get; }
 
     /// <inheritdoc />
     public async ValueTask<Message[]> GetMessagesAsync(CancellationToken cancellationToken = default)
@@ -212,7 +213,7 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
             var offsets = new List<TopicPartitionOffset>(_pendingOffsets.Count);
             foreach (var pending in _pendingOffsets)
             {
-                if (!_committedOffsets.TryGetValue(pending.Key, out var committed) || pending.Value > committed)
+                if (IsUncommitted(pending.Key, pending.Value))
                 {
                     offsets.Add(new TopicPartitionOffset(pending.Key.Topic, pending.Key.Partition, pending.Value));
                 }
@@ -229,12 +230,18 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
             foreach (var offset in offsets)
             {
                 var topicPartition = (offset.Topic, offset.Partition);
-                if (!_committedOffsets.TryGetValue(topicPartition, out var committed) || offset.Offset > committed)
+                if (IsUncommitted(topicPartition, offset.Offset))
                 {
                     _committedOffsets[topicPartition] = offset.Offset;
                 }
             }
         }
+    }
+
+    // Callers must hold _offsetLock.
+    private bool IsUncommitted((string Topic, int Partition) topicPartition, long offset)
+    {
+        return !_committedOffsets.TryGetValue(topicPartition, out var committed) || offset > committed;
     }
 
     // The batch size has been reached: commit on a background task, unless another commit is

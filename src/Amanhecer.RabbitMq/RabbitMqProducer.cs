@@ -179,47 +179,49 @@ public partial class RabbitMqProducer : IProducer
     // message body, so no cloudEvents:* headers are set.
     private static void SetCloudEventHeaders(Message message, IPublication publication)
     {
-        if (publication.CloudEventType == CloudEventType.Json)
+        message.Headers["cloudEvents:id"] = message.Id;
+        message.Headers["cloudEvents:source"] = message.Source.ToString();
+        message.Headers["cloudEvents:specversion"] = message.SpecVersion;
+        message.Headers["cloudEvents:type"] = message.Type;
+        message.Headers["cloudEvents:time"] = message.Time.ToString("O", CultureInfo.InvariantCulture);
+        
+        if(message.ContentType != null)
         {
-            return;
+            message.Headers["cloudEvents:datacontenttype"] = message.ContentType.ToString();
         }
 
-        Set(message, "cloudEvents:id", message.Id);
-        Set(message, "cloudEvents:source", message.Source?.ToString());
-        Set(message, "cloudEvents:specversion", message.SpecVersion);
-        Set(message, "cloudEvents:type", message.Type);
-        Set(message, "cloudEvents:datacontenttype", message.ContentType?.ToString());
-        Set(message, "cloudEvents:dataschema", message.DataSchema?.ToString());
-        Set(message, "cloudEvents:subject", message.Subject);
-        Set(message, "cloudEvents:time", message.Time.ToString("O", CultureInfo.InvariantCulture));
-        Set(message, "cloudEvents:baggage", message.Baggage?.ToString());
-        Set(message, "cloudEvents:traceparent", message.TraceParent);
-        Set(message, "cloudEvents:tracestate", message.TraceState?.ToString());
+        if (message.DataSchema != null)
+        {
+            message.Headers["cloudEvents:datacontentschema"] = message.DataSchema.ToString();
+        }
 
-        // Extension attributes never overwrite the standard attributes set above.
+        if (message.Subject != null)
+        {
+            message.Headers["cloudEvents:subject"] = message.Subject;
+        }
+        
+        if (message.Baggage != null)
+        {
+            message.Headers["cloudEvents:baggage"] = message.Baggage.ToString();
+        }
+        
+        if (message.TraceParent != null)
+        {
+            message.Headers["cloudEvents:traceparent"] = message.TraceParent;
+        }
+
+        if (message.TraceState != null)
+        {
+            message.Headers["cloudEvents:tracestate"] = message.TraceState.ToString();
+        }
+
         foreach (var additional in publication.AdditionalCloudEvents)
         {
-            Set(message, $"cloudEvents:{additional.Key}", additional.Value);
-        }
-
-        return;
-
-        static void Set(Message message, string key, object? value)
-        {
-            if (value == null)
+            var key = $"cloudEvents:{additional.Key}";
+            if (!message.Headers.ContainsKey(key))
             {
-                return;
+                message.Headers[key] = additional.Value;
             }
-
-            var headers = message.Headers;
-#if NETFRAMEWORK || NETSTANDARD
-            if (!headers.ContainsKey(key))
-            {
-                headers.Add(key, value);
-            }
-#else
-            headers.TryAdd(key, value);
-#endif
         }
     }
 

@@ -18,6 +18,14 @@ public abstract class MessagingGatewayTests<TGateway>
 
     protected virtual TimeSpan NoMessageTimeout { get; } = TimeSpan.FromMilliseconds(500);
 
+    protected virtual bool SupportsPostingWithoutBrokerFailureTest => true;
+
+    protected virtual bool SupportsDeadLetterAfterTooManyRequeuesTest => false;
+
+    protected virtual int DeadLetterAfterTooManyRequeuesCount => 3;
+
+    protected virtual TimeSpan DeadLetterReceiveTimeout => TimeSpan.FromSeconds(10);
+
     protected abstract TGateway CreateGateway();
 
     protected abstract IPublication CreatePublication(ProvisionerStrategy strategy = ProvisionerStrategy.CreateOrUpdate,
@@ -169,6 +177,16 @@ public abstract class MessagingGatewayTests<TGateway>
         {
             await Task.Delay(MessagePropagateDelay);
         }
+    }
+
+    protected virtual Task<Message?> ReceiveFromDeadLetterQueueAsync(TimeSpan timeout)
+    {
+        return Task.FromResult<Message?>(null);
+    }
+
+    protected virtual Task PrepareDeadLetterInfrastructureAsync()
+    {
+        return Task.CompletedTask;
     }
 
     protected virtual Task CleanupAsync()
@@ -356,6 +374,7 @@ public abstract class MessagingGatewayTests<TGateway>
         Gateway.Publications = [CreatePublication()];
         Gateway.Subscriptions = [CreateSubscription()];
 
+        await PrepareDeadLetterInfrastructureAsync();
         await Gateway.ProvisionerAsync();
 
         var producer = CreateProducer();
@@ -377,5 +396,107 @@ public abstract class MessagingGatewayTests<TGateway>
         var received = await ReceiveManyAsync(consumer, 1, timeout);
         await Assert.That(received).Count().IsEqualTo(1);
         await AssertMessageAsync(expected, received[0]);
+    }
+
+    [Test]
+    public async Task When_Infrastructure_Is_Missing_And_Strategy_Is_Assume_Should_Throw()
+    {
+        Gateway.Publications = [CreatePublication(ProvisionerStrategy.Assume)];
+        Gateway.Subscriptions = [CreateSubscription(ProvisionerStrategy.Assume)];
+
+        await Assert.That(async () =>
+            {
+                var producer = CreateProducer();
+                var consumer = CreateConsumer();
+                var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
+
+                await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
+                await WaitMessageToBePropagated();
+                await ReceiveManyAsync(consumer, 1, Gateway.Subscriptions.First().ReceiveMessageTimeout);
+            })
+            .Throws<Exception>();
+    }
+
+    [Test]
+    public async Task When_Infrastructure_Is_Missing_And_Strategy_Is_Validate_Should_Throw()
+    {
+        Gateway.Publications = [CreatePublication(ProvisionerStrategy.Validate)];
+        Gateway.Subscriptions = [CreateSubscription(ProvisionerStrategy.Validate)];
+
+        await Assert.That(async () => await Gateway.ProvisionerAsync())
+            .Throws<Exception>();
+    }
+
+    [Test]
+    public async Task When_Multiple_Threads_Try_To_Post_A_Message_At_The_Same_Time_Should_Not_Throw()
+    {
+        Gateway.Publications = [CreatePublication()];
+
+        await Gateway.ProvisionerAsync();
+
+        var producer = CreateProducer();
+
+        var tasks = Enumerable.Range(0, 10)
+            .Select(_ => Task.Run(async () =>
+            {
+                var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
+                await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
+            }));
+
+        await Task.WhenAll(tasks);
+    }
+
+    [Test]
+    public async Task When_Posting_A_Message_But_No_Broker_Created_Should_Throw()
+    {
+        if (!SupportsPostingWithoutBrokerFailureTest)
+        {
+            Skip.Test($"{typeof(TGateway).Name} does not support the no-broker-created failure contract.");
+        }
+
+        Gateway.Publications = [CreatePublication()];
+
+        var producer = CreateProducer();
+        var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
+
+        await Assert.That(async () =>
+                await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext()))
+            .Throws<Exception>();
+    }
+
+    [Test]
+    public async Task When_Requeuing_A_Message_Too_Many_Times_Should_Move_To_Dead_Letter_Queue()
+    {
+        if (!SupportsDeadLetterAfterTooManyRequeuesTest)
+        {
+            Skip.Test($"{typeof(TGateway).Name} does not support the dead-letter-after-requeue contract.");
+        }
+
+        Gateway.Publications = [CreatePublication()];
+        Gateway.Subscriptions = [CreateSubscription()];
+
+        await PrepareDeadLetterInfrastructureAsync();
+        await Gateway.ProvisionerAsync();
+
+        var producer = CreateProducer();
+        var consumer = CreateConsumer();
+        var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
+
+        await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
+
+        await WaitMessageToBePropagated();
+
+        var timeout = Gateway.Subscriptions.First().ReceiveMessageTimeout;
+        for (var i = 0; i < DeadLetterAfterTooManyRequeuesCount; i++)
+        {
+            var received = await ReceiveManyAsync(consumer, 1, timeout);
+            await Assert.That(received).Count().IsEqualTo(1);
+            await consumer.DeferAsync(received[0], TimeSpan.FromMilliseconds(50));
+        }
+
+        var deadLettered = await ReceiveFromDeadLetterQueueAsync(DeadLetterReceiveTimeout);
+
+        await Assert.That(deadLettered).IsNotNull();
+        await Assert.That(deadLettered!.Id).IsEqualTo(message.Id);
     }
 }

@@ -241,7 +241,7 @@ internal static class RabbitMqMessagingGatewayFixture
         }
     }
 
-    private static async Task ProvisionDeadLetterTopologyAsync(string exchangeName,
+    public static async Task ProvisionDeadLetterTopologyAsync(string exchangeName,
         string queueName,
         string routingKey)
     {

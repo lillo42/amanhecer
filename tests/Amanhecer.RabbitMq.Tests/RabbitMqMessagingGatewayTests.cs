@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
 using Amanhecer.Messaging.Base.Tests;
@@ -11,6 +12,14 @@ namespace Amanhecer.RabbitMq.Tests;
 public class RabbitMqMessagingGatewayTests : MessagingGatewayTests<RabbitMqGateway>
 {
     protected override TimeSpan MessagePropagateDelay => TimeSpan.FromMilliseconds(250);
+
+    protected override bool SupportsPostingWithoutBrokerFailureTest => false;
+
+    protected override bool SupportsDeadLetterAfterTooManyRequeuesTest => true;
+
+    protected override int DeadLetterAfterTooManyRequeuesCount => 3;
+
+    protected override TimeSpan DeadLetterReceiveTimeout => TimeSpan.FromSeconds(10);
 
     protected override RabbitMqGateway CreateGateway()
     {
@@ -54,8 +63,25 @@ public class RabbitMqMessagingGatewayTests : MessagingGatewayTests<RabbitMqGatew
         return new RabbitMqSubscription(key, queueName)
         {
             BufferSize = 3,
+            DeadLetterQueueRoutingKey = $"{key}.dead",
+            MaxDeliveryAttempts = DeadLetterAfterTooManyRequeuesCount,
             Provisioner = CreateSubscriptionProvisioner(strategy, key)
         };
+    }
+
+    protected override async Task PrepareDeadLetterInfrastructureAsync()
+    {
+        var subscription = Gateway.Subscriptions.First();
+        await RabbitMqMessagingGatewayFixture.ProvisionDeadLetterTopologyAsync(
+            $"{Gateway.Exchange!.Name}.dlx",
+            $"{subscription.QueueName}.dlq",
+            subscription.DeadLetterQueueRoutingKey!);
+    }
+
+    protected override async Task<Message?> ReceiveFromDeadLetterQueueAsync(TimeSpan timeout)
+    {
+        var subscription = Gateway.Subscriptions.First();
+        return await RabbitMqMessagingGatewayFixture.GetOneRawAsync($"{subscription.QueueName}.dlq", timeout);
     }
 
     protected override async Task CleanupAsync()
@@ -89,6 +115,11 @@ public class RabbitMqMessagingGatewayTests : MessagingGatewayTests<RabbitMqGatew
             _ => new CreateQueue
             {
                 Exchange = Gateway.Exchange!,
+                QueueArguments =
+                {
+                    ["x-dead-letter-exchange"] = $"{Gateway.Exchange!.Name}.dlx",
+                    ["x-dead-letter-routing-key"] = $"{routingKey}.dead"
+                },
                 RoutingKey = routingKey,
                 Durable = true
             }

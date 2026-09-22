@@ -374,7 +374,6 @@ public abstract class MessagingGatewayTests<TGateway>
         Gateway.Publications = [CreatePublication()];
         Gateway.Subscriptions = [CreateSubscription()];
 
-        await PrepareDeadLetterInfrastructureAsync();
         await Gateway.ProvisionerAsync();
 
         var producer = CreateProducer();

@@ -90,7 +90,9 @@ public class RabbitMqMessagingGatewayTests : MessagingGatewayTests<RabbitMqGatew
         {
             await RabbitMqMessagingGatewayFixture.DeleteTopologyAsync(
                 Gateway.Exchange!.Name,
-                subscription.QueueName);
+                subscription.QueueName,
+                $"{Gateway.Exchange.Name}.dlx",
+                $"{subscription.QueueName}.dlq");
         }
 
         await Gateway.DisposeAsync();

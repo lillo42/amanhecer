@@ -94,5 +94,26 @@ public class CreateTopic : IPublicationProvisioner, ISubscriptionProvisioner
         {
             // The topic already exists: nothing to do.
         }
+
+        await WaitUntilTopicIsVisibleAsync(adminClient, topic);
+    }
+
+    private async Task WaitUntilTopicIsVisibleAsync(IAdminClient adminClient, string topic)
+    {
+        var deadline = DateTime.UtcNow + Timeout;
+
+        while (DateTime.UtcNow < deadline)
+        {
+            var metadata = adminClient.GetMetadata(TimeSpan.FromSeconds(5));
+            if (metadata.Topics.Any(t => t.Topic == topic && t.Error.Code != ErrorCode.UnknownTopicOrPart))
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(200));
+        }
+
+        throw new TimeoutException(
+            $"Timed out waiting for Kafka topic '{topic}' to become visible in cluster metadata.");
     }
 }

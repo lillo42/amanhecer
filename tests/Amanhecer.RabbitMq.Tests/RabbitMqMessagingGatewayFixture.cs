@@ -14,7 +14,7 @@ using RabbitMQ.Client.Exceptions;
 namespace Amanhecer.RabbitMq.Tests;
 
 /// <summary>
-/// Builds <see cref="MessagingGatewayFixture"/>s backed by a RabbitMQ broker. Each fixture
+/// Builds <see cref="MessagingTestFixture"/>s backed by a RabbitMQ broker. Each fixture
 /// gets its own exchange and queue, so tests stay isolated and can run in parallel.
 /// </summary>
 internal static class RabbitMqMessagingGatewayFixture
@@ -55,7 +55,7 @@ internal static class RabbitMqMessagingGatewayFixture
     /// <c>x-dead-letter-routing-key</c> queue arguments.
     /// </param>
     /// <returns>The fixture used by the test; disposed once the test has run.</returns>
-    public static async Task<MessagingGatewayFixture> CreateAsync(
+    public static async Task<MessagingTestFixture> CreateAsync(
         Action<CreateQueue>? configureQueue = null,
         IExchangeProvisioner? exchangeProvisioner = null,
         ISubscriptionProvisioner? subscriptionProvisioner = null,
@@ -122,7 +122,7 @@ internal static class RabbitMqMessagingGatewayFixture
 
             await gateway.ProvisionerAsync();
 
-            return new MessagingGatewayFixture
+            return new MessagingTestFixture
             {
                 Producer = gateway.CreateProducers()[publication.RoutingKey],
                 Publication = publication,
@@ -167,7 +167,7 @@ internal static class RabbitMqMessagingGatewayFixture
     /// <param name="fixture">The fixture whose consumer receives the message.</param>
     /// <param name="timeout">How long to wait for the message.</param>
     /// <returns>The received message.</returns>
-    public static async Task<Message> ReceiveOneAsync(MessagingGatewayFixture fixture, TimeSpan timeout)
+    public static async Task<Message> ReceiveOneAsync(MessagingTestFixture fixture, TimeSpan timeout)
     {
         using var cts = new CancellationTokenSource(timeout);
         var messages = await fixture.Consumer.GetMessagesAsync(cts.Token);

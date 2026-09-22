@@ -29,7 +29,7 @@ public class KafkaMessagingFeatureTests
         };
     }
 
-    private static async Task<Message> ReceiveOneAsync(Messaging.Base.Tests.MessagingGatewayFixture fixture)
+    private static async Task<Message> ReceiveOneAsync(Messaging.Base.Tests.MessagingTestFixture fixture)
     {
         using var cts = new CancellationTokenSource(s_receiveTimeout);
         var messages = await fixture.Consumer.GetMessagesAsync(cts.Token);

@@ -7,7 +7,7 @@ namespace Amanhecer.InMemory.Tests;
 
 internal static class InMemoryMessagingGatewayFixture
 {
-    public static Task<MessagingGatewayFixture> CreateAsync()
+    public static Task<MessagingTestFixture> CreateAsync()
     {
         var suffix = Uuid.NewGuid().ToString("N");
         var routingKey = $"tests.{suffix}";
@@ -33,7 +33,7 @@ internal static class InMemoryMessagingGatewayFixture
 
         gateway.ProvisionerAsync().GetAwaiter().GetResult();
 
-        return Task.FromResult(new MessagingGatewayFixture
+        return Task.FromResult(new MessagingTestFixture
         {
             Producer = gateway.CreateProducers()[publication.RoutingKey],
             Publication = publication,

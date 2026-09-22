@@ -1,148 +1,265 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Net.Mime;
-using System.Text;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Messaging.Base.Tests.Extensions;
 
 namespace Amanhecer.Messaging.Base.Tests;
 
-/// <summary>
-/// Transport-agnostic contract tests for a messaging gateway: producing, receiving and
-/// settling (ack, nack, defer) messages through the <see cref="IProducer"/>/
-/// <see cref="IConsumer"/> abstractions.
-/// </summary>
-/// <remarks>
-/// To test a new transport, create a test project that references this one, derive from this
-/// class, mark the derived class with <c>[InheritsTests]</c> and implement
-/// <see cref="CreateFixtureAsync"/> so it provisions an isolated publication/subscription pair
-/// on the transport and returns the producer and consumer bound to it.
-/// </remarks>
-public abstract class MessagingGatewayTests
+public abstract class MessagingGatewayTests<TGateway>
+    where TGateway : class, IGateway
 {
-    /// <summary>
-    /// Gets how long to wait for a message that is expected to arrive.
-    /// </summary>
-    protected virtual TimeSpan ReceiveTimeout => TimeSpan.FromSeconds(10);
+    protected TGateway Gateway { get; private set; } = null!;
 
-    /// <summary>
-    /// Gets how long to wait for a message that is expected <em>not</em> to arrive.
-    /// </summary>
-    protected virtual TimeSpan NoMessageTimeout => TimeSpan.FromMilliseconds(500);
+    protected virtual TimeSpan NoMessageTimeout { get; } = TimeSpan.FromMilliseconds(500);
 
-    /// <summary>
-    /// Provisions a fresh, isolated publication/subscription pair on the transport under test
-    /// and returns the producer and consumer bound to it.
-    /// </summary>
-    /// <returns>The fixture used by the test; disposed once the test has run.</returns>
-    protected abstract Task<MessagingGatewayFixture> CreateFixtureAsync();
+    protected abstract TGateway CreateGateway();
 
-    /// <summary>
-    /// Creates the message produced by the tests. Override to attach transport-specific
-    /// attributes.
-    /// </summary>
-    /// <returns>A message with a unique id and payload.</returns>
-    protected virtual Message CreateMessage()
+    protected abstract IPublication CreatePublication(ProvisionerStrategy strategy = ProvisionerStrategy.CreateOrUpdate,
+        [CallerMemberName] string? routingKey = null);
+
+    protected virtual IProducer CreateProducer()
+    {
+        var producers = Gateway.CreateProducers();
+        return producers.First().Value;
+    }
+
+    protected abstract ISubscription CreateSubscription(
+        ProvisionerStrategy strategy = ProvisionerStrategy.CreateOrUpdate,
+        [CallerMemberName] string? routingKey = null);
+
+    protected virtual IConsumer CreateConsumer()
+    {
+        return Gateway.CreateConsumer(Gateway.Subscriptions.First());
+    }
+
+    protected virtual Message CreateMessage(Action<MessageBuilder> builder)
+    {
+        var messageBuilder = new MessageBuilder();
+        builder(messageBuilder);
+        return messageBuilder.Build();
+    }
+
+    protected virtual Message CloneMessage(Message message)
     {
         return new Message
         {
-            ContentType = new ContentType("text/plain"),
-            Source = new Uri("amanhecer.tests", UriKind.RelativeOrAbsolute),
-            SpecVersion = "1.0",
-            Type = "amanhecer.tests.message",
-            Payload = Encoding.UTF8.GetBytes(Uuid.NewGuid().ToString())
+            Baggage = message.Baggage == null ? null : new Baggage(message.Baggage),
+            ContentType = message.ContentType,
+            CorrelationId = message.CorrelationId,
+            DataRef = message.DataRef,
+            DataSchema = message.DataSchema,
+            Headers = new Dictionary<string, object?>(message.Headers),
+            Id = message.Id,
+            Metadata = new Dictionary<string, object?>(message.Metadata),
+            PartitionKey = message.PartitionKey,
+            Payload = message.Payload,
+            ReplyTo = message.ReplyTo,
+            Source = message.Source,
+            SpecVersion = message.SpecVersion,
+            Subject = message.Subject,
+            Time = message.Time,
+            TraceParent = message.TraceParent,
+            TraceState = message.TraceState == null ? null : new TraceState(message.TraceState),
+            Type = message.Type
         };
     }
 
-    /// <summary>
-    /// Receives the next message from the fixture's consumer, failing after
-    /// <paramref name="timeout"/> when none arrives.
-    /// </summary>
-    /// <param name="fixture">The fixture whose consumer receives the message.</param>
-    /// <param name="timeout">How long to wait for the message.</param>
-    /// <returns>The received message.</returns>
-    protected static async Task<Message> ReceiveOneAsync(MessagingGatewayFixture fixture, TimeSpan timeout)
+    [RequiresUnreferencedCode("")]
+    protected virtual async Task AssertMessageAsync(Message expected, Message received)
     {
-        using var cts = new CancellationTokenSource(timeout);
-        var messages = await fixture.Consumer.GetMessagesAsync(cts.Token);
-        return messages[0];
+        await Assert.That(received)
+            .Member(x => x.ContentType, x => x.IsEqualTo(expected.ContentType))
+            .And.Member(x => x.CorrelationId, x => x.IsEqualTo(expected.CorrelationId))
+            .And.Member(x => x.DataSchema, x => x.IsEqualTo(expected.DataSchema))
+            .And.Member(x => x.DataRef, x => x.IsEqualTo(expected.DataRef))
+            .And.Member(x => x.Id, x => x.IsEqualTo(expected.Id))
+            .And.Member(x => x.PartitionKey, x => x.IsEqualTo(expected.PartitionKey))
+            .And.Member(x => x.ReplyTo, x => x.IsEqualTo(expected.ReplyTo))
+            .And.Member(x => x.Subject, x => x.IsEqualTo(expected.Subject))
+            .And.Member(x => x.Source, x => x.IsEqualTo(expected.Source))
+            .And.Member(x => x.Time, x => x.IsEqualTo(expected.Time));
+
+        if (!string.IsNullOrEmpty(expected.TraceParent))
+        {
+            await Assert.That(received.TraceParent).IsEqualTo(expected.TraceParent);
+        }
+
+        if (expected.Baggage != null)
+        {
+            await Assert.That(received.Baggage).IsNotNull();
+            foreach (var pairValue in expected.Baggage)
+            {
+                await Assert.That(received.Baggage!).ContainsKeyWithValue(pairValue.Key, pairValue.Value);
+            }
+        }
+
+        if (expected.TraceState != null)
+        {
+            await Assert.That(received.TraceState?.ToString()).IsEqualTo(expected.TraceState.ToString());
+        }
+
+
+        foreach (var header in expected.Headers)
+        {
+            var headerValue = header.Value switch
+            {
+                DateTime t => t.ToString("O"),
+                DateTimeOffset t => t.ToString("O"),
+                _ => header.Value!.ToString()
+            };
+            
+            await Assert.That(received.Headers)
+                .ContainsKeyWithValue(header.Key, headerValue);
+        }
     }
 
-    /// <summary>
-    /// Receives at least <paramref name="count"/> messages from the fixture's consumer,
-    /// polling until all are collected or <paramref name="timeout"/> elapses.
-    /// </summary>
-    /// <param name="fixture">The fixture whose consumer receives the messages.</param>
-    /// <param name="count">The minimum number of messages to receive.</param>
-    /// <param name="timeout">How long to wait in total.</param>
-    /// <returns>The received messages.</returns>
-    protected static async Task<Message[]> ReceiveManyAsync(MessagingGatewayFixture fixture, int count, TimeSpan timeout)
+    protected virtual TimeSpan MessagePropagateDelay { get; } = TimeSpan.FromSeconds(5);
+
+    protected virtual async Task<Message[]> ReceiveManyAsync(IConsumer consumer, int count, TimeSpan timeout)
     {
         using var cts = new CancellationTokenSource(timeout);
-        var received = new List<Message>(count);
+        var receivedMessages = new List<Message>(count);
 
-        while (received.Count < count && !cts.IsCancellationRequested)
+        while (receivedMessages.Count < count && !cts.IsCancellationRequested)
         {
-            Message[] batch;
+            Message[] received;
             try
             {
-                batch = await fixture.Consumer.GetMessagesAsync(cts.Token);
+                received = await consumer.GetMessagesAsync(cts.Token);
             }
             catch (OperationCanceledException)
             {
                 break;
             }
-            
-            if (batch.Length == 0)
+
+            if (received.Length == 0)
             {
                 continue;
             }
 
-            received.AddRange(batch);
+            receivedMessages.AddRange(received);
         }
 
-        return [.. received.Take(count)];
+        return [.. receivedMessages.Take(count)];
+    }
+
+    protected virtual async Task AssertNoMessageAsync(IConsumer consumer, TimeSpan timeout)
+    {
+        using var cts = new CancellationTokenSource(timeout);
+
+        try
+        {
+            var received = await consumer.GetMessagesAsync(cts.Token);
+            await Assert.That(received).IsEmpty();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    protected virtual async Task WaitMessageToBePropagated()
+    {
+        if (MessagePropagateDelay != TimeSpan.Zero)
+        {
+            await Task.Delay(MessagePropagateDelay);
+        }
+    }
+
+    protected virtual Task CleanupAsync()
+    {
+        return Task.CompletedTask;
+    }
+
+    [Before(HookType.Test)]
+    public void Setup(TestContext context)
+    {
+        Gateway = CreateGateway();
+    }
+
+    [After(HookType.Test)]
+    public async Task AfterTests()
+    {
+        await CleanupAsync();
+
+        if (Gateway is IAsyncDisposable asyncDisposable)
+        {
+            await asyncDisposable.DisposeAsync();
+        }
+        else if (Gateway is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+
+        Gateway = null!;
     }
 
     [Test]
     public async Task When_Producing_A_Message_Should_Be_Received()
     {
-        await using var fixture = await CreateFixtureAsync();
-        var message = CreateMessage();
+        Gateway.Publications = [CreatePublication()];
+        Gateway.Subscriptions = [CreateSubscription()];
 
-        await fixture.Producer.ProduceAsync(message, fixture.Publication, new AmanhecerContext());
+        await Gateway.ProvisionerAsync();
 
-        var received = await ReceiveOneAsync(fixture, ReceiveTimeout);
+        var producer = CreateProducer();
+        var consumer = CreateConsumer();
+        var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
+        var expected = CloneMessage(message);
 
-        await Assert.That(received.Id).IsEqualTo(message.Id);
-        await Assert.That(received.CorrelationId).IsEqualTo(message.CorrelationId);
-        await Assert.That(received.Payload.Span.SequenceEqual(message.Payload.Span)).IsTrue();
+        await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
 
-        await fixture.Consumer.AckAsync(received);
+        await WaitMessageToBePropagated();
+
+        var timeout = Gateway.Subscriptions.First().ReceiveMessageTimeout;
+        var received = await ReceiveManyAsync(consumer, 1, timeout);
+        await Assert.That(received).Count().IsEqualTo(1);
+        await AssertMessageAsync(expected, received[0]);
     }
 
     [Test]
-    public async Task When_Producing_Multiple_Messages_Should_Receive_All()
+    public async Task When_A_Consumer_Receives_Multiple_Messages_Should_Return_All()
     {
-        await using var fixture = await CreateFixtureAsync();
-        var messages = new[] { CreateMessage(), CreateMessage(), CreateMessage() };
+        Gateway.Publications = [CreatePublication()];
+        Gateway.Subscriptions = [CreateSubscription()];
 
-        foreach (var message in messages)
+        await Gateway.ProvisionerAsync();
+
+        var producer = CreateProducer();
+        var consumer = CreateConsumer();
+
+        var messages = new[]
         {
-            await fixture.Producer.ProduceAsync(message, fixture.Publication, new AmanhecerContext());
-        }
+            CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString())),
+            CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString())),
+            CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString())),
+            CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString())),
+        };
+        var expectedMessages = messages.Select(CloneMessage).ToArray();
 
-        var received = await ReceiveManyAsync(fixture, messages.Length, ReceiveTimeout);
-        foreach (var message in received)
+        await messages.EachAsync(async m => await producer
+            .ProduceAsync(m, Gateway.Publications.First(), new AmanhecerContext()));
+
+        await WaitMessageToBePropagated();
+
+        var subs = Gateway.Subscriptions.First();
+        var timeout = MessagePropagateDelay > subs.ReceiveMessageTimeout
+            ? MessagePropagateDelay
+            : subs.ReceiveMessageTimeout;
+        var receivedMessages = await ReceiveManyAsync(consumer, messages.Length, timeout);
+
+        await receivedMessages.EachAsync(async message =>
         {
-            await fixture.Consumer.AckAsync(message);
-        }
+            var expected = await Assert.That(expectedMessages).HasSingleItem(m => m.Id == message.Id);
+            await AssertMessageAsync(expected, message);
+        });
 
-        var receivedIds = received.Select(m => m.Id).ToArray();
-
+        var receivedIds = receivedMessages.Select(x => x.Id).ToArray();
         await Assert.That(receivedIds).Count().IsEqualTo(messages.Length);
         foreach (var message in messages)
         {
@@ -153,69 +270,112 @@ public abstract class MessagingGatewayTests
     [Test]
     public async Task When_Acking_A_Message_Should_Not_Be_Redelivered()
     {
-        await using var fixture = await CreateFixtureAsync();
-        var message = CreateMessage();
+        Gateway.Publications = [CreatePublication()];
+        Gateway.Subscriptions = [CreateSubscription()];
 
-        await fixture.Producer.ProduceAsync(message, fixture.Publication, new AmanhecerContext());
+        await Gateway.ProvisionerAsync();
 
-        var received = await ReceiveOneAsync(fixture, ReceiveTimeout);
-        await fixture.Consumer.AckAsync(received);
+        var producer = CreateProducer();
+        var consumer = CreateConsumer();
+        var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
+        var expected = CloneMessage(message);
 
-        await Assert.That(async () => await ReceiveOneAsync(fixture, NoMessageTimeout))
-            .Throws<OperationCanceledException>();
+        await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
+
+        await WaitMessageToBePropagated();
+
+        var timeout = Gateway.Subscriptions.First().ReceiveMessageTimeout;
+        var received = await ReceiveManyAsync(consumer, 1, timeout);
+        await Assert.That(received).Count().IsEqualTo(1);
+        await AssertMessageAsync(expected, received[0]);
+
+        await consumer.AckAsync(received[0]);
+
+        await AssertNoMessageAsync(consumer, NoMessageTimeout);
     }
 
     [Test]
     public async Task When_Nacking_A_Message_Should_Not_Be_Redelivered()
     {
-        await using var fixture = await CreateFixtureAsync();
-        var message = CreateMessage();
+        Gateway.Publications = [CreatePublication()];
+        Gateway.Subscriptions = [CreateSubscription()];
 
-        await fixture.Producer.ProduceAsync(message, fixture.Publication, new AmanhecerContext());
+        await Gateway.ProvisionerAsync();
 
-        var received = await ReceiveOneAsync(fixture, ReceiveTimeout);
-        await fixture.Consumer.NackAsync(received);
+        var producer = CreateProducer();
+        var consumer = CreateConsumer();
+        var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
+        var expected = CloneMessage(message);
 
-        await Assert.That(async () => await ReceiveOneAsync(fixture, NoMessageTimeout))
-            .Throws<OperationCanceledException>();
+        await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
+
+        await WaitMessageToBePropagated();
+
+        var timeout = Gateway.Subscriptions.First().ReceiveMessageTimeout;
+        var received = await ReceiveManyAsync(consumer, 1, timeout);
+        await Assert.That(received).Count().IsEqualTo(1);
+        await AssertMessageAsync(expected, received[0]);
+
+        await consumer.NackAsync(received[0]);
+
+        await AssertNoMessageAsync(consumer, NoMessageTimeout);
     }
 
     [Test]
     public async Task When_Deferring_A_Message_Should_Be_Redelivered()
     {
-        await using var fixture = await CreateFixtureAsync();
-        var message = CreateMessage();
+        Gateway.Publications = [CreatePublication()];
+        Gateway.Subscriptions = [CreateSubscription()];
 
-        await fixture.Producer.ProduceAsync(message, fixture.Publication, new AmanhecerContext());
+        await Gateway.ProvisionerAsync();
 
-        var received = await ReceiveOneAsync(fixture, ReceiveTimeout);
-        await fixture.Consumer.DeferAsync(received, TimeSpan.FromMilliseconds(50));
+        var producer = CreateProducer();
+        var consumer = CreateConsumer();
+        var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
+        var expected = CloneMessage(message);
 
-        var redelivered = await ReceiveOneAsync(fixture, ReceiveTimeout);
+        await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
 
-        await Assert.That(redelivered.Id).IsEqualTo(message.Id);
-        await Assert.That(redelivered.Payload.Span.SequenceEqual(message.Payload.Span)).IsTrue();
+        await WaitMessageToBePropagated();
 
-        await fixture.Consumer.AckAsync(redelivered);
+        var timeout = Gateway.Subscriptions.First().ReceiveMessageTimeout;
+        var received = await ReceiveManyAsync(consumer, 1, timeout);
+        await Assert.That(received).Count().IsEqualTo(1);
+        await AssertMessageAsync(expected, received[0]);
+
+        await consumer.DeferAsync(received[0], TimeSpan.FromMilliseconds(50));
+
+        var redelivered = await ReceiveManyAsync(consumer, 1, timeout);
+        await Assert.That(redelivered).Count().IsEqualTo(1);
+        await AssertMessageAsync(expected, redelivered[0]);
     }
 
     [Test]
     public async Task When_Producing_A_Message_With_Trace_Context_Should_Propagate()
     {
-        await using var fixture = await CreateFixtureAsync();
-        var message = CreateMessage();
-        message.TraceParent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
-        message.TraceState = TraceState.FromString("congo=t61rcWkgMzE");
-        message.Baggage = Baggage.FromString("userId=alice,serverNode=DF28");
+        Gateway.Publications = [CreatePublication()];
+        Gateway.Subscriptions = [CreateSubscription()];
 
-        await fixture.Producer.ProduceAsync(message, fixture.Publication, new AmanhecerContext());
+        await Gateway.ProvisionerAsync();
 
-        var received = await ReceiveOneAsync(fixture, ReceiveTimeout);
+        var producer = CreateProducer();
+        var consumer = CreateConsumer();
+        var message = CreateMessage(x =>
+        {
+            x.SetPayload(Uuid.NewGuid().ToString());
+            x.SetTraceParent("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
+            x.SetTraceState(TraceState.FromString("congo=t61rcWkgMzE"));
+            x.SetBaggage(Baggage.FromString("userId=alice,serverNode=DF28"));
+        });
+        var expected = CloneMessage(message);
 
-        await Assert.That(received.TraceParent).IsEqualTo(message.TraceParent);
-        await Assert.That(received.TraceState?.ToString()).IsEqualTo(message.TraceState.ToString());
-        await Assert.That(received.Baggage?.ToString()).IsEqualTo(message.Baggage.ToString());
+        await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
 
-        await fixture.Consumer.AckAsync(received);
+        await WaitMessageToBePropagated();
+
+        var timeout = Gateway.Subscriptions.First().ReceiveMessageTimeout;
+        var received = await ReceiveManyAsync(consumer, 1, timeout);
+        await Assert.That(received).Count().IsEqualTo(1);
+        await AssertMessageAsync(expected, received[0]);
     }
 }

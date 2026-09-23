@@ -20,5 +20,8 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\Amanhecer\Amanhecer.csproj" />
+        <ProjectReference Include="..\..\src\Amanhecer.Compression.LZ4\Amanhecer.Compression.LZ4.csproj" />
+        <ProjectReference Include="..\..\src\Amanhecer.Compression.Snappier\Amanhecer.Compression.Snappier.csproj" />
+        <ProjectReference Include="..\..\src\Amanhecer.Compression.Zstd\Amanhecer.Compression.Zstd.csproj" />
     </ItemGroup>
 </Project>

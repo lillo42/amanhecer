@@ -6,6 +6,7 @@ using System.Net.Mime;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
 using Amanhecer.Dekaf.Provisioners;
+using Amanhecer.Messaging.Compression;
 using Amanhecer.Messaging.Transformers;
 
 namespace Amanhecer.Dekaf.Configurations;

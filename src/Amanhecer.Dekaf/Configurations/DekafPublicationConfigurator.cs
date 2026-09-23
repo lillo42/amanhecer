@@ -205,7 +205,7 @@ public class DekafPublicationConfigurator
         return this;
     }
 
-    private Uri? _defaultSource;
+    private Uri _defaultSource = Message.DefaultSource;
 
     /// <summary>
     /// Sets the source (the CloudEvents <c>source</c> attribute) set on messages that do not
@@ -233,7 +233,7 @@ public class DekafPublicationConfigurator
         return this;
     }
 
-    private string? _defaultType;
+    private string _defaultType = Message.DefaultType;
 
     /// <summary>
     /// Sets the type (the CloudEvents <c>type</c> attribute) set on messages that do not
@@ -291,7 +291,7 @@ public class DekafPublicationConfigurator
         return this;
     }
 
-    private CloudEventType? _cloudEventType;
+    private CloudEventType _cloudEventType = Abstractions.Messaging.CloudEventType.Binary;
 
     /// <summary>
     /// Sets the CloudEvents content mode used to encode messages published through this
@@ -395,11 +395,11 @@ public class DekafPublicationConfigurator
             DefaultSubject = _defaultSubject,
             DefaultType = _defaultType,
             DefaultReplyTo = _defaultReplyTo,
-            CloudEventType = _cloudEventType ?? Abstractions.Messaging.CloudEventType.Binary,
+            CloudEventType = _cloudEventType,
             Provisioner = _provisioner,
             Name = _name ?? Uuid.NewGuid().ToString(),
             DefaultContentType = _defaultContentType ?? new ContentType("text/plain"),
-            DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute)
+            DefaultSource = _defaultSource
         };
 
         if (_configure is not null)

@@ -16,7 +16,7 @@ public class PublicationTests
         await Assert.That(publication.DefaultSource.ToString()).IsEqualTo("amanhecer");
         await Assert.That(publication.DefaultSpecVersion).IsEqualTo("1.0");
         await Assert.That(publication.CloudEventType).IsEqualTo(CloudEventType.Binary);
-        await Assert.That(publication.DefaultType).IsNull();
+        await Assert.That(publication.DefaultType).IsEqualTo(Message.DefaultType);
         await Assert.That(publication.DefaultSubject).IsNull();
         await Assert.That(publication.DefaultReplyTo).IsNull();
         await Assert.That(publication.DefaultDataSchema).IsNull();

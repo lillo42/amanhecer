@@ -77,12 +77,18 @@ public class Message
     /// </summary>
     public string? Subject { get; set; }
 
+    /// <summary>
+    /// The default CloudEvents specification version used by new messages.
+    /// </summary>
     public const string DefaultSpecVersion = "1.0";
     /// <summary>
     /// Gets or sets the CloudEvents spec version the message conforms to.
     /// </summary>
     public string SpecVersion { get; set; } = DefaultSpecVersion;
 
+    /// <summary>
+    /// The default CloudEvents source used by new messages.
+    /// </summary>
     public static readonly Uri DefaultSource = new("amanhecer", UriKind.RelativeOrAbsolute);
 
     /// <summary>
@@ -97,6 +103,9 @@ public class Message
     /// </summary>
     public DateTimeOffset Time { get; set; } = DateTimeOffset.UtcNow;
 
+    /// <summary>
+    /// The default CloudEvents type used by new messages.
+    /// </summary>
     public const string DefaultType = "Amanhecer";
 
     /// <summary>

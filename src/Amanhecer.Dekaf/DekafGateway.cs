@@ -27,8 +27,19 @@ public class DekafGateway : Gateway<DekafPublication, DekafSubscription>, ILogge
     /// </summary>
     public string? BootstrapServers { get; set; }
 
+    /// <summary>
+    /// Gets or sets the SASL mechanism used to authenticate with the Kafka cluster.
+    /// </summary>
     public SaslMechanism? SaslMechanism { get; set; }
+
+    /// <summary>
+    /// Gets or sets the SASL username used when the selected mechanism requires credentials.
+    /// </summary>
     public string? SaslUsername { get; set; }
+
+    /// <summary>
+    /// Gets or sets the SASL password used when the selected mechanism requires credentials.
+    /// </summary>
     public string? SaslPassword { get; set; }
 
     /// <summary>

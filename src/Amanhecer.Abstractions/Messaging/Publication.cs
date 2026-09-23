@@ -38,13 +38,13 @@ public abstract class Publication : IPublication
     public string? DefaultSubject { get; set; }
 
     /// <inheritdoc cref="IPublication.DefaultSource"/>
-    public Uri DefaultSource { get; set; } = new("amanhecer", UriKind.RelativeOrAbsolute);
+    public Uri DefaultSource { get; set; } = Message.DefaultSource;
 
     /// <inheritdoc cref="IPublication.DefaultSpecVersion"/>
-    public string DefaultSpecVersion { get; set; } = "1.0";
+    public string DefaultSpecVersion { get; set; } = Message.DefaultSpecVersion;
 
     /// <inheritdoc cref="IPublication.DefaultType"/>
-    public string? DefaultType { get; set; }
+    public string DefaultType { get; set; } = Message.DefaultType;
 
     /// <inheritdoc cref="IPublication.MessageMapperType"/>
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]

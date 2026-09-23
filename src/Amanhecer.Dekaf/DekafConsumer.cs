@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Net.Mime;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging;
@@ -421,21 +420,21 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
 
         return new Message
         {
-            Id = GetHeaderValue(headers, "ce_id") ?? Uuid.NewGuid().ToString(),
-            ContentType = GetContentType(GetHeaderValue(headers, "ce_datacontenttype")),
-            CorrelationId = GetHeaderValue(headers, "ce_correlationid") ?? Uuid.NewGuid().ToString(),
+            Id = GetId(headers),
+            ContentType = GetContentType(headers),
+            CorrelationId = GetCorrelationId(headers),
             DataRef = GetHeaderValue(headers, "ce_dataref"),
             DataSchema = GetDataSchema(headers),
             Headers = headers,
             Metadata = metadata,
             PartitionKey = result.Key,
             Payload = result.Value.ToArray(),
-            ReplyTo = GetHeaderValue(headers, "ce_replyto"),
-            Subject = GetHeaderValue(headers, "ce_subject"),
-            SpecVersion = GetHeaderValue(headers, "ce_specversion") ?? _subscription.DefaultSpecVersion,
+            ReplyTo = GetReplyTo(headers),
+            Subject = GetSubject(headers),
+            SpecVersion = GetSpecVersion(headers),
             Source = GetSource(headers),
             Time = GetTime(result.Timestamp, headers),
-            Type = GetHeaderValue(headers, "ce_type") ?? _subscription.DefaultType,
+            Type = GetType(headers),
             Baggage = GetBaggage(headers),
             TraceParent = GetHeaderValue(headers, "ce_traceparent"),
             TraceState = GetTraceState(headers)
@@ -444,7 +443,7 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
 
     // Kafka header values are raw bytes; the producer encodes CloudEvents attributes with the
     // publication encoding (UTF-8 by default), so they are decoded as UTF-8 here.
-    private static string? GetHeaderValue(IDictionary<string, object?> headers, string key)
+    private string? GetHeaderValue(IDictionary<string, object?> headers, string key)
     {
         if (!headers.TryGetValue(key, out var obj))
         {
@@ -454,24 +453,61 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
         return obj switch
         {
             string val => val,
-            byte[] bytes => Encoding.UTF8.GetString(bytes),
+            byte[] bytes => _subscription.Encoding.GetString(bytes),
             _ => null
         };
     }
 
-    private static ContentType GetContentType(string? contentType)
+    private string GetId(Dictionary<string, object?> headers)
     {
+        var id = GetHeaderValue(headers, "ce_id");
+        return string.IsNullOrEmpty(id) ? Uuid.NewGuid().ToString() : id!;
+    }
+
+    private string GetCorrelationId(Dictionary<string, object?> headers)
+    {
+        var id = GetHeaderValue(headers, "ce_correlationid");
+        return string.IsNullOrEmpty(id) ? Uuid.NewGuid().ToString() : id!;
+    }
+
+    private string? GetSubject(Dictionary<string, object?> headers)
+    {
+        var subject = GetHeaderValue(headers, "ce_subject");
+        return string.IsNullOrEmpty(subject) ? _subscription.DefaultSubject : subject!;
+    }
+
+    private string? GetReplyTo(Dictionary<string, object?> headers)
+    {
+        var replyTo = GetHeaderValue(headers, "ce_replyto");
+        return string.IsNullOrEmpty(replyTo) ? _subscription.DefaultReplyTo : replyTo!;
+    }
+
+    private string GetSpecVersion(Dictionary<string, object?> headers)
+    {
+        var specVersion = GetHeaderValue(headers, "ce_specversion");
+        return string.IsNullOrEmpty(specVersion) ? _subscription.DefaultSpecVersion : specVersion!;
+    }
+
+    private string GetType(Dictionary<string, object?> headers)
+    {
+        var type = GetHeaderValue(headers, "ce_type");
+        return string.IsNullOrEmpty(type) ? _subscription.DefaultType : type!;
+    }
+
+    private ContentType GetContentType(Dictionary<string, object?> headers)
+    {
+        var contentType = GetHeaderValue(headers, "ce_datacontenttype");
         return string.IsNullOrEmpty(contentType)
-            ? new ContentType("text/plain")
+            ? _subscription.DefaultContentType
             : new ContentType(contentType);
     }
 
-    private static Uri? GetDataSchema(Dictionary<string, object?> headers)
+    private Uri? GetDataSchema(Dictionary<string, object?> headers)
     {
         var val = GetHeaderValue(headers, "ce_dataschema");
         return val != null && Uri.TryCreate(val, UriKind.RelativeOrAbsolute, out var uri)
             ? uri
-            : null;
+            : _subscription.DefaultDataSchema;
     }
 
     private Uri GetSource(Dictionary<string, object?> headers)
@@ -482,7 +518,7 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
             : _subscription.DefaultSource;
     }
 
-    private static DateTimeOffset GetTime(DateTimeOffset timestamp, Dictionary<string, object?> headers)
+    private DateTimeOffset GetTime(DateTimeOffset timestamp, Dictionary<string, object?> headers)
     {
         var val = GetHeaderValue(headers, "ce_time");
         if (val != null && DateTimeOffset.TryParse(val,
@@ -495,18 +531,18 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
 
         // The producer always stamps a record timestamp; fall back to it when the CloudEvents
         // time attribute is missing.
-        return timestamp == default
+        return timestamp == default 
             ? DateTimeOffset.UtcNow
-            : timestamp;
+            : timestamp.UtcDateTime;
     }
 
-    private static Baggage? GetBaggage(Dictionary<string, object?> headers)
+    private Baggage? GetBaggage(Dictionary<string, object?> headers)
     {
         var val = GetHeaderValue(headers, "ce_baggage");
         return val != null ? Baggage.FromString(val) : null;
     }
 
-    private static TraceState? GetTraceState(Dictionary<string, object?> headers)
+    private TraceState? GetTraceState(Dictionary<string, object?> headers)
     {
         var val = GetHeaderValue(headers, "ce_tracestate");
         return val != null ? TraceState.FromString(val) : null;

@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
-using Amanhecer.InMemory;
 using Amanhecer.Messaging.Base.Tests;
 using Amanhecer.InMemory.Provisioners;
 

@@ -68,5 +68,9 @@ public class DekafSubscription : Subscription
     /// </summary>
     public Action<ConsumerBuilder<string, byte[]>>? Configure { get; set; }
     
+    /// <summary>
+    /// Gets or sets the text encoding used when message keys and values are converted to and
+    /// from strings. Defaults to UTF-8.
+    /// </summary>
     public Encoding Encoding { get; set; } = Encoding.UTF8;
 }

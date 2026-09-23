@@ -8,12 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Confluent.Kafka" />
       <PackageReference Include="Dekaf" />
-    </ItemGroup>
-
-    <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
-      <PackageReference Include="System.Threading.Channels" />
     </ItemGroup>
 
     <ItemGroup>

@@ -235,7 +235,7 @@ public class ConfluentKafkaPublicationConfigurator
         return this;
     }
 
-    private string? _defaultType;
+    private string _defaultType = Message.DefaultType;
 
     /// <summary>
     /// Sets the type (the CloudEvents <c>type</c> attribute) set on messages that do not

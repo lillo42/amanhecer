@@ -180,7 +180,7 @@ public class InMemoryPublicationConfigurator
         return this;
     }
 
-    private Uri? _defaultSource;
+    private Uri _defaultSource = Message.DefaultSource;
 
     /// <summary>
     /// Sets the source (the CloudEvents <c>source</c> attribute) set on messages that do not
@@ -208,7 +208,7 @@ public class InMemoryPublicationConfigurator
         return this;
     }
 
-    private string? _defaultType;
+    private string _defaultType = Message.DefaultType;
 
     /// <summary>
     /// Sets the type (the CloudEvents <c>type</c> attribute) set on messages that do not specify
@@ -363,7 +363,7 @@ public class InMemoryPublicationConfigurator
             Transformers = [.. transformers.OrderBy(x => x.Order)],
             DefaultContentType = _defaultContentType ?? new ContentType("text/plain"),
             DefaultDataSchema = _defaultDataSchema,
-            DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute),
+            DefaultSource = _defaultSource,
             DefaultSubject = _defaultSubject,
             DefaultType = _defaultType,
             DefaultReplyTo = _defaultReplyTo,

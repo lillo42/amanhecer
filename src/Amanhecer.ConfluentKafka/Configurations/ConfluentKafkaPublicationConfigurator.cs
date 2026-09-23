@@ -162,7 +162,8 @@ public class ConfluentKafkaPublicationConfigurator
     /// <param name="metadata">Optional metadata stored in the pipeline context's
     /// <see cref="AmanhecerContext.Metadata"/> when the transformer is created.</param>
     /// <returns>The configurator instance for method chaining.</returns>
-    public ConfluentKafkaPublicationConfigurator Transformer(Type transformerType, int order = 0, object? metadata = null)
+    public ConfluentKafkaPublicationConfigurator Transformer(Type transformerType, int order = 0,
+        object? metadata = null)
     {
         if (!typeof(IEncodeTransformer).IsAssignableFrom(transformerType))
         {
@@ -207,7 +208,7 @@ public class ConfluentKafkaPublicationConfigurator
         return this;
     }
 
-    private Uri? _defaultSource;
+    private Uri _defaultSource = Message.DefaultSource;
 
     /// <summary>
     /// Sets the source (the CloudEvents <c>source</c> attribute) set on messages that do not
@@ -293,7 +294,7 @@ public class ConfluentKafkaPublicationConfigurator
         return this;
     }
 
-    private CloudEventType? _cloudEventType;
+    private CloudEventType _cloudEventType = Abstractions.Messaging.CloudEventType.Binary;
 
     /// <summary>
     /// Sets the CloudEvents content mode used to encode messages published through this
@@ -397,11 +398,11 @@ public class ConfluentKafkaPublicationConfigurator
             DefaultSubject = _defaultSubject,
             DefaultType = _defaultType,
             DefaultReplyTo = _defaultReplyTo,
-            CloudEventType = _cloudEventType ?? Abstractions.Messaging.CloudEventType.Binary,
+            CloudEventType = _cloudEventType,
             Provisioner = _provisioner,
             Name = _name ?? Uuid.NewGuid().ToString(),
             DefaultContentType = _defaultContentType ?? new ContentType("text/plain"),
-            DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute)
+            DefaultSource = _defaultSource
         };
 
         if (_configureProducer is not null)

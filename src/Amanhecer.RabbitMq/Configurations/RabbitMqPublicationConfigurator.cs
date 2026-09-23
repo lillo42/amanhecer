@@ -285,7 +285,7 @@ public class RabbitMqPublicationConfigurator
         return this;
     }
 
-    private Uri? _defaultSource;
+    private Uri _defaultSource = Message.DefaultSource;
 
     /// <summary>
     /// Sets the source (the CloudEvents <c>source</c> attribute) set on messages that do not
@@ -313,7 +313,7 @@ public class RabbitMqPublicationConfigurator
         return this;
     }
 
-    private string? _defaultType;
+    private string _defaultType = Message.DefaultType;
 
     /// <summary>
     /// Sets the type (the CloudEvents <c>type</c> attribute) set on messages that do not
@@ -446,7 +446,7 @@ public class RabbitMqPublicationConfigurator
             CloudEventType = _cloudEventType ?? Abstractions.Messaging.CloudEventType.Binary,
             Name = _name ?? Uuid.NewGuid().ToString(),
             DefaultContentType = _defaultContentType ?? new ContentType("text/plain"),
-            DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute)
+            DefaultSource = _defaultSource
         };
     }
 

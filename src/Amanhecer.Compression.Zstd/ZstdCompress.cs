@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Abstractions.Messaging.Compression;
 using ZstdSharp;
 
 namespace Amanhecer.Compression.Zstd;
@@ -12,7 +13,18 @@ namespace Amanhecer.Compression.Zstd;
 /// Compression settings used by <see cref="ZstdCompress"/>.
 /// </summary>
 /// <param name="CompressionLevel">The Zstandard compression level applied when encoding.</param>
-public record ZstdMetadata(int CompressionLevel);
+public record ZstdMetadata(int CompressionLevel)
+{
+    /// <summary>
+    /// Gets or sets the predicate that decides whether an outgoing message should be compressed.
+    /// </summary>
+    public Func<Message, bool> ShouldCompress { get; set; } = _ => true;
+
+    /// <summary>
+    /// Gets or sets the predicate that decides whether an incoming message should be decompressed.
+    /// </summary>
+    public Func<Message, bool> ShouldDecompress { get; set; } = message => message.ContentEncoding == "zstd";
+}
 
 /// <summary>
 /// Declares that <see cref="ZstdCompress"/> applies to the messages mapped by the message mapper
@@ -28,9 +40,40 @@ public class ZstdAttribute(int compressionLevel, int order) : TransformerAttribu
     public int CompressionLevel => compressionLevel;
 
     /// <summary>
+    /// Gets or sets the condition that decides whether outgoing messages should be compressed.
+    /// </summary>
+    public CompressionMode CompressionMode { get; set; } = CompressionMode.WhenPayloadAtLeastThreshold;
+
+    /// <summary>
+    /// Gets or sets the condition that decides whether incoming messages should be decompressed.
+    /// </summary>
+    public DecompressionMode DecompressionMode { get; set; } = DecompressionMode.WhenEncodingMatches;
+
+    /// <summary>
+    /// Gets or sets the minimum payload size, in bytes, required before compression is applied.
+    /// </summary>
+    public int Threshold { get; set; }
+
+    /// <summary>
     /// Gets the metadata exposed to the transformer pipeline.
     /// </summary>
-    public override object Metadata => new ZstdMetadata(compressionLevel);
+    public override object Metadata => new ZstdMetadata(compressionLevel)
+    {
+        ShouldCompress = message => CompressionMode switch
+        {
+            CompressionMode.Always => true,
+            CompressionMode.Never => false,
+            CompressionMode.WhenPayloadAtLeastThreshold => message.Payload.Length >= Threshold,
+            _ => throw new NotSupportedException()
+        },
+        ShouldDecompress = message => DecompressionMode switch
+        {
+            DecompressionMode.Always => true,
+            DecompressionMode.Never => false,
+            DecompressionMode.WhenEncodingMatches => message.ContentEncoding == "zstd",
+            _ => throw new NotSupportedException()
+        }
+    };
 }
 
 /// <summary>
@@ -44,21 +87,25 @@ public class ZstdCompress : ITransformer
         Func<Message, AmanhecerContext, ValueTask> next)
     {
         var metadata = context.GetRequiredMetadata<ZstdMetadata>();
-
-        using var outputStream = new MemoryStream();
-        await using (var zstdStream = new CompressionStream(outputStream, metadata.CompressionLevel, leaveOpen: true))
+        if (metadata.ShouldCompress(message))
         {
+            using var outputStream = new MemoryStream();
+            await using (var zstdStream = new CompressionStream(outputStream, metadata.CompressionLevel, leaveOpen: true))
+            {
 #if NET8_0_OR_GREATER
-            await zstdStream.WriteAsync(message.Payload)
-                .ConfigureAwait(context.ContinueOnCapturedContext);
+                await zstdStream.WriteAsync(message.Payload)
+                    .ConfigureAwait(context.ContinueOnCapturedContext);
 #else
-            var payload = message.Payload.ToArray();
-            await zstdStream.WriteAsync(payload, 0, payload.Length)
-                .ConfigureAwait(context.ContinueOnCapturedContext);
+                var payload = message.Payload.ToArray();
+                await zstdStream.WriteAsync(payload, 0, payload.Length)
+                    .ConfigureAwait(context.ContinueOnCapturedContext);
 #endif
+            }
+
+            message.ContentEncoding = "zstd";
+            message.Payload = outputStream.ToArray();
         }
 
-        message.Payload = outputStream.ToArray();
         await next(message, context).ConfigureAwait(context.ContinueOnCapturedContext);
     }
 
@@ -66,15 +113,20 @@ public class ZstdCompress : ITransformer
     public async ValueTask DecodeAsync(Message message, AmanhecerContext context,
         Func<Message, AmanhecerContext, ValueTask> next)
     {
-        using var inputStream = new MemoryStream(message.Payload.ToArray());
-        using var outputStream = new MemoryStream();
-        
-        await using (var zstdStream = new DecompressionStream(inputStream, leaveOpen: true))
+        var metadata = context.GetRequiredMetadata<ZstdMetadata>();
+        if (metadata.ShouldDecompress(message))
         {
-            await zstdStream.CopyToAsync(outputStream).ConfigureAwait(context.ContinueOnCapturedContext);
+            using var inputStream = new MemoryStream(message.Payload.ToArray());
+            using var outputStream = new MemoryStream();
+
+            await using (var zstdStream = new DecompressionStream(inputStream, leaveOpen: true))
+            {
+                await zstdStream.CopyToAsync(outputStream).ConfigureAwait(context.ContinueOnCapturedContext);
+            }
+
+            message.Payload = outputStream.ToArray();
         }
 
-        message.Payload = outputStream.ToArray();
         await next(message, context).ConfigureAwait(context.ContinueOnCapturedContext);
     }
 }

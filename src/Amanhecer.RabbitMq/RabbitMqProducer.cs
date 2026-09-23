@@ -320,11 +320,9 @@ public partial class RabbitMqProducer : IProducer
             AppId = publication.AppId,
             ClusterId = publication.ClusterId,
             Headers = message.Headers!,
-            ContentType = message.ContentType?.ToString() ?? publication.DefaultContentType.ToString()
+            ContentType = message.ContentType.ToString(),
+            ContentEncoding = message.ContentEncoding ?? publication.ContentEncoding
         };
-
-        var encoding = context.GetMetadata<string?>(MetadataName.ContentEncoding);
-        properties.ContentEncoding = encoding ?? publication.ContentEncoding;
 
         var persistent = context.GetMetadata<bool?>(MetadataName.Persistent);
         properties.Persistent = persistent ?? publication.Persistent;

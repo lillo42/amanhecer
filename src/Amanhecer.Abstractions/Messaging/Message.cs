@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Mime;
+using System.Text;
 
 namespace Amanhecer.Abstractions.Messaging;
 
@@ -17,10 +18,20 @@ public class Message
     public Baggage? Baggage { get; set; }
 
     /// <summary>
+    /// Gets or sets the content encoding applied to the payload bytes, if any.
+    /// </summary>
+    public string? ContentEncoding { get; set; }
+
+    /// <summary>
+    /// The default content type used by new messages.
+    /// </summary>
+    public static readonly ContentType DefaultContentType = new("text/plain");
+
+    /// <summary>
     /// Gets or sets the content type of the payload (the CloudEvents <c>datacontenttype</c>
     /// attribute).
     /// </summary>
-    public ContentType? ContentType { get; set; }
+    public ContentType ContentType { get; set; } = DefaultContentType;
 
     /// <summary>
     /// Gets or sets the identifier used to correlate this message with others. Defaults
@@ -81,6 +92,7 @@ public class Message
     /// The default CloudEvents specification version used by new messages.
     /// </summary>
     public const string DefaultSpecVersion = "1.0";
+
     /// <summary>
     /// Gets or sets the CloudEvents spec version the message conforms to.
     /// </summary>

@@ -50,18 +50,18 @@ public interface IPublication
     /// Gets or sets the source (the CloudEvents <c>source</c> attribute) set on messages
     /// that do not specify one.
     /// </summary>
-    Uri? DefaultSource { get; set; }
+    Uri DefaultSource { get; set; }
 
     /// <summary>
     /// Gets or sets the CloudEvents spec version set on messages that do not specify one.
     /// </summary>
-    string? DefaultSpecVersion { get; set; }
+    string DefaultSpecVersion { get; set; }
 
     /// <summary>
     /// Gets or sets the type (the CloudEvents <c>type</c> attribute) set on messages that
     /// do not specify one.
     /// </summary>
-    string? DefaultType { get; set; }
+    string DefaultType { get; set; }
 
     /// <summary>
     /// Gets or sets the <see cref="IMessageMapper"/> implementation used to map between

@@ -226,7 +226,7 @@ public class StructuredCloudEventTransformer : ITransformer
                 case "specversion":
                     if (!string.IsNullOrEmpty(value))
                     {
-                        message.SpecVersion = value;
+                        message.SpecVersion = value!;
                     }
 
                     break;
@@ -247,7 +247,7 @@ public class StructuredCloudEventTransformer : ITransformer
                 case "type":
                     if (!string.IsNullOrEmpty(value))
                     {
-                        message.Type = value;
+                        message.Type = value!;
                     }
 
                     break;

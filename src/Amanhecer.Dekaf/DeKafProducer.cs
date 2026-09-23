@@ -23,7 +23,7 @@ public class DeKafProducer(IKafkaProducer<string, byte[]> producer) : IProducer,
             return;
         }
 
-        InjectCloudEventHeaders(message, dekafPublication);
+        InjectCloudEventHeaders(message);
         var producerMessage = ToDeKafMessage(message, dekafPublication);
 
         await producer.InitializeAsync().ConfigureAwait(context.ContinueOnCapturedContext);
@@ -38,7 +38,7 @@ public class DeKafProducer(IKafkaProducer<string, byte[]> producer) : IProducer,
         await producer.FireAsync(producerMessage).ConfigureAwait(context.ContinueOnCapturedContext);
     }
 
-    private static void InjectCloudEventHeaders(Message message, DekafPublication publication)
+    private static void InjectCloudEventHeaders(Message message)
     {
         message.Headers.Add("ce_id", message.Id);
         message.Headers.Add("ce_time", message.Time);
@@ -117,149 +117,78 @@ public class DeKafProducer(IKafkaProducer<string, byte[]> producer) : IProducer,
 
     private static byte[] ToBinary(object? obj, Encoding encoding, Func<object, byte[]> converter)
     {
-        if (obj == null)
+        switch (obj)
         {
-            return [];
-        }
-
-        if (obj is byte b)
-        {
-            return [b];
-        }
-
-        if (obj is byte[] bArr)
-        {
-            return bArr;
-        }
-
-        if (obj is sbyte sb)
-        {
-            return [(byte)sb];
-        }
-
-        if (obj is bool bo)
-        {
-            return BitConverter.GetBytes(bo);
-        }
-
-        if (obj is char c)
-        {
-            return BitConverter.GetBytes(c);
-        }
-
-        if (obj is char[] cArray)
-        {
-            return encoding.GetBytes(cArray);
-        }
-
-        if (obj is string s)
-        {
-            return encoding.GetBytes(s);
-        }
-
-        if (obj is short sh)
-        {
-            return BitConverter.GetBytes(sh);
-        }
-
-        if (obj is ushort ush)
-        {
-            return BitConverter.GetBytes(ush);
-        }
-
-        if (obj is int i)
-        {
-            return BitConverter.GetBytes(i);
-        }
-
-        if (obj is uint ui)
-        {
-            return BitConverter.GetBytes(ui);
-        }
-
-        if (obj is long l)
-        {
-            return BitConverter.GetBytes(l);
-        }
-
-        if (obj is ulong ul)
-        {
-            return BitConverter.GetBytes(ul);
-        }
-
-        if (obj is double d)
-        {
-            return BitConverter.GetBytes(d);
-        }
-
-        if (obj is float f)
-        {
-            return BitConverter.GetBytes(f);
-        }
-
-        if (obj is decimal de)
-        {
-            var bits = decimal.GetBits(de);
-            var bytes = new byte[16];
-            Buffer.BlockCopy(bits, 0, bytes, 0, 16);
-            return bytes;
-        }
-
+            case null:
+                return [];
+            case byte b:
+                return [b];
+            case byte[] bArr:
+                return bArr;
+            case ReadOnlyMemory<byte> m:
+                return m.ToArray();
+            case Memory<byte> mArr:
+                return mArr.ToArray();
+            case sbyte sb:
+                return [(byte)sb];
+            case bool bo:
+                return BitConverter.GetBytes(bo);
+            case char c:
+                return BitConverter.GetBytes(c);
+            case char[] cArray:
+                return encoding.GetBytes(cArray);
+            case string s:
+                return encoding.GetBytes(s);
+            case short sh:
+                return BitConverter.GetBytes(sh);
+            case ushort ush:
+                return BitConverter.GetBytes(ush);
+            case int i:
+                return BitConverter.GetBytes(i);
+            case uint ui:
+                return BitConverter.GetBytes(ui);
+            case long l:
+                return BitConverter.GetBytes(l);
+            case ulong ul:
+                return BitConverter.GetBytes(ul);
+            case double d:
+                return BitConverter.GetBytes(d);
+            case float f:
+                return BitConverter.GetBytes(f);
+            case decimal de:
+            {
+                var bits = decimal.GetBits(de);
+                var bytes = new byte[16];
+                Buffer.BlockCopy(bits, 0, bytes, 0, 16);
+                return bytes;
+            }
 #if NET8_0_OR_GREATER
-        if (obj is DateOnly dateOnly)
-        {
-            return encoding.GetBytes(dateOnly.ToString("O"));
-        }
-
-        if (obj is TimeOnly timeOnly)
-        {
-            return encoding.GetBytes(timeOnly.ToString("O"));
-        }
+            case DateOnly dateOnly:
+                return encoding.GetBytes(dateOnly.ToString("O"));
+            case TimeOnly timeOnly:
+                return encoding.GetBytes(timeOnly.ToString("O"));
+            case Half h:
+                return BitConverter.GetBytes(h);
 #endif
-
 #if NET9_0_OR_GREATER
-        if (obj is Half h)
-        {
-            return BitConverter.GetBytes(h);
-        }
-
-        if (obj is Int128 i128)
-        {
-            return BitConverter.GetBytes(i128);
-        }
-
-        if (obj is UInt128 ui128)
-        {
-            return BitConverter.GetBytes(ui128);
-        }
+            case Int128 i128:
+                return BitConverter.GetBytes(i128);
+            case UInt128 ui128:
+                return BitConverter.GetBytes(ui128);
 #endif
-
-        if (obj is DateTimeOffset dto)
-        {
-            return encoding.GetBytes(dto.ToString("O"));
+            case DateTimeOffset dto:
+                return encoding.GetBytes(dto.ToString("O"));
+            case DateTime dt:
+                return encoding.GetBytes(dt.ToUniversalTime().ToString("O"));
+            case Guid guid:
+                return guid.ToByteArray();
+            case TimeSpan timeSpan:
+                return encoding.GetBytes(timeSpan.ToString("c"));
+            case Uri uri:
+                return encoding.GetBytes(uri.ToString());
+            default:
+                return converter(obj);
         }
-
-        if (obj is DateTime dt)
-        {
-            return encoding.GetBytes(dt.ToUniversalTime().ToString("O"));
-        }
-
-        if (obj is Guid guid)
-        {
-            return guid.ToByteArray();
-        }
-
-        if (obj is TimeSpan timeSpan)
-        {
-            return encoding.GetBytes(timeSpan.ToString("c"));
-        }
-
-        if (obj is Uri uri)
-        {
-            return encoding.GetBytes(uri.ToString());
-        }
-
-        return converter(obj);
     }
 
     /// <inheritdoc />

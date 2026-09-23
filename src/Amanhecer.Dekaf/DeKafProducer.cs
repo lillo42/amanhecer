@@ -57,6 +57,11 @@ public class DeKafProducer(IKafkaProducer<string, byte[]> producer) : IProducer,
             message.Headers.Add("ce_datacontenttype", message.ContentType.ToString());
         }
 
+        if (!string.IsNullOrEmpty(message.ContentEncoding))
+        {
+            message.Headers.Add("Content-Encoding", message.ContentEncoding);
+        }
+
         if (!string.IsNullOrEmpty(message.DataRef))
         {
             message.Headers.Add("ce_dataref", message.DataRef);

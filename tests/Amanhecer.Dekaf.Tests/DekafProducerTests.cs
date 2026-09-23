@@ -135,6 +135,24 @@ public class DekafProducerTests
     }
 
     [Test]
+    public async Task When_Message_Has_ContentEncoding_Should_Write_ContentEncoding_Header()
+    {
+        var kafkaProducer = Substitute.For<IKafkaProducer<string, byte[]>>();
+        var producer = new DeKafProducer(kafkaProducer);
+        var publication = CreatePublication();
+        var message = new Message
+        {
+            Payload = Array.Empty<byte>(),
+            ContentEncoding = "br"
+        };
+
+        await producer.ProduceAsync(message, publication, new AmanhecerContext());
+
+        await kafkaProducer.Received(1).FireAsync(
+            Arg.Is<ProducerMessage<string, byte[]>>(m => GetHeader(m.Headers, "Content-Encoding") == "br"));
+    }
+
+    [Test]
     public async Task When_WaitForConfirmation_Should_Await_The_Delivery_Result()
     {
         var kafkaProducer = Substitute.For<IKafkaProducer<string, byte[]>>();

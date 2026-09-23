@@ -114,12 +114,14 @@ public class DekafConsumerTests
             ["ce_type"] = "tests.message",
             ["ce_correlationid"] = "correlation-id",
             ["ce_time"] = "2026-09-15T10:20:30.0000000+00:00",
+            ["Content-Encoding"] = "br",
             ["custom"] = "custom-value"
         }));
 
         await Assert.That(message.Id).IsEqualTo("message-id");
         await Assert.That(message.Type).IsEqualTo("tests.message");
         await Assert.That(message.CorrelationId).IsEqualTo("correlation-id");
+        await Assert.That(message.ContentEncoding).IsEqualTo("br");
         await Assert.That(message.Time).IsEqualTo(new DateTimeOffset(2026, 9, 15, 10, 20, 30, TimeSpan.Zero));
         await Assert.That(message.PartitionKey).IsEqualTo("key");
         await Assert.That(message.Payload.ToArray()).IsEquivalentTo(Encoding.UTF8.GetBytes("payload"));

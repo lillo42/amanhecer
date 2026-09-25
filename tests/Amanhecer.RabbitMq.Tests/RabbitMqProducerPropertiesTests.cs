@@ -77,8 +77,6 @@ public class RabbitMqProducerPropertiesTests
         var publication = CreatePublication();
         publication.ContentEncoding = "utf-8";
         var context = new AmanhecerContext();
-        context.Metadata[MetadataName.ContentEncoding] = "utf-16";
-
         await producer.ProduceAsync(CreateMessage(), publication, context);
 
         await Assert.That(publishes[0].Properties.ContentEncoding).IsEqualTo("utf-16");

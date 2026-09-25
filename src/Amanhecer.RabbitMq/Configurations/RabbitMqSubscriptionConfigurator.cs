@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Messaging.Compression;
 using Amanhecer.Messaging.Transformers;
 using Amanhecer.RabbitMq.Provisioners;
 

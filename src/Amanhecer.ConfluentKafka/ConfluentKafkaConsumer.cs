@@ -550,6 +550,7 @@ public partial class ConfluentKafkaConsumer : IConsumer, IDisposable
         return new Message
         {
             Id = GetId(headers),
+            ContentEncoding = GetHeaderValue(headers, "Content-Encoding"),
             ContentType = GetContentType(headers),
             CorrelationId = GetCorrelationId(headers),
             DataRef = GetHeaderValue(headers, "ce_dataref"),

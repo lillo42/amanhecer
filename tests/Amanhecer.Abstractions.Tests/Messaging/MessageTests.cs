@@ -12,7 +12,7 @@ public class MessageTests
         var message = new Message();
 
         await Assert.That(message.Baggage).IsNull();
-        await Assert.That(message.ContentType).IsNull();
+        await Assert.That(message.ContentType).IsNotNull();
         await Assert.That(message.DataRef).IsNull();
         await Assert.That(message.DataSchema).IsNull();
         await Assert.That(message.PartitionKey).IsNull();

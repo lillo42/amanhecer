@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
+        <IsPackable>true</IsPackable>
+        <Description>Zstandard compression transformers for Amanhecer: compress and decompress message payloads through the transformer pipeline using Zstd streams.</Description>
+        <PackageTags>mediator;cqrs;messaging;dispatcher;compression;zstd;zstandard;middleware;pipeline</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Amanhecer.Abstractions\Amanhecer.Abstractions.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="ZstdSharp.Port" />
+    </ItemGroup>
+
+</Project>

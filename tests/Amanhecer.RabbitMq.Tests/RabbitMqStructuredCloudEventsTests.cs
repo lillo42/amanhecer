@@ -38,7 +38,7 @@ public class RabbitMqStructuredCloudEventsTests
             Source = new Uri("amanhecer.tests", UriKind.RelativeOrAbsolute),
             SpecVersion = "1.0",
             Type = "amanhecer.tests.message",
-            Payload = Encoding.UTF8.GetBytes("""{"message":"test"}""")
+            Payload = """{"message":"test"}"""u8.ToArray()
         };
 
         await producer.ProduceAsync(message, publication, new AmanhecerContext());

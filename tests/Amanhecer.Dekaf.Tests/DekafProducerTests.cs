@@ -76,7 +76,7 @@ public class DekafProducerTests
             PartitionKey = "partition-key",
             Type = "tests.message",
             Subject = "subject",
-            Payload = Encoding.UTF8.GetBytes("payload"),
+            Payload = "payload"u8.ToArray(),
             Headers =
             {
                 ["string-header"] = "value",
@@ -132,6 +132,24 @@ public class DekafProducerTests
 
         await kafkaProducer.Received(1).FireAsync(
             Arg.Is<ProducerMessage<string, byte[]>>(m => HasCloudEventHeaders(m, message)));
+    }
+
+    [Test]
+    public async Task When_Message_Has_ContentEncoding_Should_Write_ContentEncoding_Header()
+    {
+        var kafkaProducer = Substitute.For<IKafkaProducer<string, byte[]>>();
+        var producer = new DeKafProducer(kafkaProducer);
+        var publication = CreatePublication();
+        var message = new Message
+        {
+            Payload = Array.Empty<byte>(),
+            ContentEncoding = "br"
+        };
+
+        await producer.ProduceAsync(message, publication, new AmanhecerContext());
+
+        await kafkaProducer.Received(1).FireAsync(
+            Arg.Is<ProducerMessage<string, byte[]>>(m => GetHeader(m.Headers, "Content-Encoding") == "br"));
     }
 
     [Test]

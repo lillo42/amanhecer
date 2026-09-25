@@ -76,7 +76,7 @@ public class DekafProducerTests
             PartitionKey = "partition-key",
             Type = "tests.message",
             Subject = "subject",
-            Payload = Encoding.UTF8.GetBytes("payload"),
+            Payload = "payload"u8.ToArray(),
             Headers =
             {
                 ["string-header"] = "value",

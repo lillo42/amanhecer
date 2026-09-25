@@ -71,15 +71,15 @@ public class RabbitMqProducerPropertiesTests
     }
 
     [Test]
-    public async Task When_The_Metadata_Sets_Content_Encoding_Should_Override_The_Publication()
+    public async Task When_The_Sets_Content_Encoding_Should_Override_The_Publication()
     {
         var (producer, publishes) = CreateProducer();
         var publication = CreatePublication();
-        publication.ContentEncoding = "utf-8";
+        publication.ContentEncoding = "br";
         var context = new AmanhecerContext();
         await producer.ProduceAsync(CreateMessage(), publication, context);
 
-        await Assert.That(publishes[0].Properties.ContentEncoding).IsEqualTo("utf-16");
+        await Assert.That(publishes[0].Properties.ContentEncoding).IsEqualTo("br");
     }
 
     [Test]

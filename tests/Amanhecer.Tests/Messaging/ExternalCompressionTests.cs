@@ -22,7 +22,7 @@ public class ExternalCompressionTests
     [Test]
     public async Task EncodeAsync_With_Lz4Metadata_Should_Compress_The_Payload()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = payload };
         var context = new AmanhecerContext();
         context.SetMetadata(new Lz4Metadata(LZ4Level.L09_HC));
@@ -38,11 +38,13 @@ public class ExternalCompressionTests
     [Test]
     public async Task DecodeAsync_With_A_Lz4_Compressed_Payload_Should_Decompress_It()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = Lz4CompressPayload(payload) };
         var next = Substitute.For<Func<Message, AmanhecerContext, ValueTask>>();
 
-        await new Lz4Compress().DecodeAsync(message, new AmanhecerContext(), next);
+        var context = new AmanhecerContext();
+        context.SetMetadata(new Lz4Metadata(LZ4Level.L09_HC) { ShouldDecompress = _ => true });
+        await new Lz4Compress().DecodeAsync(message, context, next);
 
         await Assert.That(message.Payload.ToArray()).IsEquivalentTo(payload);
         await next.Received(1).Invoke(message, Arg.Any<AmanhecerContext>());
@@ -51,7 +53,7 @@ public class ExternalCompressionTests
     [Test]
     public async Task EncodeAsync_With_SnappierMetadata_Should_Compress_The_Payload()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = payload };
         var context = new AmanhecerContext();
         context.SetMetadata(new SnappierMetadata());
@@ -67,11 +69,13 @@ public class ExternalCompressionTests
     [Test]
     public async Task DecodeAsync_With_A_Snappier_Compressed_Payload_Should_Decompress_It()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = SnappierCompressPayload(payload) };
         var next = Substitute.For<Func<Message, AmanhecerContext, ValueTask>>();
 
-        await new SnappierCompress().DecodeAsync(message, new AmanhecerContext(), next);
+        var context = new AmanhecerContext();
+        context.SetMetadata(new SnappierMetadata { ShouldDecompress = _ => true });
+        await new SnappierCompress().DecodeAsync(message, context, next);
 
         await Assert.That(message.Payload.ToArray()).IsEquivalentTo(payload);
         await next.Received(1).Invoke(message, Arg.Any<AmanhecerContext>());
@@ -80,7 +84,7 @@ public class ExternalCompressionTests
     [Test]
     public async Task EncodeAsync_With_ZstdMetadata_Should_Compress_The_Payload()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = payload };
         var context = new AmanhecerContext();
         context.SetMetadata(new ZstdMetadata(5));
@@ -96,11 +100,13 @@ public class ExternalCompressionTests
     [Test]
     public async Task DecodeAsync_With_A_Zstd_Compressed_Payload_Should_Decompress_It()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = ZstdCompressPayload(payload) };
         var next = Substitute.For<Func<Message, AmanhecerContext, ValueTask>>();
 
-        await new ZstdCompress().DecodeAsync(message, new AmanhecerContext(), next);
+        var context = new AmanhecerContext();
+        context.SetMetadata(new ZstdMetadata(5) { ShouldDecompress = _ => true });
+        await new ZstdCompress().DecodeAsync(message, context, next);
 
         await Assert.That(message.Payload.ToArray()).IsEquivalentTo(payload);
         await next.Received(1).Invoke(message, Arg.Any<AmanhecerContext>());

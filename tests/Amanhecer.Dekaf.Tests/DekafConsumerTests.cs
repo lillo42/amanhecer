@@ -46,7 +46,7 @@ public class DekafConsumerTests
             offset: offset,
             keyData: key is null ? ReadOnlyMemory<byte>.Empty : Encoding.UTF8.GetBytes(key),
             isKeyNull: key is null,
-            valueData: Encoding.UTF8.GetBytes("payload"),
+            valueData: "payload"u8.ToArray(),
             isValueNull: false,
             headers: headerList,
             timestampMs: timestampMs ?? DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
@@ -70,7 +70,7 @@ public class DekafConsumerTests
     {
         return new Message
         {
-            Payload = Encoding.UTF8.GetBytes("payload"),
+            Payload = "payload"u8.ToArray(),
             Metadata =
             {
                 [MetadataName.TopicPartitionOffset] = new TopicPartitionOffset(TopicName, partition, offset)
@@ -124,7 +124,7 @@ public class DekafConsumerTests
         await Assert.That(message.ContentEncoding).IsEqualTo("br");
         await Assert.That(message.Time).IsEqualTo(new DateTimeOffset(2026, 9, 15, 10, 20, 30, TimeSpan.Zero));
         await Assert.That(message.PartitionKey).IsEqualTo("key");
-        await Assert.That(message.Payload.ToArray()).IsEquivalentTo(Encoding.UTF8.GetBytes("payload"));
+        await Assert.That(message.Payload.ToArray()).IsEquivalentTo("payload"u8.ToArray());
         await Assert.That(message.Headers["custom"]).IsTypeOf<byte[]>();
         await Assert.That(Encoding.UTF8.GetString((byte[])message.Headers["custom"]!)).IsEqualTo("custom-value");
         await Assert.That(message.Metadata[MetadataName.Offset]).IsEqualTo(41L);

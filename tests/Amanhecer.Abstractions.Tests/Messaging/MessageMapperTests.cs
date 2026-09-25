@@ -34,7 +34,7 @@ public class MessageMapperTests
     {
         IMessageMapper mapper = new StringMessageMapper();
         var context = new AmanhecerContext();
-        var message = new Message { Payload = Encoding.UTF8.GetBytes("world") };
+        var message = new Message { Payload = "world"u8.ToArray() };
 
         var request = await mapper.ToRequestAsync(message, context);
 
@@ -46,7 +46,7 @@ public class MessageMapperTests
     {
         var mapper = new StringMessageMapper();
         var context = new AmanhecerContext();
-        var message = new Message { Payload = Encoding.UTF8.GetBytes("typed") };
+        var message = new Message { Payload = "typed"u8.ToArray() };
 
         var request = await mapper.ToRequestAsync(message, context);
 

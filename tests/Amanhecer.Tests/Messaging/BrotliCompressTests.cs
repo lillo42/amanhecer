@@ -18,7 +18,7 @@ public class BrotliCompressTests
     [Test]
     public async Task EncodeAsync_With_BrotliMetadata_Should_Compress_The_Payload()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = payload };
         var context = new AmanhecerContext();
         context.SetMetadata(new BrotliMetadata(CompressionLevel.Optimal));
@@ -34,11 +34,12 @@ public class BrotliCompressTests
     [Test]
     public async Task DecodeAsync_With_A_Compressed_Payload_Should_Decompress_It()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = Compress(payload) };
-        var context = new AmanhecerContext();
         var next = Substitute.For<Func<Message, AmanhecerContext, ValueTask>>();
 
+        var context = new AmanhecerContext();
+        context.SetMetadata(new BrotliMetadata(CompressionLevel.Optimal) { ShouldDecompress = _ => true });
         await _transformer.DecodeAsync(message, context, next);
 
         await Assert.That(message.Payload.ToArray()).IsEquivalentTo(payload);

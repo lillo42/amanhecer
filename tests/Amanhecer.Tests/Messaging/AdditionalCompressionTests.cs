@@ -17,7 +17,7 @@ public class AdditionalCompressionTests
     [Test]
     public async Task EncodeAsync_With_GZipMetadata_Should_Compress_The_Payload()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = payload };
         var context = new AmanhecerContext();
         context.SetMetadata(new GZipMetadata(CompressionLevel.Optimal));
@@ -33,11 +33,13 @@ public class AdditionalCompressionTests
     [Test]
     public async Task DecodeAsync_With_A_GZip_Compressed_Payload_Should_Decompress_It()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = GZipCompressPayload(payload) };
         var next = Substitute.For<Func<Message, AmanhecerContext, ValueTask>>();
 
-        await new GZipCompress().DecodeAsync(message, new AmanhecerContext(), next);
+        var context = new AmanhecerContext();
+        context.SetMetadata(new GZipMetadata(CompressionLevel.Optimal) { ShouldDecompress = _ => true });
+        await new GZipCompress().DecodeAsync(message, context, next);
 
         await Assert.That(message.Payload.ToArray()).IsEquivalentTo(payload);
         await next.Received(1).Invoke(message, Arg.Any<AmanhecerContext>());
@@ -46,7 +48,7 @@ public class AdditionalCompressionTests
     [Test]
     public async Task EncodeAsync_With_DeflateMetadata_Should_Compress_The_Payload()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = payload };
         var context = new AmanhecerContext();
         context.SetMetadata(new DeflateMetadata(CompressionLevel.Optimal));
@@ -62,11 +64,13 @@ public class AdditionalCompressionTests
     [Test]
     public async Task DecodeAsync_With_A_Deflate_Compressed_Payload_Should_Decompress_It()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = DeflateCompressPayload(payload) };
         var next = Substitute.For<Func<Message, AmanhecerContext, ValueTask>>();
 
-        await new DeflateCompress().DecodeAsync(message, new AmanhecerContext(), next);
+        var context = new AmanhecerContext();
+        context.SetMetadata(new DeflateMetadata(CompressionLevel.Optimal) { ShouldDecompress = _ => true });
+        await new DeflateCompress().DecodeAsync(message, context, next);
 
         await Assert.That(message.Payload.ToArray()).IsEquivalentTo(payload);
         await next.Received(1).Invoke(message, Arg.Any<AmanhecerContext>());
@@ -76,7 +80,7 @@ public class AdditionalCompressionTests
     [Test]
     public async Task EncodeAsync_With_ZipMetadata_Should_Compress_The_Payload()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = payload };
         var context = new AmanhecerContext();
         context.SetMetadata(new ZipMetadata(CompressionLevel.Optimal, "payload.bin"));
@@ -92,11 +96,13 @@ public class AdditionalCompressionTests
     [Test]
     public async Task DecodeAsync_With_A_Zip_Compressed_Payload_Should_Decompress_It()
     {
-        var payload = Encoding.UTF8.GetBytes("hello hello hello hello hello");
+        var payload = "hello hello hello hello hello"u8.ToArray();
         var message = new Message { Payload = ZipCompressPayload(payload) };
         var next = Substitute.For<Func<Message, AmanhecerContext, ValueTask>>();
 
-        await new ZipCompress().DecodeAsync(message, new AmanhecerContext(), next);
+        var context = new AmanhecerContext();
+        context.SetMetadata(new ZipMetadata(CompressionLevel.Optimal) { ShouldDecompress = _ => true });
+        await new ZipCompress().DecodeAsync(message, context, next);
 
         await Assert.That(message.Payload.ToArray()).IsEquivalentTo(payload);
         await next.Received(1).Invoke(message, Arg.Any<AmanhecerContext>());

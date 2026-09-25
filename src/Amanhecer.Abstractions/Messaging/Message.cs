@@ -27,11 +27,22 @@ public class Message
     /// </summary>
     public static readonly ContentType DefaultContentType = new("text/plain");
 
+    private ContentType? _contentType = null;
+    
+    /// <summary>
+    /// 
+    /// </summary>
+    public bool IsContentTypeSet => _contentType != null;
+    
     /// <summary>
     /// Gets or sets the content type of the payload (the CloudEvents <c>datacontenttype</c>
     /// attribute).
     /// </summary>
-    public ContentType ContentType { get; set; } = DefaultContentType;
+    public ContentType ContentType
+    {
+        get => _contentType ?? DefaultContentType; 
+        set => _contentType = value;
+    }
 
     /// <summary>
     /// Gets or sets the identifier used to correlate this message with others. Defaults

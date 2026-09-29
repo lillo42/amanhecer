@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Metadatas;
 using Amanhecer.Abstractions.Options;
@@ -54,6 +55,20 @@ public class AmanhecerRoutingConfigurator(string routingKey, IServiceCollection 
     {
         _middlewareOption.Add(new AmanhecerMiddlewareOptions(middlewareType, order, metadata));
         services.TryAddTransient(middlewareType);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds an inline middleware to the pipeline, wrapped in an <see cref="AnonymousMiddleware"/>.
+    /// </summary>
+    /// <param name="func">The delegate executed as the middleware body.</param>
+    /// <param name="order">The execution order within the pipeline; lower values run first.</param>
+    /// <returns>The current <see cref="AmanhecerRoutingConfigurator"/>, for chaining.</returns>
+    public AmanhecerRoutingConfigurator Use(
+        Func<AmanhecerContext, Func<AmanhecerContext, ValueTask>, ValueTask> func,
+        int order = 0)
+    {
+        _middlewareOption.Add(new AmanhecerMiddlewareOptions(typeof(AnonymousMiddleware), order, func));
         return this;
     }
 

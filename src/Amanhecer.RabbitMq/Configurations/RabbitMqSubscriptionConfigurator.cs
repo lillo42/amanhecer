@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
-using Amanhecer.Messaging.Compression;
 using Amanhecer.Messaging.Transformers;
 using Amanhecer.RabbitMq.Provisioners;
 
@@ -266,7 +266,6 @@ public class RabbitMqSubscriptionConfigurator
         return this;
     }
 
-
     private CloudEventType _cloudEventType = CloudEventType.Binary;
 
     /// <summary>
@@ -296,6 +295,61 @@ public class RabbitMqSubscriptionConfigurator
     public RabbitMqSubscriptionConfigurator BinaryCloudEvent()
     {
         return CloudEvent(CloudEventType.Binary);
+    }
+
+    private readonly List<AmanhecerTransformerOptions> _transformers = [];
+
+    /// <summary>
+    /// Adds a transformer to the decode pipeline messages consumed through this subscription go
+    /// through, on top of any globally registered transformers.
+    /// </summary>
+    /// <typeparam name="TTransformer">The transformer implementation type.</typeparam>
+    /// <param name="order">The position of the transformer in the pipeline; lower values run first.</param>
+    /// <param name="metadata">Optional metadata stored in the pipeline context's
+    /// <see cref="AmanhecerContext.Metadata"/> when the transformer is created.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator Transformer<TTransformer>(int order = 0, object? metadata = null)
+        where TTransformer : IDecodeTransformer
+    {
+        return Transformer(typeof(TTransformer), order, metadata);
+    }
+
+    /// <summary>
+    /// Adds a transformer to the decode pipeline messages consumed through this subscription go
+    /// through, on top of any globally registered transformers.
+    /// </summary>
+    /// <param name="transformerType">The transformer implementation type.</param>
+    /// <param name="order">The position of the transformer in the pipeline; lower values run first.</param>
+    /// <param name="metadata">Optional metadata stored in the pipeline context's
+    /// <see cref="AmanhecerContext.Metadata"/> when the transformer is created.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator Transformer(Type transformerType, int order = 0, object? metadata = null)
+    {
+        if (!typeof(IDecodeTransformer).IsAssignableFrom(transformerType))
+        {
+            throw new ArgumentException(
+                $"The type '{transformerType.FullName}' does not implement IDecodeTransformer.",
+                nameof(transformerType));
+        }
+
+        _transformers.Add(new AmanhecerTransformerOptions(transformerType, order, metadata));
+        return this;
+    }
+
+    /// <summary>
+    /// Adds an inline transformer to the decode pipeline messages consumed through this
+    /// subscription go through, on top of any globally registered transformers. The delegate is
+    /// wrapped in an <see cref="AnonymousDecodeTransformer"/>.
+    /// </summary>
+    /// <param name="func">The delegate executed as the transformer body.</param>
+    /// <param name="order">The position of the transformer in the pipeline; lower values run first.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqSubscriptionConfigurator Transformer(
+        Func<Message, AmanhecerContext, Func<Message, AmanhecerContext, ValueTask>, ValueTask> func,
+        int order = 0)
+    {
+        _transformers.Add(new AmanhecerTransformerOptions(typeof(AnonymousDecodeTransformer), order, func));
+        return this;
     }
 
     private Func<Message, Exception, IConsumerAction>? _onError;
@@ -382,7 +436,11 @@ public class RabbitMqSubscriptionConfigurator
             CloudEventType =  _cloudEventType,
             // The envelope unwrap is content-type-sniffing and runs first, so it is inert
             // for binary-mode messages.
-            Transformers = [new AmanhecerTransformerOptions(typeof(StructuredCloudEventTransformer), int.MinValue, null)],
+            Transformers =
+            [
+                new AmanhecerTransformerOptions(typeof(StructuredCloudEventTransformer), int.MinValue, null),
+                .. _transformers
+            ],
             NumberOfConsumers = _numberOfConsumers,
             BufferSize = _bufferSize,
             PrefetchSize = (uint)_prefetchSize,

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Mime;
-using System.Text;
 
 namespace Amanhecer.Abstractions.Messaging;
 

@@ -29,7 +29,8 @@ public class AmanhecerMessagingConfiguratorTests
     {
         var configurator = new AmanhecerMessagingConfigurator(new ServiceCollection());
 
-        await Assert.That(() => configurator.DefaultMessageMapper(typeof(string)))
+        await Assert
+            .That(() => configurator.DefaultMessageMapper(typeof(string)))
             .ThrowsExactly<ArgumentException>()
             .WithParameterName("messageMapperType");
     }
@@ -43,10 +44,13 @@ public class AmanhecerMessagingConfiguratorTests
         var result = configurator.DefaultMessageMapper(typeof(TestMessageMapper));
 
         await Assert.That(result).IsSameReferenceAs(configurator);
-        await Assert.That(services)
-            .Contains(x => x.ServiceType == typeof(TestMessageMapper)
+        await Assert
+            .That(services)
+            .Contains(x =>
+                x.ServiceType == typeof(TestMessageMapper)
                 && x.ImplementationType == typeof(TestMessageMapper)
-                && x.Lifetime == ServiceLifetime.Transient);
+                && x.Lifetime == ServiceLifetime.Transient
+            );
     }
 
     [Test]
@@ -58,9 +62,12 @@ public class AmanhecerMessagingConfiguratorTests
         var result = configurator.DefaultMessageMapper<TestMessageMapper>();
 
         await Assert.That(result).IsSameReferenceAs(configurator);
-        await Assert.That(services)
-            .Contains(x => x.ServiceType == typeof(TestMessageMapper)
-                && x.Lifetime == ServiceLifetime.Transient);
+        await Assert
+            .That(services)
+            .Contains(x =>
+                x.ServiceType == typeof(TestMessageMapper)
+                && x.Lifetime == ServiceLifetime.Transient
+            );
     }
 
     [Test]
@@ -72,7 +79,8 @@ public class AmanhecerMessagingConfiguratorTests
         configurator.DefaultMessageMapper<TestMessageMapper>();
         configurator.DefaultMessageMapper<TestMessageMapper>();
 
-        await Assert.That(services.Count(x => x.ServiceType == typeof(TestMessageMapper)))
+        await Assert
+            .That(services.Count(x => x.ServiceType == typeof(TestMessageMapper)))
             .IsEqualTo(1);
     }
 
@@ -81,12 +89,14 @@ public class AmanhecerMessagingConfiguratorTests
     {
         var configurator = new AmanhecerMessagingConfigurator(new ServiceCollection());
 
-        var result = configurator.AddTransformerPipeline("pipeline",
-        [
-            new AmanhecerTransformerOptions(typeof(string), 10, null),
-            new AmanhecerTransformerOptions(typeof(int), -5, "meta"),
-            new AmanhecerTransformerOptions(typeof(double), 0, null)
-        ]);
+        var result = configurator.AddTransformerPipeline(
+            "pipeline",
+            [
+                new AmanhecerTransformerOptions(typeof(string), 10, null),
+                new AmanhecerTransformerOptions(typeof(int), -5, "meta"),
+                new AmanhecerTransformerOptions(typeof(double), 0, null),
+            ]
+        );
 
         await Assert.That(result).IsSameReferenceAs(configurator);
 
@@ -103,11 +113,18 @@ public class AmanhecerMessagingConfiguratorTests
     public async Task When_AddTransformerPipeline_WithDuplicateName_Should_ThrowInvalidOperationException()
     {
         var configurator = new AmanhecerMessagingConfigurator(new ServiceCollection());
-        configurator.AddTransformerPipeline("pipeline",
-            [new AmanhecerTransformerOptions(typeof(string), 0, null)]);
+        configurator.AddTransformerPipeline(
+            "pipeline",
+            [new AmanhecerTransformerOptions(typeof(string), 0, null)]
+        );
 
-        await Assert.That(() => configurator.AddTransformerPipeline("pipeline",
-                [new AmanhecerTransformerOptions(typeof(int), 0, null)]))
+        await Assert
+            .That(() =>
+                configurator.AddTransformerPipeline(
+                    "pipeline",
+                    [new AmanhecerTransformerOptions(typeof(int), 0, null)]
+                )
+            )
             .ThrowsExactly<InvalidOperationException>()
             .WithMessageContaining("pipeline");
     }
@@ -119,7 +136,10 @@ public class AmanhecerMessagingConfiguratorTests
         var configurator = new AmanhecerMessagingConfigurator(services);
         var metadata = new object();
 
-        var result = configurator.AddGlobalTransformer<TestEncodeTransformer>(order: 3, metadata: metadata);
+        var result = configurator.AddGlobalTransformer<TestEncodeTransformer>(
+            order: 3,
+            metadata: metadata
+        );
 
         await Assert.That(result).IsSameReferenceAs(configurator);
 
@@ -128,9 +148,12 @@ public class AmanhecerMessagingConfiguratorTests
         await Assert.That(options.Order).IsEqualTo(3);
         await Assert.That(options.Metadata).IsSameReferenceAs(metadata);
 
-        await Assert.That(services)
-            .Contains(x => x.ServiceType == typeof(TestEncodeTransformer)
-                && x.Lifetime == ServiceLifetime.Transient);
+        await Assert
+            .That(services)
+            .Contains(x =>
+                x.ServiceType == typeof(TestEncodeTransformer)
+                && x.Lifetime == ServiceLifetime.Transient
+            );
     }
 
     [Test]
@@ -151,9 +174,110 @@ public class AmanhecerMessagingConfiguratorTests
     {
         var configurator = new AmanhecerMessagingConfigurator(new ServiceCollection());
 
-        await Assert.That(() => configurator.AddGlobalTransformer(typeof(string)))
+        await Assert
+            .That(() => configurator.AddGlobalTransformer(typeof(string)))
             .ThrowsExactly<ArgumentException>()
             .WithParameterName("transformerType");
+    }
+
+    [Test]
+    public async Task When_AddGlobalTransformer_WithBothDelegates_Should_AddEncodeAndDecodeOptions()
+    {
+        var configurator = new AmanhecerMessagingConfigurator(new ServiceCollection());
+
+        Func<
+            Message,
+            AmanhecerContext,
+            Func<Message, AmanhecerContext, ValueTask>,
+            ValueTask
+        > encode = (message, context, next) => next(message, context);
+        Func<
+            Message,
+            AmanhecerContext,
+            Func<Message, AmanhecerContext, ValueTask>,
+            ValueTask
+        > decode = (message, context, next) => next(message, context);
+
+        var result = configurator.AddGlobalTransformer(encode, decode, order: 7);
+
+        await Assert.That(result).IsSameReferenceAs(configurator);
+        await Assert.That(configurator.GlobalTransformers).Count().IsEqualTo(2);
+        await Assert
+            .That(configurator.GlobalTransformers[0].TransformerType)
+            .IsEqualTo(typeof(Amanhecer.Messaging.Transformers.AnonymousEncodeTransformer));
+        await Assert.That(configurator.GlobalTransformers[0].Order).IsEqualTo(7);
+        await Assert.That(configurator.GlobalTransformers[0].Metadata).IsSameReferenceAs(encode);
+        await Assert
+            .That(configurator.GlobalTransformers[1].TransformerType)
+            .IsEqualTo(typeof(Amanhecer.Messaging.Transformers.AnonymousDecodeTransformer));
+        await Assert.That(configurator.GlobalTransformers[1].Order).IsEqualTo(7);
+        await Assert.That(configurator.GlobalTransformers[1].Metadata).IsSameReferenceAs(decode);
+    }
+
+    [Test]
+    public async Task When_AddGlobalTransformer_WithEncodeOnly_Should_AddSingleEncodeOption()
+    {
+        var configurator = new AmanhecerMessagingConfigurator(new ServiceCollection());
+
+        configurator.AddGlobalTransformer(
+            encode: (message, context, next) => next(message, context)
+        );
+
+        var options = configurator.GlobalTransformers.Single();
+        await Assert
+            .That(options.TransformerType)
+            .IsEqualTo(typeof(Amanhecer.Messaging.Transformers.AnonymousEncodeTransformer));
+        await Assert.That(options.Metadata).IsNotNull();
+    }
+
+    [Test]
+    public async Task When_AddGlobalTransformer_WithDecodeOnly_Should_AddSingleDecodeOption()
+    {
+        var configurator = new AmanhecerMessagingConfigurator(new ServiceCollection());
+
+        configurator.AddGlobalTransformer(
+            decode: (message, context, next) => next(message, context)
+        );
+
+        var options = configurator.GlobalTransformers.Single();
+        await Assert
+            .That(options.TransformerType)
+            .IsEqualTo(typeof(Amanhecer.Messaging.Transformers.AnonymousDecodeTransformer));
+        await Assert.That(options.Metadata).IsNotNull();
+    }
+
+    [Test]
+    public async Task When_AddGlobalTransformer_WithBothDelegatesNull_Should_ThrowArgumentException()
+    {
+        var configurator = new AmanhecerMessagingConfigurator(new ServiceCollection());
+
+        await Assert
+            .That(() => configurator.AddGlobalTransformer())
+            .ThrowsExactly<ArgumentException>()
+            .WithParameterName("encode");
+    }
+
+    [Test]
+    public async Task When_AddGlobalTransformer_WithDelegates_Should_NotRegisterTypesInServices()
+    {
+        var services = new ServiceCollection();
+        var configurator = new AmanhecerMessagingConfigurator(services);
+
+        configurator.AddGlobalTransformer(
+            encode: (message, context, next) => next(message, context),
+            decode: (message, context, next) => next(message, context)
+        );
+
+        await Assert
+            .That(
+                services.Count(x =>
+                    x.ServiceType
+                        == typeof(Amanhecer.Messaging.Transformers.AnonymousEncodeTransformer)
+                    || x.ServiceType
+                        == typeof(Amanhecer.Messaging.Transformers.AnonymousDecodeTransformer)
+                )
+            )
+            .IsEqualTo(0);
     }
 
     [Test]
@@ -169,9 +293,11 @@ public class AmanhecerMessagingConfiguratorTests
         await gateway.DidNotReceive().ProvisionerAsync();
         await Assert.That(configurator.Gateways).Count().IsEqualTo(1);
         await Assert.That(configurator.Gateways[0]).IsSameReferenceAs(gateway);
-        await Assert.That(services)
-            .Contains(x => x.ServiceType == typeof(IGateway)
-                && x.Lifetime == ServiceLifetime.Singleton);
+        await Assert
+            .That(services)
+            .Contains(x =>
+                x.ServiceType == typeof(IGateway) && x.Lifetime == ServiceLifetime.Singleton
+            );
 
         var provider = services.BuildServiceProvider();
         await Assert.That(provider.GetRequiredService<IGateway>()).IsSameReferenceAs(gateway);
@@ -209,13 +335,20 @@ public class AmanhecerMessagingConfiguratorTests
         var subscription = Substitute.For<ISubscription>();
         subscription.MessageMapperType.Returns(typeof(AnotherMessageMapper));
 
-        configurator.AddGateway(CreateGateway(publications: [publication], subscriptions: [subscription]));
+        configurator.AddGateway(
+            CreateGateway(publications: [publication], subscriptions: [subscription])
+        );
 
-        await Assert.That(services)
-            .Contains(x => x.ServiceType == typeof(TestMessageMapper)
-                && x.Lifetime == ServiceLifetime.Transient)
-            .And.Contains(x => x.ServiceType == typeof(AnotherMessageMapper)
-                && x.Lifetime == ServiceLifetime.Transient);
+        await Assert
+            .That(services)
+            .Contains(x =>
+                x.ServiceType == typeof(TestMessageMapper)
+                && x.Lifetime == ServiceLifetime.Transient
+            )
+            .And.Contains(x =>
+                x.ServiceType == typeof(AnotherMessageMapper)
+                && x.Lifetime == ServiceLifetime.Transient
+            );
     }
 
     [Test]
@@ -228,7 +361,9 @@ public class AmanhecerMessagingConfiguratorTests
         var publication = Substitute.For<IPublication>();
         var subscription = Substitute.For<ISubscription>();
 
-        configurator.AddGateway(CreateGateway(publications: [publication], subscriptions: [subscription]));
+        configurator.AddGateway(
+            CreateGateway(publications: [publication], subscriptions: [subscription])
+        );
 
         await Assert.That(publication.MessageMapperType).IsEqualTo(typeof(TestMessageMapper));
         await Assert.That(subscription.MessageMapperType).IsEqualTo(typeof(TestMessageMapper));
@@ -258,7 +393,9 @@ public class AmanhecerMessagingConfiguratorTests
         var publication = Substitute.For<IPublication>();
         var subscription = Substitute.For<ISubscription>();
 
-        configurator.AddGateway(CreateGateway(publications: [publication], subscriptions: [subscription]));
+        configurator.AddGateway(
+            CreateGateway(publications: [publication], subscriptions: [subscription])
+        );
 
         await Assert.That(publication.MessageMapperType).IsNull();
         await Assert.That(subscription.MessageMapperType).IsNull();
@@ -266,7 +403,8 @@ public class AmanhecerMessagingConfiguratorTests
 
     private static IGateway CreateGateway(
         IPublication[]? publications = null,
-        ISubscription[]? subscriptions = null)
+        ISubscription[]? subscriptions = null
+    )
     {
         var gateway = Substitute.For<IGateway>();
         gateway.Publications.Returns(publications ?? []);
@@ -302,8 +440,11 @@ public class AmanhecerMessagingConfiguratorTests
 
     private sealed class TestEncodeTransformer : IEncodeTransformer
     {
-        public ValueTask EncodeAsync(Message message, AmanhecerContext context,
-            Func<Message, AmanhecerContext, ValueTask> next)
+        public ValueTask EncodeAsync(
+            Message message,
+            AmanhecerContext context,
+            Func<Message, AmanhecerContext, ValueTask> next
+        )
         {
             return next(message, context);
         }
@@ -311,8 +452,11 @@ public class AmanhecerMessagingConfiguratorTests
 
     private sealed class TestDecodeTransformer : IDecodeTransformer
     {
-        public ValueTask DecodeAsync(Message message, AmanhecerContext context,
-            Func<Message, AmanhecerContext, ValueTask> next)
+        public ValueTask DecodeAsync(
+            Message message,
+            AmanhecerContext context,
+            Func<Message, AmanhecerContext, ValueTask> next
+        )
         {
             return next(message, context);
         }

@@ -1,7 +1,11 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Amanhecer.Abstractions;
+using Amanhecer.Abstractions.Messaging;
 using Amanhecer.InMemory.Configurations;
+using Amanhecer.Messaging.Transformers;
 
 namespace Amanhecer.InMemory.Tests;
 
@@ -12,8 +16,10 @@ public class InMemoryConfiguratorValidationTests
     {
         var configurator = new InMemorySubscriptionsConfigurator();
 
-        await Assert.That(() => configurator.AddSubscription(subscription =>
-                subscription.QueueName("tests.queue")))
+        await Assert
+            .That(() =>
+                configurator.AddSubscription(subscription => subscription.QueueName("tests.queue"))
+            )
             .ThrowsExactly<InvalidOperationException>();
     }
 
@@ -33,8 +39,10 @@ public class InMemoryConfiguratorValidationTests
     {
         var configurator = new InMemoryPublicationsConfigurator();
 
-        await Assert.That(() => configurator.AddPublication(publication =>
-                publication.QueueName("tests.queue")))
+        await Assert
+            .That(() =>
+                configurator.AddPublication(publication => publication.QueueName("tests.queue"))
+            )
             .ThrowsExactly<InvalidOperationException>();
     }
 
@@ -43,8 +51,7 @@ public class InMemoryConfiguratorValidationTests
     {
         var configurator = new InMemorySubscriptionConfigurator();
 
-        await Assert.That(() => configurator.Name(""))
-            .ThrowsExactly<ArgumentException>();
+        await Assert.That(() => configurator.Name("")).ThrowsExactly<ArgumentException>();
     }
 
     [Test]
@@ -52,8 +59,7 @@ public class InMemoryConfiguratorValidationTests
     {
         var configurator = new InMemorySubscriptionConfigurator();
 
-        await Assert.That(() => configurator.ToRoutingKey(""))
-            .ThrowsExactly<ArgumentException>();
+        await Assert.That(() => configurator.ToRoutingKey("")).ThrowsExactly<ArgumentException>();
     }
 
     [Test]
@@ -61,8 +67,7 @@ public class InMemoryConfiguratorValidationTests
     {
         var configurator = new InMemorySubscriptionConfigurator();
 
-        await Assert.That(() => configurator.QueueName(""))
-            .ThrowsExactly<ArgumentException>();
+        await Assert.That(() => configurator.QueueName("")).ThrowsExactly<ArgumentException>();
     }
 
     [Test]
@@ -70,7 +75,8 @@ public class InMemoryConfiguratorValidationTests
     {
         var configurator = new InMemorySubscriptionConfigurator();
 
-        await Assert.That(() => configurator.DeadLetterQueueRoutingKey(""))
+        await Assert
+            .That(() => configurator.DeadLetterQueueRoutingKey(""))
             .ThrowsExactly<ArgumentException>();
     }
 
@@ -79,7 +85,8 @@ public class InMemoryConfiguratorValidationTests
     {
         var configurator = new InMemorySubscriptionConfigurator();
 
-        await Assert.That(() => configurator.InvalidMessageRoutingKey(""))
+        await Assert
+            .That(() => configurator.InvalidMessageRoutingKey(""))
             .ThrowsExactly<ArgumentException>();
     }
 
@@ -88,7 +95,8 @@ public class InMemoryConfiguratorValidationTests
     {
         var configurator = new InMemorySubscriptionConfigurator();
 
-        await Assert.That(() => configurator.BufferSize(-1))
+        await Assert
+            .That(() => configurator.BufferSize(-1))
             .ThrowsExactly<ArgumentOutOfRangeException>();
     }
 
@@ -97,7 +105,8 @@ public class InMemoryConfiguratorValidationTests
     {
         var configurator = new InMemorySubscriptionConfigurator();
 
-        await Assert.That(() => configurator.NumberOfConsumers(-1))
+        await Assert
+            .That(() => configurator.NumberOfConsumers(-1))
             .ThrowsExactly<ArgumentOutOfRangeException>();
     }
 
@@ -106,7 +115,8 @@ public class InMemoryConfiguratorValidationTests
     {
         var configurator = new InMemoryConfigurator();
 
-        await Assert.That(() => configurator.DefaultMessageMapper(typeof(string)))
+        await Assert
+            .That(() => configurator.DefaultMessageMapper(typeof(string)))
             .ThrowsExactly<ArgumentException>();
     }
 
@@ -123,17 +133,44 @@ public class InMemoryConfiguratorValidationTests
 
     private static InMemoryPublication CreatePublication(InMemoryPublicationConfigurator cfg)
     {
-        var toPublication = typeof(InMemoryPublicationConfigurator)
-            .GetMethod("ToPublication", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var toPublication = typeof(InMemoryPublicationConfigurator).GetMethod(
+            "ToPublication",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        )!;
 
         return (InMemoryPublication)toPublication.Invoke(cfg, null)!;
     }
 
     private static InMemorySubscription CreateSubscription(InMemorySubscriptionConfigurator cfg)
     {
-        var toSubscription = typeof(InMemorySubscriptionConfigurator)
-            .GetMethod("ToSubscription", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var toSubscription = typeof(InMemorySubscriptionConfigurator).GetMethod(
+            "ToSubscription",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        )!;
 
         return (InMemorySubscription)toSubscription.Invoke(cfg, null)!;
+    }
+
+    [Test]
+    public async Task When_Subscription_Transformer_With_Delegate_Should_Append_The_Anonymous_Decode_Transformer()
+    {
+        var cfg = new InMemorySubscriptionConfigurator();
+        cfg.ToRoutingKey("tests.routing");
+
+        Func<
+            Message,
+            AmanhecerContext,
+            Func<Message, AmanhecerContext, ValueTask>,
+            ValueTask
+        > func = (message, context, next) => next(message, context);
+        cfg.Transformer(func, order: 6);
+
+        var subscription = CreateSubscription(cfg);
+
+        var options = subscription.Transformers.Single(x =>
+            x.TransformerType == typeof(AnonymousDecodeTransformer)
+        );
+        await Assert.That(options.Order).IsEqualTo(6);
+        await Assert.That(options.Metadata).IsSameReferenceAs(func);
     }
 }

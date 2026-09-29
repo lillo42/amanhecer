@@ -1,6 +1,10 @@
 using System;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
+using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Messaging.Transformers;
 using Amanhecer.RabbitMq.Configurations;
 
 namespace Amanhecer.RabbitMq.Tests;
@@ -17,8 +21,10 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionsConfigurator();
 
-        await Assert.That(() => configurator.AddSubscription(subscription =>
-                subscription.QueueName("tests.queue")))
+        await Assert
+            .That(() =>
+                configurator.AddSubscription(subscription => subscription.QueueName("tests.queue"))
+            )
             .ThrowsExactly<InvalidOperationException>();
     }
 
@@ -27,8 +33,10 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionsConfigurator();
 
-        await Assert.That(() => configurator.AddSubscription(subscription =>
-                subscription.ToRoutingKey("tests")))
+        await Assert
+            .That(() =>
+                configurator.AddSubscription(subscription => subscription.ToRoutingKey("tests"))
+            )
             .ThrowsExactly<InvalidOperationException>();
     }
 
@@ -37,11 +45,15 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionsConfigurator();
 
-        await Assert.That(() => configurator.AddSubscription(subscription =>
-                subscription
-                    .ToRoutingKey("tests")
-                    .QueueName("tests.queue")
-                    .CreateIfNotExists(create => create.RoutingKey("tests"))))
+        await Assert
+            .That(() =>
+                configurator.AddSubscription(subscription =>
+                    subscription
+                        .ToRoutingKey("tests")
+                        .QueueName("tests.queue")
+                        .CreateIfNotExists(create => create.RoutingKey("tests"))
+                )
+            )
             .ThrowsExactly<InvalidOperationException>();
     }
 
@@ -50,11 +62,17 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionsConfigurator();
 
-        await Assert.That(() => configurator.AddSubscription(subscription =>
-                subscription
-                    .ToRoutingKey("tests")
-                    .QueueName("tests.queue")
-                    .CreateIfNotExists(create => create.Exchange(new Exchange { Name = "tests.exchange" }))))
+        await Assert
+            .That(() =>
+                configurator.AddSubscription(subscription =>
+                    subscription
+                        .ToRoutingKey("tests")
+                        .QueueName("tests.queue")
+                        .CreateIfNotExists(create =>
+                            create.Exchange(new Exchange { Name = "tests.exchange" })
+                        )
+                )
+            )
             .ThrowsExactly<InvalidOperationException>();
     }
 
@@ -63,10 +81,14 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqPublicationsConfigurator();
 
-        await Assert.That(() => configurator.AddPublication(publication =>
-                publication
-                    .RabbitMqRoutingKey("tests")
-                    .Exchange(new Exchange { Name = "tests.exchange" })))
+        await Assert
+            .That(() =>
+                configurator.AddPublication(publication =>
+                    publication
+                        .RabbitMqRoutingKey("tests")
+                        .Exchange(new Exchange { Name = "tests.exchange" })
+                )
+            )
             .ThrowsExactly<InvalidOperationException>();
     }
 
@@ -75,10 +97,14 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqPublicationsConfigurator();
 
-        await Assert.That(() => configurator.AddPublication(publication =>
-                publication
-                    .RoutingKey("tests")
-                    .Exchange(new Exchange { Name = "tests.exchange" })))
+        await Assert
+            .That(() =>
+                configurator.AddPublication(publication =>
+                    publication
+                        .RoutingKey("tests")
+                        .Exchange(new Exchange { Name = "tests.exchange" })
+                )
+            )
             .ThrowsExactly<InvalidOperationException>();
     }
 
@@ -87,13 +113,19 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqPublicationsConfigurator();
 
-        await Assert.That(() => configurator.AddPublication(publication =>
-                publication
-                    .RoutingKey("tests")
-                    .RabbitMqRoutingKey("")
-                    .Exchange(exchange => exchange
-                        .Name("tests.exchange")
-                        .CreateIfNotExists(create => create.Type("fanout")))))
+        await Assert
+            .That(() =>
+                configurator.AddPublication(publication =>
+                    publication
+                        .RoutingKey("tests")
+                        .RabbitMqRoutingKey("")
+                        .Exchange(exchange =>
+                            exchange
+                                .Name("tests.exchange")
+                                .CreateIfNotExists(create => create.Type("fanout"))
+                        )
+                )
+            )
             .ThrowsNothing();
     }
 
@@ -102,13 +134,19 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqPublicationsConfigurator();
 
-        await Assert.That(() => configurator.AddPublication(publication =>
-                publication
-                    .RoutingKey("tests")
-                    .RabbitMqRoutingKey("")
-                    .Exchange(exchange => exchange
-                        .Name("tests.exchange")
-                        .CreateIfNotExists(create => create.Type("topic")))))
+        await Assert
+            .That(() =>
+                configurator.AddPublication(publication =>
+                    publication
+                        .RoutingKey("tests")
+                        .RabbitMqRoutingKey("")
+                        .Exchange(exchange =>
+                            exchange
+                                .Name("tests.exchange")
+                                .CreateIfNotExists(create => create.Type("topic"))
+                        )
+                )
+            )
             .ThrowsExactly<InvalidOperationException>();
     }
 
@@ -117,11 +155,15 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqPublicationsConfigurator();
 
-        await Assert.That(() => configurator.AddPublication(publication =>
-                publication
-                    .RoutingKey("tests")
-                    .RabbitMqRoutingKey("")
-                    .Exchange(new Exchange { Name = "tests.exchange" })))
+        await Assert
+            .That(() =>
+                configurator.AddPublication(publication =>
+                    publication
+                        .RoutingKey("tests")
+                        .RabbitMqRoutingKey("")
+                        .Exchange(new Exchange { Name = "tests.exchange" })
+                )
+            )
             .ThrowsExactly<InvalidOperationException>();
     }
 
@@ -130,12 +172,16 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqPublicationsConfigurator();
 
-        await Assert.That(() => configurator.AddPublication(publication =>
-                publication
-                    .RoutingKey("tests")
-                    .RabbitMqRoutingKey("tests")
-                    .CloudEventType(CloudEventType.Json)
-                    .Exchange(new Exchange { Name = "tests.exchange" })))
+        await Assert
+            .That(() =>
+                configurator.AddPublication(publication =>
+                    publication
+                        .RoutingKey("tests")
+                        .RabbitMqRoutingKey("tests")
+                        .CloudEventType(CloudEventType.Json)
+                        .Exchange(new Exchange { Name = "tests.exchange" })
+                )
+            )
             .ThrowsNothing();
     }
 
@@ -144,11 +190,12 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqPublicationsConfigurator();
 
-        await Assert.That(() => configurator.AddPublication(new RabbitMqPublication
-                {
-                    RoutingKey = "tests",
-                    RabbitMqRoutingKey = "tests"
-                }))
+        await Assert
+            .That(() =>
+                configurator.AddPublication(
+                    new RabbitMqPublication { RoutingKey = "tests", RabbitMqRoutingKey = "tests" }
+                )
+            )
             .ThrowsExactly<InvalidOperationException>();
     }
 
@@ -157,8 +204,7 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionConfigurator();
 
-        await Assert.That(() => configurator.Name(""))
-            .ThrowsExactly<ArgumentException>();
+        await Assert.That(() => configurator.Name("")).ThrowsExactly<ArgumentException>();
     }
 
     [Test]
@@ -166,8 +212,7 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionConfigurator();
 
-        await Assert.That(() => configurator.ToRoutingKey(""))
-            .ThrowsExactly<ArgumentException>();
+        await Assert.That(() => configurator.ToRoutingKey("")).ThrowsExactly<ArgumentException>();
     }
 
     [Test]
@@ -175,8 +220,7 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionConfigurator();
 
-        await Assert.That(() => configurator.QueueName(""))
-            .ThrowsExactly<ArgumentException>();
+        await Assert.That(() => configurator.QueueName("")).ThrowsExactly<ArgumentException>();
     }
 
     [Test]
@@ -184,7 +228,8 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionConfigurator();
 
-        await Assert.That(() => configurator.DeadLetterQueueRoutingKey(""))
+        await Assert
+            .That(() => configurator.DeadLetterQueueRoutingKey(""))
             .ThrowsExactly<ArgumentException>();
     }
 
@@ -193,7 +238,8 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionConfigurator();
 
-        await Assert.That(() => configurator.InvalidMessageRoutingKey(""))
+        await Assert
+            .That(() => configurator.InvalidMessageRoutingKey(""))
             .ThrowsExactly<ArgumentException>();
     }
 
@@ -202,7 +248,8 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionConfigurator();
 
-        await Assert.That(() => configurator.BufferSize(-1))
+        await Assert
+            .That(() => configurator.BufferSize(-1))
             .ThrowsExactly<ArgumentOutOfRangeException>();
     }
 
@@ -211,7 +258,8 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionConfigurator();
 
-        await Assert.That(() => configurator.NumberOfConsumers(-1))
+        await Assert
+            .That(() => configurator.NumberOfConsumers(-1))
             .ThrowsExactly<ArgumentOutOfRangeException>();
     }
 
@@ -220,7 +268,8 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionConfigurator();
 
-        await Assert.That(() => configurator.PrefetchSize(-1))
+        await Assert
+            .That(() => configurator.PrefetchSize(-1))
             .ThrowsExactly<ArgumentOutOfRangeException>();
     }
 
@@ -229,7 +278,8 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionConfigurator();
 
-        await Assert.That(() => configurator.MaxDeliveryAttempts(-1))
+        await Assert
+            .That(() => configurator.MaxDeliveryAttempts(-1))
             .ThrowsExactly<ArgumentOutOfRangeException>();
     }
 
@@ -238,7 +288,61 @@ public class RabbitMqConfiguratorValidationTests
     {
         var configurator = new RabbitMqSubscriptionConfigurator();
 
-        await Assert.That(() => configurator.MaxDeliveryAttempts(0))
-            .ThrowsNothing();
+        await Assert.That(() => configurator.MaxDeliveryAttempts(0)).ThrowsNothing();
+    }
+
+    [Test]
+    public async Task When_Subscription_Transformer_With_Delegate_Should_Append_The_Anonymous_Decode_Transformer()
+    {
+        var cfg = new RabbitMqSubscriptionConfigurator();
+        cfg.ToRoutingKey("tests.routing").QueueName("tests.queue");
+
+        Func<
+            Message,
+            AmanhecerContext,
+            Func<Message, AmanhecerContext, ValueTask>,
+            ValueTask
+        > func = (message, context, next) => next(message, context);
+        cfg.Transformer(func, order: 6);
+
+        var subscription = CreateSubscription(cfg);
+
+        var options = subscription.Transformers.Single(x =>
+            x.TransformerType == typeof(AnonymousDecodeTransformer)
+        );
+        await Assert.That(options.Order).IsEqualTo(6);
+        await Assert.That(options.Metadata).IsSameReferenceAs(func);
+    }
+
+    [Test]
+    public async Task When_Subscription_Transformer_With_EncodeOnly_Type_Should_Throw()
+    {
+        var cfg = new RabbitMqSubscriptionConfigurator();
+
+        await Assert
+            .That(() => cfg.Transformer(typeof(TestEncodeTransformer)))
+            .ThrowsExactly<ArgumentException>();
+    }
+
+    private static ISubscription CreateSubscription(RabbitMqSubscriptionConfigurator cfg)
+    {
+        var toSubscription = typeof(RabbitMqSubscriptionConfigurator).GetMethod(
+            "ToSubscription",
+            BindingFlags.Instance | BindingFlags.NonPublic
+        )!;
+
+        return (ISubscription)toSubscription.Invoke(cfg, null)!;
+    }
+
+    private sealed class TestEncodeTransformer : IEncodeTransformer
+    {
+        public ValueTask EncodeAsync(
+            Message message,
+            AmanhecerContext context,
+            Func<Message, AmanhecerContext, ValueTask> next
+        )
+        {
+            return next(message, context);
+        }
     }
 }

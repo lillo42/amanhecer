@@ -1,7 +1,9 @@
 using System;
+using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Extensions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Messaging.Transformers;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Amanhecer.Messaging;
@@ -16,6 +18,12 @@ public class AmanhecerDecodeTransformerFactory(IServiceProvider provider) : IDec
     /// <inheritdoc />
     public IDecodeTransformer Create(Type transformerType, object? metadata, AmanhecerContext context)
     {
+        if (transformerType == typeof(AnonymousDecodeTransformer))
+        {
+            var func = (Func<Message, AmanhecerContext, Func<Message, AmanhecerContext, ValueTask>, ValueTask>)metadata!;
+            return new AnonymousDecodeTransformer(func);
+        }
+
         if (metadata != null)
         {
             context.SetMetadata(metadata);

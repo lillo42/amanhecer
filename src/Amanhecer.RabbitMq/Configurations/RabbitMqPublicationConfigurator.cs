@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net.Mime;
+using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
-using Amanhecer.Messaging.Compression;
 using Amanhecer.Messaging.Transformers;
 using Amanhecer.RabbitMq.Provisioners;
 using RabbitMQ.Client;
@@ -170,6 +170,21 @@ public class RabbitMqPublicationConfigurator
         return this;
     }
 
+    /// <summary>
+    /// Adds an inline transformer to the encode pipeline messages published through this
+    /// publication go through, on top of any globally registered transformers. The delegate is
+    /// wrapped in an <see cref="AnonymousEncodeTransformer"/>.
+    /// </summary>
+    /// <param name="func">The delegate executed as the transformer body.</param>
+    /// <param name="order">The position of the transformer in the pipeline; lower values run first.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqPublicationConfigurator Transformer(
+        Func<Message, AmanhecerContext, Func<Message, AmanhecerContext, ValueTask>, ValueTask> func,
+        int order = 0)
+    {
+        _transformers.Add(new AmanhecerTransformerOptions(typeof(AnonymousEncodeTransformer), order, func));
+        return this;
+    }
     private bool _mandatory;
 
     /// <summary>

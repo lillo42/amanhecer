@@ -84,6 +84,42 @@ With attribute registration, the attribute instance itself is stored as the tran
 metadata, so the attribute can carry configuration to the transformer — see
 `CloudEventAttribute` / `SetCloudEventTransformer` in the `Amanhecer` package for an example.
 
+## Anonymous transformers
+
+For one-off transforms, a delegate can be registered instead of a class. On a publication the
+delegate wraps the encode pipeline, on a subscription the decode pipeline:
+
+```csharp
+publications.AddPublication(p => p
+    .Name("orders")
+    .RoutingKey("orders")
+    .MessageMapper<OrderMapper>()
+    .Transformer((message, context, next) =>
+    {
+        message.Payload = Stamp(message.Payload);
+        return next(message, context);
+    }, order: 10));
+```
+
+Global registration takes the two directions as named parameters — supply one or both:
+
+```csharp
+services.AddAmanhecer(cfg => cfg
+    .UsingMessagingGateway(m => m
+        .AddGlobalTransformer(
+            encode: (message, context, next) =>
+            {
+                message.Payload = Stamp(message.Payload);
+                return next(message, context);
+            },
+            order: 50)
+        .AddGateway(/* ... */)));
+```
+
+Delegates are wrapped in `AnonymousEncodeTransformer` / `AnonymousDecodeTransformer`
+internally; they cannot be resolved from the container like typed transformers, so prefer a
+class when the transformer needs dependencies or is reused across pipelines.
+
 ## Ordering and merging
 
 Lower `Order` values run earlier. Transformers from all sources — global registration,

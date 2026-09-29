@@ -1,6 +1,8 @@
 using System;
+using System.Threading.Tasks;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Extensions;
+using Amanhecer.Middlewares;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Amanhecer;
@@ -22,6 +24,12 @@ public class AmanhecerMiddlewareFactory(IServiceProvider provider) : IMiddleware
     /// <returns>The resolved middleware instance.</returns>
     public IMiddleware Create(Type middlewareType, object? metadata, AmanhecerContext context)
     {
+        if (middlewareType == typeof(AnonymousMiddleware))
+        {
+            var func = (Func<AmanhecerContext, Func<AmanhecerContext, ValueTask>, ValueTask>)metadata!;
+            return new AnonymousMiddleware(func);
+        }
+
         if (metadata != null)
         {
             context.SetMetadata(metadata);

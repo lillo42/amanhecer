@@ -85,17 +85,17 @@ public class SnappierCompress : ITransformer
             using var outputStream = new MemoryStream();
 #if NET8_0_OR_GREATER
             await using (var snappyStream = new SnappyStream(outputStream, System.IO.Compression.CompressionMode.Compress, leaveOpen: true))
-        {
-            await snappyStream.WriteAsync(message.Payload)
-                .ConfigureAwait(context.ContinueOnCapturedContext);
-        }
+            {
+                await snappyStream.WriteAsync(message.Payload)
+                    .ConfigureAwait(context.ContinueOnCapturedContext);
+            }
 #else
             using (var snappyStream = new SnappyStream(outputStream, System.IO.Compression.CompressionMode.Compress, leaveOpen: true))
-        {
-            var payload = message.Payload.ToArray();
-            await snappyStream.WriteAsync(payload, 0, payload.Length)
-                .ConfigureAwait(context.ContinueOnCapturedContext);
-        }
+            {
+                var payload = message.Payload.ToArray();
+                await snappyStream.WriteAsync(payload, 0, payload.Length)
+                    .ConfigureAwait(context.ContinueOnCapturedContext);
+            }
 #endif
 
             message.ContentEncoding = "snappy";

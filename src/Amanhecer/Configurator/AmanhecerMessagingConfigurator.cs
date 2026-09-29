@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Threading.Tasks;
+using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -152,6 +154,46 @@ public class AmanhecerMessagingConfigurator(IServiceCollection services)
 
         GlobalTransformers.Add(new AmanhecerTransformerOptions(transformerType, order, metadata));
         Services.TryAddTransient(transformerType);
+        return this;
+    }
+
+    /// <summary>
+    /// Adds inline transformers applied to every encode and decode transformer pipeline, on top
+    /// of any pipeline-specific transformers. Each supplied delegate is wrapped in an anonymous
+    /// transformer: <paramref name="encode"/> contributes an
+    /// <see cref="Messaging.Transformers.AnonymousEncodeTransformer"/> to encode pipelines and
+    /// <paramref name="decode"/> a <see cref="Messaging.Transformers.AnonymousDecodeTransformer"/>
+    /// to decode pipelines. At least one delegate must be supplied.
+    /// </summary>
+    /// <param name="encode">The delegate added to encode pipelines; <c>null</c> to skip.</param>
+    /// <param name="decode">The delegate added to decode pipelines; <c>null</c> to skip.</param>
+    /// <param name="order">The position of the transformers in the pipelines; lower values run first.</param>
+    /// <returns>The current configurator, for chaining.</returns>
+    /// <exception cref="ArgumentException">Thrown when both <paramref name="encode"/> and
+    /// <paramref name="decode"/> are null.</exception>
+    public AmanhecerMessagingConfigurator AddGlobalTransformer(
+        Func<Message, AmanhecerContext, Func<Message, AmanhecerContext, ValueTask>, ValueTask>? encode = null,
+        Func<Message, AmanhecerContext, Func<Message, AmanhecerContext, ValueTask>, ValueTask>? decode = null,
+        int order = 0)
+    {
+        if (encode == null && decode == null)
+        {
+            throw new ArgumentException(
+                "At least one of the encode or decode delegates must be supplied.", nameof(encode));
+        }
+
+        if (encode != null)
+        {
+            GlobalTransformers.Add(new AmanhecerTransformerOptions(
+                typeof(Messaging.Transformers.AnonymousEncodeTransformer), order, encode));
+        }
+
+        if (decode != null)
+        {
+            GlobalTransformers.Add(new AmanhecerTransformerOptions(
+                typeof(Messaging.Transformers.AnonymousDecodeTransformer), order, decode));
+        }
+
         return this;
     }
 

@@ -40,7 +40,9 @@ public class ExecuteHandlerMiddleware(IHandlerFactory factory) : IMiddleware
                 context.Response = await queryHandler.HandleAsync(context.Request, context, context.CancellationToken).ConfigureAwait(context.ContinueOnCapturedContext);
                 break;
             default:
-                throw new NotSupportedException($"The type {context.GetType()} is not supported.");
+                throw new NotSupportedException(
+                    $"The handler '{handler.GetType().FullName}' is not supported: it implements neither " +
+                    $"{nameof(IRequestHandler)} nor {nameof(IQueryHandler)}.");
         }
     }
 }

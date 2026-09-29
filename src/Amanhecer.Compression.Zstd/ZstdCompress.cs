@@ -27,8 +27,8 @@ public record ZstdMetadata(int CompressionLevel)
 }
 
 /// <summary>
-/// Declares that <see cref="ZstdCompress"/> applies to the messages mapped by the message mapper
-/// type the attribute is placed on, using the configured Zstandard compression level.
+/// Declares that <see cref="ZstdCompress"/> applies to the messages mapped by the message
+/// mapper type the attribute is placed on, using the configured Zstandard compression level.
 /// </summary>
 /// <param name="compressionLevel">The Zstandard compression level applied when encoding.</param>
 /// <param name="order">The position of the transformer in the pipeline.</param>
@@ -64,14 +64,14 @@ public class ZstdAttribute(int compressionLevel, int order) : TransformerAttribu
             CompressionMode.Always => true,
             CompressionMode.Never => false,
             CompressionMode.WhenPayloadAtLeastThreshold => message.Payload.Length >= Threshold,
-            _ => throw new NotSupportedException()
+            _ => throw new InvalidOperationException($"The compression mode '{CompressionMode}' is not supported.")
         },
         ShouldDecompress = message => DecompressionMode switch
         {
             DecompressionMode.Always => true,
             DecompressionMode.Never => false,
             DecompressionMode.WhenEncodingMatches => message.ContentEncoding == "zstd",
-            _ => throw new NotSupportedException()
+            _ => throw new InvalidOperationException($"The decompression mode '{DecompressionMode}' is not supported.")
         }
     };
 }

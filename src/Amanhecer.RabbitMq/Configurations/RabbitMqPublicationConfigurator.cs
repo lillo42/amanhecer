@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Mime;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Messaging.Compression;
 using Amanhecer.Messaging.Transformers;
 using Amanhecer.RabbitMq.Provisioners;
 using RabbitMQ.Client;

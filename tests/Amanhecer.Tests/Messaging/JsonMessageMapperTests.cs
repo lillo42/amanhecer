@@ -32,7 +32,7 @@ public class JsonMessageMapperTests
         var mapper = new JsonMessageMapper<SampleRequest>(new JsonSerializerOptions());
         var message = new Message
         {
-            Payload = Encoding.UTF8.GetBytes("""{"Name":"order","Value":42}""")
+            Payload = """{"Name":"order","Value":42}"""u8.ToArray()
         };
 
         var request = await mapper.ToRequestAsync(message, new AmanhecerContext());
@@ -44,7 +44,7 @@ public class JsonMessageMapperTests
     public async Task GenericMapper_ToRequestAsync_When_PayloadIsNotJson_Should_ThrowInvalidMessageException()
     {
         var mapper = new JsonMessageMapper<SampleRequest>(new JsonSerializerOptions());
-        var message = new Message { Payload = Encoding.UTF8.GetBytes("not-json") };
+        var message = new Message { Payload = "not-json"u8.ToArray() };
 
         await Assert.That(async () => await mapper.ToRequestAsync(message, new AmanhecerContext()))
             .Throws<InvalidMessageException>();
@@ -73,7 +73,7 @@ public class JsonMessageMapperTests
         var mapper = new JsonMessageMapper();
         var message = new Message
         {
-            Payload = Encoding.UTF8.GetBytes("""{"Name":"order","Value":42}""")
+            Payload = """{"Name":"order","Value":42}"""u8.ToArray()
         };
 
         var request = await mapper.ToRequestAsync(message, context);
@@ -87,7 +87,7 @@ public class JsonMessageMapperTests
         var mapper = new JsonMessageMapper();
         var message = new Message
         {
-            Payload = Encoding.UTF8.GetBytes("""{"Name":"order","Value":42}""")
+            Payload = """{"Name":"order","Value":42}"""u8.ToArray()
         };
 
         await Assert.That(async () => await mapper.ToRequestAsync(message, new AmanhecerContext()))
@@ -100,7 +100,7 @@ public class JsonMessageMapperTests
         var context = new AmanhecerContext();
         context.SetMetadata(typeof(SampleRequest), MetadataName.RequestType);
         var mapper = new JsonMessageMapper();
-        var message = new Message { Payload = Encoding.UTF8.GetBytes("not-json") };
+        var message = new Message { Payload = "not-json"u8.ToArray() };
 
         await Assert.That(async () => await mapper.ToRequestAsync(message, context))
             .Throws<InvalidMessageException>();

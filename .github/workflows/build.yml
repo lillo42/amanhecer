@@ -37,6 +37,20 @@ jobs:
             dotnet test "$project" --configuration Release
           done
 
+      - name: Collect TUnit HTML report
+        if: always()
+        run: |
+          mkdir -p test-report
+          find "$RUNNER_TEMP/tunit-aggregate" -name 'merged-report.html' -exec cp {} test-report/ \;
+
+      - name: Upload TUnit HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tunit-html-report
+          path: test-report/merged-report.html
+          if-no-files-found: ignore
+
   rabbitmq:
     needs: build
     runs-on: ubuntu-latest

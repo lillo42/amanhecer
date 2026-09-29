@@ -83,14 +83,14 @@ public class StructuredCloudEventTransformerTests
         var context = CreateContext(publication);
         var message = CreateMessage();
         message.ContentType = new ContentType("text/plain");
-        message.Payload = Encoding.UTF8.GetBytes("plain text");
+        message.Payload = "plain text"u8.ToArray();
 
         await _transformer.EncodeAsync(message, context, Substitute.For<Func<Message, AmanhecerContext, ValueTask>>());
 
         using var envelope = JsonDocument.Parse(message.Payload);
         await Assert.That(envelope.RootElement.TryGetProperty("data", out _)).IsFalse();
         await Assert.That(envelope.RootElement.GetProperty("data_base64").GetString())
-            .IsEqualTo(Convert.ToBase64String(Encoding.UTF8.GetBytes("plain text")));
+            .IsEqualTo(Convert.ToBase64String("plain text"u8.ToArray()));
     }
 
     [Test]
@@ -99,14 +99,14 @@ public class StructuredCloudEventTransformerTests
         var publication = CreatePublication();
         var context = CreateContext(publication);
         var message = CreateMessage();
-        message.Payload = Encoding.UTF8.GetBytes("{not json");
+        message.Payload = "{not json"u8.ToArray();
 
         await _transformer.EncodeAsync(message, context, Substitute.For<Func<Message, AmanhecerContext, ValueTask>>());
 
         using var envelope = JsonDocument.Parse(message.Payload);
         await Assert.That(envelope.RootElement.TryGetProperty("data", out _)).IsFalse();
         await Assert.That(envelope.RootElement.GetProperty("data_base64").GetString())
-            .IsEqualTo(Convert.ToBase64String(Encoding.UTF8.GetBytes("{not json")));
+            .IsEqualTo(Convert.ToBase64String("{not json"u8.ToArray()));
     }
 
     [Test]
@@ -156,7 +156,7 @@ public class StructuredCloudEventTransformerTests
         var message = new Message
         {
             Id = "",
-            Payload = Encoding.UTF8.GetBytes("""{"greeting":"hello"}""")
+            Payload = """{"greeting":"hello"}"""u8.ToArray()
         };
 
         await _transformer.EncodeAsync(message, context, Substitute.For<Func<Message, AmanhecerContext, ValueTask>>());
@@ -223,7 +223,7 @@ public class StructuredCloudEventTransformerTests
     [Test]
     public async Task DecodeAsync_With_Data_Base64_Should_Decode_The_Payload()
     {
-        var payload = Encoding.UTF8.GetBytes("plain text");
+        var payload = "plain text"u8.ToArray();
         var message = new Message
         {
             ContentType = new ContentType(StructuredCloudEventTransformer.MediaType),
@@ -253,22 +253,22 @@ public class StructuredCloudEventTransformerTests
         var message = new Message
         {
             ContentType = new ContentType(StructuredCloudEventTransformer.MediaType),
-            Payload = Encoding.UTF8.GetBytes("""
-                {
-                    "specversion": "1.0",
-                    "id": "tests.structured",
-                    "source": "amanhecer.tests",
-                    "type": "amanhecer.tests.structured",
-                    "data": {"greeting":"hello"}
-                }
-                """)
+            Payload = """
+                      {
+                          "specversion": "1.0",
+                          "id": "tests.structured",
+                          "source": "amanhecer.tests",
+                          "type": "amanhecer.tests.structured",
+                          "data": {"greeting":"hello"}
+                      }
+                      """u8.ToArray()
         };
 
         await _transformer.DecodeAsync(message,
             CreateSubscriptionContext(),
             Substitute.For<Func<Message, AmanhecerContext, ValueTask>>());
 
-        await Assert.That(message.ContentType).IsNull();
+        await Assert.That(message.ContentType).IsNotNull();
     }
 
     [Test]
@@ -277,7 +277,7 @@ public class StructuredCloudEventTransformerTests
         var message = new Message
         {
             ContentType = new ContentType("application/json"),
-            Payload = Encoding.UTF8.GetBytes("""{"greeting":"hello"}""")
+            Payload = """{"greeting":"hello"}"""u8.ToArray()
         };
         var context = CreateSubscriptionContext(CloudEventType.Binary);
         var next = Substitute.For<Func<Message, AmanhecerContext, ValueTask>>();
@@ -295,7 +295,7 @@ public class StructuredCloudEventTransformerTests
         var message = new Message
         {
             ContentType = new ContentType(StructuredCloudEventTransformer.MediaType),
-            Payload = Encoding.UTF8.GetBytes("[1, 2, 3]")
+            Payload = "[1, 2, 3]"u8.ToArray()
         };
 
         await Assert.That(async () => await _transformer.DecodeAsync(message,
@@ -368,7 +368,7 @@ public class StructuredCloudEventTransformerTests
             Source = new Uri("amanhecer.tests", UriKind.RelativeOrAbsolute),
             SpecVersion = "1.0",
             Type = "amanhecer.tests.message",
-            Payload = Encoding.UTF8.GetBytes("""{"greeting":"hello"}""")
+            Payload = """{"greeting":"hello"}"""u8.ToArray()
         };
     }
 }

@@ -23,6 +23,11 @@ public abstract class TransformerAttribute(int order) : Attribute
     /// <returns>The transformer type.</returns>
     [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)]
     public abstract Type GetTransformerType();
+
+    /// <summary>
+    /// Gets the metadata exposed to the transformer pipeline for this attribute.
+    /// </summary>
+    public virtual object Metadata => this;
 }
 
 /// <summary>

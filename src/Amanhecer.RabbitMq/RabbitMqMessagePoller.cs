@@ -227,6 +227,7 @@ public class RabbitMqMessagePoller(
         {
             Id = GetId(headers, properties.MessageId),
             ContentType = GetContentType(properties.ContentType),
+            ContentEncoding =  properties.ContentEncoding,
             CorrelationId = properties.CorrelationId ?? Uuid.NewGuid().ToString(),
             DataRef = GetDataRef(headers),
             DataSchema = GetDataSchema(headers),

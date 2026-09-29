@@ -311,7 +311,7 @@ public class StructuredCloudEventTransformer : ITransformer
         // datacontenttype the payload content type is unknown.
         if (!hasDataContentType)
         {
-            message.ContentType = null;
+            message.ContentType = Message.DefaultContentType;
         }
     }
 

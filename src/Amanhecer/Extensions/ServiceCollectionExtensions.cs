@@ -152,7 +152,7 @@ public static class ServiceCollectionExtensions
 
             var discovered = messageMapperType?
                 .GetCustomAttributes<TransformerAttribute>()
-                .Select(x => new AmanhecerTransformerOptions(x.GetTransformerType(), x.Order, x))
+                .Select(x => new AmanhecerTransformerOptions(x.GetTransformerType(), x.Order, x.Metadata))
                 ?? [];
 
             var transformers = globalTransformers.Concat(discovered).Concat(configured).ToList();

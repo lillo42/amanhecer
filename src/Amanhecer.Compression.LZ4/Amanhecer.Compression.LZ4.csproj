@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
+        <IsPackable>true</IsPackable>
+        <Description>LZ4 compression transformers for Amanhecer: compress and decompress message payloads through the transformer pipeline using the framed LZ4 stream format.</Description>
+        <PackageTags>mediator;cqrs;messaging;dispatcher;compression;lz4;middleware;pipeline</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Amanhecer.Abstractions\Amanhecer.Abstractions.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="K4os.Compression.LZ4.Streams" />
+    </ItemGroup>
+
+</Project>

@@ -104,7 +104,7 @@ public partial class SetCloudEventTransformer(ILogger<SetCloudEventTransformer> 
 
     private void Apply(Message message, CloudEventAttribute attribute)
     {
-        if (!string.IsNullOrEmpty(attribute.ContentType) && message.ContentType == null)
+        if (!string.IsNullOrEmpty(attribute.ContentType) && !message.IsContentTypeSet)
         {
             message.ContentType = new ContentType(attribute.ContentType!);
         }

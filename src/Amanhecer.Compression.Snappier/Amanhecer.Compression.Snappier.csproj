@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
+        <IsPackable>true</IsPackable>
+        <Description>Snappy compression transformers for Amanhecer: compress and decompress message payloads through the transformer pipeline using Snappier's framed stream format.</Description>
+        <PackageTags>mediator;cqrs;messaging;dispatcher;compression;snappy;snappier;middleware;pipeline</PackageTags>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Amanhecer.Abstractions\Amanhecer.Abstractions.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Snappier" />
+    </ItemGroup>
+
+</Project>

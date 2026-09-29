@@ -421,6 +421,7 @@ public partial class DekafConsumer : IConsumer, IAsyncDisposable
         return new Message
         {
             Id = GetId(headers),
+            ContentEncoding = GetHeaderValue(headers, "Content-Encoding"),
             ContentType = GetContentType(headers),
             CorrelationId = GetCorrelationId(headers),
             DataRef = GetHeaderValue(headers, "ce_dataref"),

@@ -7,11 +7,6 @@ namespace Amanhecer.RabbitMq;
 public static class MetadataName
 {
     /// <summary>
-    /// The content encoding applied to the published message.
-    /// </summary>
-    public const string ContentEncoding = "Amanhecer.RabbitMq.ContentEncoding";
-
-    /// <summary>
     /// The expiration applied to the published message.
     /// </summary>
     public const string Expiration = "Amanhecer.RabbitMq.Expiration";

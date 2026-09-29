@@ -6,6 +6,7 @@ using System.Net.Mime;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
 using Amanhecer.InMemory.Provisioners;
+using Amanhecer.Messaging.Compression;
 using Amanhecer.Messaging.Transformers;
 
 namespace Amanhecer.InMemory.Configurations;

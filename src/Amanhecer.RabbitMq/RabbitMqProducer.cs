@@ -113,7 +113,7 @@ public partial class RabbitMqProducer : IProducer
             new("messaging.message.id", message.Id),
             new("messaging.message.conversation_id", message.CorrelationId),
             new("cloudevents.event_id", message.Id),
-            new("cloudevents.event_source", message.Source?.ToString()),
+            new("cloudevents.event_source", message.Source.ToString()),
             new("cloudevents.event_spec_version", message.SpecVersion),
             new("cloudevents.event_type", message.Type),
         }.ToArray();
@@ -184,11 +184,7 @@ public partial class RabbitMqProducer : IProducer
         message.Headers["cloudEvents:specversion"] = message.SpecVersion;
         message.Headers["cloudEvents:type"] = message.Type;
         message.Headers["cloudEvents:time"] = message.Time.ToString("O", CultureInfo.InvariantCulture);
-        
-        if(message.ContentType != null)
-        {
-            message.Headers["cloudEvents:datacontenttype"] = message.ContentType.ToString();
-        }
+        message.Headers["cloudEvents:datacontenttype"] = message.ContentType.ToString();
 
         if (message.DataSchema != null)
         {
@@ -287,10 +283,8 @@ public partial class RabbitMqProducer : IProducer
         properties.AppId = publication.AppId;
         properties.ClusterId = publication.ClusterId;
         properties.Headers = message.Headers;
-        properties.ContentType = message.ContentType?.ToString() ?? publication.DefaultContentType.ToString();
-
-        var encoding = context.GetMetadata<string?>(MetadataName.ContentEncoding);
-        properties.ContentEncoding = encoding ?? publication.ContentEncoding;
+        properties.ContentType = message.ContentType.ToString();
+        properties.ContentEncoding = message.ContentEncoding ?? publication.ContentEncoding;
 
         var persistent = context.GetMetadata<bool?>(MetadataName.Persistent);
         properties.Persistent = persistent ?? publication.Persistent;
@@ -320,11 +314,9 @@ public partial class RabbitMqProducer : IProducer
             AppId = publication.AppId,
             ClusterId = publication.ClusterId,
             Headers = message.Headers!,
-            ContentType = message.ContentType?.ToString() ?? publication.DefaultContentType.ToString()
+            ContentType = message.ContentType.ToString(),
+            ContentEncoding = message.ContentEncoding ?? publication.ContentEncoding
         };
-
-        var encoding = context.GetMetadata<string?>(MetadataName.ContentEncoding);
-        properties.ContentEncoding = encoding ?? publication.ContentEncoding;
 
         var persistent = context.GetMetadata<bool?>(MetadataName.Persistent);
         properties.Persistent = persistent ?? publication.Persistent;

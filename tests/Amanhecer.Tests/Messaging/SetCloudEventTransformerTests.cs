@@ -35,7 +35,7 @@ public class SetCloudEventTransformerTests
 
         await _transformer.EncodeAsync(message, context, next);
 
-        await Assert.That(message.ContentType!.MediaType).IsEqualTo("application/json");
+        await Assert.That(message.ContentType.MediaType).IsEqualTo("application/json");
         await Assert.That(message.DataSchema!.ToString()).IsEqualTo("https://example.com/schema");
         await Assert.That(message.ReplyTo).IsEqualTo("reply.queue");
         await Assert.That(message.Source!.ToString()).IsEqualTo("https://example.com/source");
@@ -149,7 +149,7 @@ public class SetCloudEventTransformerTests
 
         await _transformer.EncodeAsync(message, context, next);
 
-        await Assert.That(message.ContentType).IsNull();
+        await Assert.That(message.ContentType).IsNotNull();
         await Assert.That(message.DataSchema).IsNull();
         await Assert.That(message.Source).IsEqualTo(Message.DefaultSource);
         await Assert.That(message.Type).IsEqualTo(Message.DefaultType);
@@ -206,7 +206,7 @@ public class SetCloudEventTransformerTests
 
         await _transformer.DecodeAsync(message, context, Substitute.For<Func<Message, AmanhecerContext, ValueTask>>());
 
-        await Assert.That(message.ContentType).IsNull();
+        await Assert.That(message.ContentType).IsEqualTo(Message.DefaultContentType);
         await Assert.That(message.Type).IsEqualTo(Message.DefaultType);
         await Assert.That(message.Source).IsEqualTo(Message.DefaultSource);
     }

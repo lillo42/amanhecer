@@ -123,7 +123,9 @@ public class RabbitMqSubscriptionConfigurator
     private int _bufferSize = 1;
 
     /// <summary>
-    /// Sets the size of the buffer of messages prefetched by each consumer. Defaults to <c>1</c>.
+    /// Sets the size of the buffer of messages prefetched from the broker, shared by all
+    /// consumers of the subscription. Defaults to <c>1</c>. The QoS prefetch count applied to
+    /// the poller's channel is the buffer size plus one in-flight delivery per consumer.
     /// </summary>
     /// <param name="bufferSize">The buffer size.</param>
     /// <returns>The configurator instance for method chaining.</returns>
@@ -142,9 +144,9 @@ public class RabbitMqSubscriptionConfigurator
     private int _prefetchSize;
 
     /// <summary>
-    /// Sets the prefetch size (the QoS window) in bytes for each consumer. Defaults to
-    /// <c>0</c>, meaning no limit. Note that RabbitMQ brokers ignore the prefetch size; use
-    /// <see cref="BufferSize"/> to limit how many messages each consumer prefetches.
+    /// Sets the prefetch size (the QoS window) in bytes. Defaults to <c>0</c>, meaning no
+    /// limit. Note that RabbitMQ brokers ignore the prefetch size; use
+    /// <see cref="BufferSize"/> to limit how many messages are prefetched.
     /// </summary>
     /// <param name="prefetchSize">The prefetch size in bytes.</param>
     /// <returns>The configurator instance for method chaining.</returns>

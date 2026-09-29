@@ -45,7 +45,8 @@ public class BrotliCompressIntegrationTests : BaseTests
     }
 
     [Test]
-    public async Task When_BrotliTransformer_Is_Configured_Should_RoundTrip_Through_The_Messaging_Pipeline()
+    [Timeout(30_000)]
+    public async Task When_BrotliTransformer_Is_Configured_Should_RoundTrip_Through_The_Messaging_Pipeline(CancellationToken cancellationToken)
     {
         var dispatcher = ServiceProvider.GetRequiredService<IDispatcher>();
         var gateway = (InMemoryGateway)ServiceProvider.GetServices<IGateway>().Single();
@@ -55,22 +56,21 @@ public class BrotliCompressIntegrationTests : BaseTests
         var request = new CompressedRequest("hello hello hello hello hello");
         var originalPayload = JsonSerializer.SerializeToUtf8Bytes(request);
 
-        await dispatcher.PostAsync(request);
+        await dispatcher.PostAsync(request, cancellationToken);
 
-        using var receiveCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var received = await consumer.GetMessagesAsync(receiveCts.Token);
+        var received = await consumer.GetMessagesAsync(cancellationToken);
         await Assert.That(received).Count().IsEqualTo(1);
         await Assert.That(received[0].Payload.Span.SequenceEqual(originalPayload)).IsFalse();
         await Assert.That(Decompress(received[0].Payload).ToArray()).IsEquivalentTo(originalPayload);
 
         await consumer.DeferAsync(received[0], TimeSpan.Zero);
-
+        
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var pump = ServiceProvider.GetRequiredService<IMessagePump>();
-        using var pumpCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        var pumpTask = pump.ExecuteAsync(consumer, pumpCts.Token);
+        var pumpTask = pump.ExecuteAsync(consumer, cts.Token);
 
-        var handled = await processed.Completion.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        pumpCts.Cancel();
+        var handled = await processed.Completion.Task.WaitAsync(cancellationToken);
+        await cts.CancelAsync();
         await pumpTask;
 
         await Assert.That(handled).IsEqualTo(request);

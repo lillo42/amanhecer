@@ -133,6 +133,34 @@ applies the configured CloudEvents attributes and the publication/subscription d
 envelope — the RabbitMQ configurators register it automatically when structured content mode
 is used (see [RabbitMQ](rabbitmq.md#cloudevents-content-modes)).
 
+## Compression transformers
+
+Three packages ship ready-made payload compression transformers, each implementing
+`ITransformer` so the same registration compresses on the way out and decompresses on the
+way in:
+
+- `Amanhecer.Compression.LZ4` — `Lz4Compress` and `[Lz4]`, framed LZ4 streams
+  ([K4os.Compression.LZ4](https://github.com/MiloszKrajewski/K4os.Compression.LZ4)).
+- `Amanhecer.Compression.Snappier` — `SnappierCompress` and `[Snappier]`, Snappy framed
+  streams ([Snappier](https://github.com/brantburnett/Snappier)).
+- `Amanhecer.Compression.Zstd` — `ZstdCompress` and `[Zstd]`, Zstandard streams
+  ([ZstdSharp.Port](https://github.com/oleg-st/ZstdSharp)).
+
+Each encoder stamps the payload's `ContentEncoding` (`lz4`, `snappy` or `zstd`), which the
+decoder recognises by default. The attributes double as the transformer's metadata and
+expose `CompressionMode` (`WhenPayloadAtLeastThreshold` by default, with a configurable
+`Threshold` in bytes; `Always` and `Never` are also available), `DecompressionMode`
+(`WhenEncodingMatches` by default) and, for LZ4 and Zstandard, the compression level:
+
+```csharp
+[Lz4(LZ4Level.L3_HC, order: 10, Threshold = 1024)]
+public class OrderMapper : IMessageMapper<OrderCreated> { ... }
+```
+
+The same transformers can also be registered fluently per publication/subscription or
+globally, passing an `Lz4Metadata` / `SnappierMetadata` / `ZstdMetadata` instance as the
+metadata — see [Global registration](#global-registration).
+
 ## Named pipelines
 
 For full control, pipelines can also be registered explicitly by name:

@@ -10,6 +10,7 @@ A lightweight request dispatcher (mediator) for .NET. Send commands, publish eve
 - **In-memory transport** — the `Amanhecer.InMemory` package binds the messaging gateway to in-memory queues (channel-backed), ideal for tests, local workflows and broker-free deployments.
 - **RabbitMQ transport** — the `Amanhecer.RabbitMq` package binds the messaging gateway to RabbitMQ exchanges and queues, with pluggable provisioning (classic, quorum, dead-letter topologies).
 - **Kafka transports** — the `Amanhecer.ConfluentKafka` (Confluent.Kafka) and `Amanhecer.Dekaf` (Dekaf, pure C#) packages bind the messaging gateway to Kafka topics and consumer groups, with batched offset commits and pluggable topic provisioning.
+- **Compression** — the `Amanhecer.Compression.LZ4`, `Amanhecer.Compression.Snappier` and `Amanhecer.Compression.Zstd` packages compress message payloads in the transformer pipeline.
 - **Routing keys** — route requests to pipelines by convention (type name) or explicitly with `[RoutingKey]`.
 - **Executing strategies** — run published pipelines sequentially or in parallel.
 - **Resilience** — execute pipelines inside named Polly resilience pipelines via the `Amanhecer.Polly` or `Amanhecer.Extensions.Resilience` packages.
@@ -27,6 +28,9 @@ A lightweight request dispatcher (mediator) for .NET. Send commands, publish eve
 | `Amanhecer.RabbitMq` | RabbitMQ transport for the messaging gateway: exchanges, queues, provisioning and consumption. |
 | `Amanhecer.ConfluentKafka` | Kafka transport for the messaging gateway (Confluent.Kafka): topics, consumer groups, provisioning and batched offset commits. |
 | `Amanhecer.Dekaf` | Kafka transport for the messaging gateway (Dekaf, pure C#): topics, consumer groups, provisioning and batched offset commits. |
+| `Amanhecer.Compression.LZ4` | LZ4 payload compression transformer for the messaging gateway (framed LZ4 streams). |
+| `Amanhecer.Compression.Snappier` | Snappy payload compression transformer for the messaging gateway (Snappier framed streams). |
+| `Amanhecer.Compression.Zstd` | Zstandard payload compression transformer for the messaging gateway. |
 | `Amanhecer.Extensions.Hosting` | Generic-host integration: runs the message consumers as a hosted service. |
 | `Amanhecer.OpenTelemetry` | OpenTelemetry trace and metric instrumentation for the request pipelines. |
 | `Amanhecer.Polly` | Polly integration: run pipelines inside named resilience pipelines. |

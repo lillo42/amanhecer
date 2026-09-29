@@ -42,11 +42,11 @@ public partial class AmanhecerMessagePump(IServiceProvider provider, ILogger<Ama
                 await batchProcessingStrategy
                     .ExecuteAsync(provider, subscription, consumer, messages, cancellationToken);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) 
             {
-                if (subscription.NoMessageDelay != TimeSpan.Zero)
+                if (subscription.NoMessageDelay != TimeSpan.Zero && !cancellationToken.IsCancellationRequested)
                 {
-                    await Task.Delay(subscription.NoMessageDelay, cancellationToken);
+                    await Delay(subscription.NoMessageDelay, cancellationToken);
                 }
 
                 break;
@@ -55,9 +55,9 @@ public partial class AmanhecerMessagePump(IServiceProvider provider, ILogger<Ama
             {
                 Logger.PumpFailed(logger, subscription.Name, e);
 
-                if (subscription.FailureDelay != TimeSpan.Zero)
+                if (subscription.FailureDelay != TimeSpan.Zero && !cancellationToken.IsCancellationRequested)
                 {
-                    await Task.Delay(subscription.FailureDelay, cancellationToken);
+                    await Delay(subscription.FailureDelay, cancellationToken);
                 }
             }
         }
@@ -73,6 +73,18 @@ public partial class AmanhecerMessagePump(IServiceProvider provider, ILogger<Ama
         catch (OperationCanceledException)
         {
             return [];
+        }
+    }
+
+    private static async Task Delay(TimeSpan delay, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(delay, cancellationToken);
+        }
+        catch (Exception)
+        {
+            // ignored
         }
     }
 

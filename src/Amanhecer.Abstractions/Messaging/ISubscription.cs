@@ -79,7 +79,7 @@ public interface ISubscription
     int NumberOfConsumers { get; }
 
     /// <summary>
-    /// Gets the size of the buffer of messages prefetched by each consumer.
+    /// Gets the size of the buffer used to hold messages prefetched from the transport.
     /// </summary>
     int BufferSize { get; }
 
@@ -89,7 +89,8 @@ public interface ISubscription
     TimeSpan NoMessageDelay { get; }
 
     /// <summary>
-    /// Gets the delay the consumer waits before polling again after receiving messages failed.
+    /// Gets the delay the consumer waits before polling again when receiving or processing
+    /// messages fails.
     /// </summary>
     TimeSpan FailureDelay { get; }
 

@@ -30,8 +30,7 @@ public class RabbitMqSubscription : Subscription
     /// <summary>
     /// Gets or sets the prefetch size (the QoS window) in bytes. Defaults to <c>0</c>,
     /// meaning no limit. Note that RabbitMQ brokers ignore the prefetch size; use
-    /// <see cref="Subscription.BufferSize"/> to limit how many messages each consumer
-    /// prefetches.
+    /// <see cref="Subscription.BufferSize"/> to limit how many messages are prefetched.
     /// </summary>
     public uint PrefetchSize { get; set; }
 

@@ -26,6 +26,7 @@ public partial class ParallelExecutingStrategy(
     /// <param name="context">The pipeline context; shallow-cloned per pipeline when running in parallel.</param>
     /// <param name="pipelines">The pipelines to execute.</param>
     /// <returns>A <see cref="ValueTask"/> that completes when all pipelines have finished.</returns>
+    /// <exception cref="AggregateException">Thrown when multiple pipelines are executed and at least one of them throws; contains all thrown exceptions.</exception>
     public async ValueTask ExecuteAsync(AmanhecerContext context, IReadOnlyList<IPipeline> pipelines)
     {
         if (pipelines.Count == 0)

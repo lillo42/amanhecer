@@ -67,14 +67,14 @@ public class Lz4Attribute(LZ4Level compressionLevel, int order) : TransformerAtt
             CompressionMode.Always => true,
             CompressionMode.Never => false,
             CompressionMode.WhenPayloadAtLeastThreshold => message.Payload.Length >= Threshold,
-            _ => throw new NotSupportedException()
+            _ => throw new InvalidOperationException($"The compression mode '{CompressionMode}' is not supported.")
         },
         ShouldDecompress = message => DecompressionMode switch
         {
             DecompressionMode.Always => true,
             DecompressionMode.Never => false,
             DecompressionMode.WhenEncodingMatches => message.ContentEncoding == "lz4",
-            _ => throw new NotSupportedException()
+            _ => throw new InvalidOperationException($"The decompression mode '{DecompressionMode}' is not supported.")
         }
     };
 }

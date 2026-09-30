@@ -57,14 +57,14 @@ public class SnappierAttribute(int order) : TransformerAttribute<SnappierCompres
             CompressionMode.Always => true,
             CompressionMode.Never => false,
             CompressionMode.WhenPayloadAtLeastThreshold => message.Payload.Length >= Threshold,
-            _ => throw new NotSupportedException()
+            _ => throw new InvalidOperationException($"The compression mode '{CompressionMode}' is not supported.")
         },
         ShouldDecompress = message => DecompressionMode switch
         {
             DecompressionMode.Always => true,
             DecompressionMode.Never => false,
             DecompressionMode.WhenEncodingMatches => message.ContentEncoding == "snappy",
-            _ => throw new NotSupportedException()
+            _ => throw new InvalidOperationException($"The decompression mode '{DecompressionMode}' is not supported.")
         }
     };
 }

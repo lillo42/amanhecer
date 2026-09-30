@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
@@ -141,7 +142,7 @@ public class SendTests : BaseTests
         public override ValueTask HandleAsync(MultiRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            throw new UnreachableException("The dispatcher throws before this handler can be invoked.");
         }
     }
 
@@ -150,7 +151,7 @@ public class SendTests : BaseTests
         public override ValueTask HandleAsync(MultiRequest request, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            throw new UnreachableException("The dispatcher throws before this handler can be invoked.");
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
@@ -125,7 +126,7 @@ public class QueryTests : BaseTests
         public override ValueTask<string> HandleAsync(MultiQuery query, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            throw new UnreachableException("The dispatcher throws before this handler can be invoked.");
         }
     }
 
@@ -134,7 +135,7 @@ public class QueryTests : BaseTests
         public override ValueTask<string> HandleAsync(MultiQuery query, AmanhecerContext context,
             CancellationToken cancellationToken = default)
         {
-            throw new NotImplementedException();
+            throw new UnreachableException("The dispatcher throws before this handler can be invoked.");
         }
     }
 }

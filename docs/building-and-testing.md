@@ -22,6 +22,7 @@ Test projects can also be run directly as executables:
 dotnet run --project tests/Amanhecer.Tests -f net10.0
 dotnet run --project tests/Amanhecer.Abstractions.Tests -f net10.0
 dotnet run --project tests/Amanhecer.Extensions.Hosting.Tests -f net10.0
+dotnet run --project tests/Amanhecer.InMemory.Tests -f net10.0
 dotnet run --project tests/Amanhecer.IntegrationTests -f net10.0
 dotnet run --project tests/Amanhecer.OpenTelemetry.Tests -f net10.0
 dotnet run --project tests/Amanhecer.Polly.Tests -f net10.0
@@ -83,14 +84,17 @@ dotnet run --project tests/Amanhecer.Dekaf.Tests -f net10.0
 
 - `src/Amanhecer.Abstractions` — interfaces, base classes, attributes and contexts.
 - `src/Amanhecer` — the dispatcher, pipeline, factories, configurators, messaging abstractions and DI extensions.
+- `src/Amanhecer.InMemory` — in-memory transport for the messaging gateway (channel-backed queues).
 - `src/Amanhecer.RabbitMq` — RabbitMQ transport for the messaging gateway.
 - `src/Amanhecer.ConfluentKafka` — Kafka transport for the messaging gateway, built on Confluent.Kafka.
 - `src/Amanhecer.Dekaf` — Kafka transport for the messaging gateway, built on Dekaf (pure C#).
+- `src/Amanhecer.Compression.LZ4`, `src/Amanhecer.Compression.Snappier`, `src/Amanhecer.Compression.Zstd` — payload compression transformers (LZ4, Snappy, Zstandard).
 - `src/Amanhecer.Extensions.Hosting` — generic-host integration running the message consumers.
 - `src/Amanhecer.OpenTelemetry` — OpenTelemetry instrumentation.
 - `src/Amanhecer.Polly` — Polly resilience middleware.
 - `src/Amanhecer.Extensions.Resilience` — `Microsoft.Extensions.Resilience` middleware with telemetry enrichment.
 - `samples/Simple`, `samples/Middleware` — console examples.
+- `samples/InMemory` — a broker-free example using the in-memory transport.
 - `samples/RabbitMqQuorum` — RabbitMQ example using a quorum queue.
 - `tests/Amanhecer.Messaging.Base.Tests` — transport-agnostic messaging gateway contract tests; new transports inherit them.
 - `tests/*` — unit and integration tests (TUnit).

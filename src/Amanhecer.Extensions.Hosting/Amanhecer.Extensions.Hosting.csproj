@@ -2,6 +2,8 @@
     <PropertyGroup>
         <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
         <IsPackable>true</IsPackable>
+        <Description>Generic-host integration for Amanhecer: runs the messaging gateway consumers as a hosted service alongside the host.</Description>
+        <PackageTags>mediator;cqrs;messaging;dispatcher;hosting;hosted-service;generic-host;middleware;pipeline</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>

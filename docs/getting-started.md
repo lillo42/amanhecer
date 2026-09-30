@@ -65,8 +65,8 @@ await dispatcher.PostAsync(new Greeting("world"));          // produces the mess
 ```
 
 `Post/PostAsync` dispatch through the configured messaging gateway transport: use
-[In-memory transport](in-memory.md) for channel-backed local queues or [RabbitMQ](rabbitmq.md)
-for broker-backed queues.
+[In-memory transport](in-memory.md) for channel-backed local queues, [RabbitMQ](rabbitmq.md)
+or [Kafka](kafka.md) for broker-backed messaging.
 
 All operations have `async` overloads (`SendAsync`, `PublishAsync`, `QueryAsync`, `PostAsync`) and accept an optional `AmanhecerContext` carrying:
 

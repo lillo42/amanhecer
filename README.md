@@ -6,11 +6,15 @@ A lightweight request dispatcher (mediator) for .NET. Send commands, publish eve
 
 - **Send / Publish / Query / Post** — dispatch a command to a single handler, an event to any number of handlers, a query that returns a response, or a message to a broker publication.
 - **Middleware pipelines** — wrap handlers with cross-cutting concerns (logging, validation, retries) configured fluently or via attributes.
-- **Messaging gateway** — publish and consume `Message`s through publications and subscriptions, with pluggable message mappers and encode/decode transformers.
+- **Messaging gateway** — publish and consume `Message`s through publications and subscriptions, with pluggable message mappers and encode/decode transformers (CloudEvents mapping included).
+- **In-memory transport** — bind the messaging gateway to channel-backed in-memory queues via the `Amanhecer.InMemory` package; ideal for tests, local workflows and broker-free deployments.
 - **RabbitMQ transport** — bind the messaging gateway to RabbitMQ exchanges and queues (classic, quorum, dead-letter topologies) via the `Amanhecer.RabbitMq` package.
 - **Kafka transports** — bind the messaging gateway to Kafka topics and consumer groups via the `Amanhecer.ConfluentKafka` (Confluent.Kafka) or `Amanhecer.Dekaf` (Dekaf, pure C#) packages, with batched offset commits and pluggable topic provisioning.
+- **Compression** — compress message payloads in the transformer pipeline with the `Amanhecer.Compression.LZ4`, `Amanhecer.Compression.Snappier` and `Amanhecer.Compression.Zstd` packages.
 - **Routing keys** — route requests to pipelines by convention (type name) or explicitly with `[RoutingKey]`.
 - **Executing strategies** — run published pipelines sequentially or in parallel.
+- **Resilience** — run pipelines inside named Polly resilience pipelines via the `Amanhecer.Polly` or `Amanhecer.Extensions.Resilience` packages.
+- **Observability** — built-in `ActivitySource` and `Meter`, with an `Amanhecer.OpenTelemetry` integration package.
 - **DI-first** — built on `Microsoft.Extensions.DependencyInjection`; everything is resolved from the container.
 - **Multi-targeting** — `net462`, `netstandard2.0`, `net8.0`, `net9.0` and `net10.0`, AOT-compatible on modern targets.
 
@@ -124,20 +128,26 @@ services.AddAmanhecer(a => a
 
 - `src/Amanhecer.Abstractions` — interfaces, base classes, attributes and contexts.
 - `src/Amanhecer` — the dispatcher, pipeline, factories, configurators, messaging abstractions and DI extensions.
+- `src/Amanhecer.InMemory` — in-memory transport for the messaging gateway (channel-backed queues).
 - `src/Amanhecer.RabbitMq` — RabbitMQ transport for the messaging gateway.
 - `src/Amanhecer.ConfluentKafka` — Kafka transport for the messaging gateway, built on Confluent.Kafka.
 - `src/Amanhecer.Dekaf` — Kafka transport for the messaging gateway, built on Dekaf (pure C#).
+- `src/Amanhecer.Compression.LZ4`, `src/Amanhecer.Compression.Snappier`, `src/Amanhecer.Compression.Zstd` — payload compression transformers (LZ4, Snappy, Zstandard).
 - `src/Amanhecer.Extensions.Hosting` — generic-host integration that runs the message consumers as a hosted service.
 - `src/Amanhecer.Polly` — middleware that wraps handlers in [Polly](https://www.pollydocs.org/) resilience pipelines.
 - `src/Amanhecer.Extensions.Resilience` — the same resilience middleware built on `Microsoft.Extensions.Resilience`.
 - `src/Amanhecer.OpenTelemetry` — OpenTelemetry tracing and metrics instrumentation for pipelines.
 - `samples/Simple` — a minimal console example.
 - `samples/Middleware` — a console example showing middleware in a pipeline.
+- `samples/InMemory` — a broker-free example using the in-memory transport.
 - `samples/RabbitMqQuorum` — a RabbitMQ example publishing to and consuming from a quorum queue.
-- `tests/Amanhecer.Tests` — unit tests (TUnit + NSubstitute).
+- `tests/Amanhecer.Tests`, `tests/Amanhecer.Abstractions.Tests` — unit tests (TUnit + NSubstitute).
 - `tests/Amanhecer.IntegrationTests` — end-to-end tests through the real DI container and pipelines.
+- `tests/Amanhecer.InMemory.Tests` — in-memory transport tests (no broker required).
 - `tests/Amanhecer.RabbitMq.Tests` — transport tests against a real broker (see `docker-compose-rabbitmq.yaml`).
-- `tests/Amanhecer.Polly.Tests`, `tests/Amanhecer.Extensions.Resilience.Tests`, `tests/Amanhecer.OpenTelemetry.Tests` — tests for the extension packages.
+- `tests/Amanhecer.ConfluentKafka.Tests`, `tests/Amanhecer.Dekaf.Tests` — Kafka transport tests against a real cluster (see `docker-compose-kafka.yaml`).
+- `tests/Amanhecer.Polly.Tests`, `tests/Amanhecer.Extensions.Resilience.Tests`, `tests/Amanhecer.OpenTelemetry.Tests`, `tests/Amanhecer.Extensions.Hosting.Tests` — tests for the extension packages.
+- `tests/Amanhecer.Messaging.Base.Tests` — transport-agnostic messaging gateway contract tests; new transports inherit them.
 
 ## Building and testing
 

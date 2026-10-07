@@ -1,5 +1,8 @@
 using System;
 using System.Buffers;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Globalization;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions;
@@ -14,17 +17,87 @@ namespace Amanhecer.RabbitMq.Streams;
 /// <param name="producer">The underlying reliable producer used to send messages.</param>
 public class RabbitMqStreamProducer(Producer producer) : IProducer
 {
+    /// <summary>Counts messages published successfully.</summary>
+    private static readonly Counter<int> SuccessCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
+        "amanhecer.message.publish.success",
+        unit: "{message}",
+        description: "Number of messages published successfully.");
+
+    /// <summary>Counts messages that failed to publish with an exception.</summary>
+    private static readonly Counter<int> FailedCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
+        "amanhecer.message.publish.failed",
+        unit: "{message}",
+        description: "Number of messages that failed to publish.");
+
+    /// <summary>Records how long publishing a message took, in seconds.</summary>
+    private static readonly Histogram<double> ProducerDuration =
+        AmanhecerDiagnostics.Meter.CreateHistogram<double>(
+            "amanhecer.message.publish.duration",
+            unit: "s",
+            description: "Duration of message publishing, in seconds.");
+
     /// <inheritdoc/>
     public async ValueTask ProduceAsync(Message message, IPublication publication, AmanhecerContext context)
     {
         if (publication is not RabbitMqStreamPublication rabbitMqPublication)
         {
-            throw new NotImplementedException();
+            throw new ArgumentException(
+                $"The publication must be a {nameof(RabbitMqStreamPublication)}.",
+                nameof(publication));
         }
 
+        var metricTags = new List<KeyValuePair<string, object?>>
+        {
+            new("messaging.system", "rabbitmq"),
+            new("messaging.operation.type", "publish"),
+            new("messaging.destination.name", rabbitMqPublication.Stream),
+        }.ToArray();
+
+        var spanTags = new List<KeyValuePair<string, object?>>(metricTags)
+        {
+            new("messaging.message.id", message.Id),
+            new("messaging.message.conversation_id", message.CorrelationId),
+            new("cloudevents.event_id", message.Id),
+            new("cloudevents.event_source", message.Source?.ToString()),
+            new("cloudevents.event_spec_version", message.SpecVersion),
+            new("cloudevents.event_type", message.Type),
+        }.ToArray();
+
+        var activity = AmanhecerDiagnostics.ActivitySource.StartActivity(
+            "Producer",
+            ActivityKind.Producer,
+            parentContext: context.Activity?.Context ?? default,
+            tags: spanTags);
+
+        message.Enrich(activity);
+
         SetCloudEventHeaders(message, publication);
-        await producer.Send(ToRabbitMqMessage(message, rabbitMqPublication, context))
-            .ConfigureAwait(context.ContinueOnCapturedContext);
+
+        var duration = Stopwatch.StartNew();
+        try
+        {
+            await producer.Send(ToRabbitMqMessage(message, rabbitMqPublication, context))
+                .ConfigureAwait(context.ContinueOnCapturedContext);
+
+            duration.Stop();
+            SuccessCounter.Add(1, metricTags);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+        }
+        catch (Exception e)
+        {
+            duration.Stop();
+            FailedCounter.Add(1, metricTags);
+#if !NET8_0
+            activity?.AddException(e);
+#endif
+            activity?.SetStatus(ActivityStatusCode.Error, e.Message);
+            throw;
+        }
+        finally
+        {
+            ProducerDuration.Record(duration.Elapsed.TotalSeconds, metricTags);
+            activity?.Stop();
+        }
     }
 
     private static RabbitMQ.Stream.Client.Message ToRabbitMqMessage(Message message,

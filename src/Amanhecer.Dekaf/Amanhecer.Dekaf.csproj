@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>$(AmanhecerCoreTargetFrameworks)</TargetFrameworks>
+        <TargetFrameworks>$(AmanhecerCoreAndStandardTargetFrameworks)</TargetFrameworks>
         <IsPackable>true</IsPackable>
         <Description>Kafka transport for Amanhecer (Dekaf): publish messages to topics and consume them through the messaging gateway, with CloudEvents mapping and pluggable provisioning.</Description>
         <PackageTags>mediator;cqrs;messaging;dispatcher;kafka;dekaf;cloudevents;middleware;pipeline</PackageTags>

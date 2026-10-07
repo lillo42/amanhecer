@@ -78,6 +78,34 @@ public class RabbitMqStreamProducerTests
     }
 
     [Test]
+    public async Task When_The_Message_Metadata_Sets_An_Expiration_Should_Map_The_Absolute_Expiry_Time()
+    {
+        var message = CreateMessage();
+        var publication = new RabbitMqStreamPublication("tests.stream") { RoutingKey = "tests" };
+        var expireAt = new DateTime(2030, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        message.Metadata[Metadata.Expiration] = expireAt;
+
+        var rmqMessage = ToRabbitMqMessage(message, publication, new AmanhecerContext());
+
+        await Assert.That(rmqMessage.Properties.AbsoluteExpiryTime).IsEqualTo(expireAt);
+    }
+
+    [Test]
+    public async Task When_Both_Message_And_Context_Set_An_Expiration_Should_Prefer_The_Message()
+    {
+        var message = CreateMessage();
+        var publication = new RabbitMqStreamPublication("tests.stream") { RoutingKey = "tests" };
+        var messageExpireAt = new DateTime(2030, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        message.Metadata[Metadata.Expiration] = messageExpireAt;
+        var context = new AmanhecerContext();
+        context.Metadata[Metadata.Expiration] = new DateTime(2031, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        var rmqMessage = ToRabbitMqMessage(message, publication, context);
+
+        await Assert.That(rmqMessage.Properties.AbsoluteExpiryTime).IsEqualTo(messageExpireAt);
+    }
+
+    [Test]
     public async Task When_The_Message_Carries_Amqp_Metadata_Should_Map_It_Onto_The_Message()
     {
         var message = CreateMessage();

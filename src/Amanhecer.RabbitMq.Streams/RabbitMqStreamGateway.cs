@@ -14,9 +14,12 @@ namespace Amanhecer.RabbitMq.Streams;
 
 /// <summary>Gateway that connects to a RabbitMQ Streams broker and creates producers and consumers for declared publications and subscriptions.</summary>
 public class RabbitMqStreamGateway : Gateway<RabbitMqStreamPublication, RabbitMqStreamSubscription>,
-    ILoggerFactorySupport
+    ILoggerFactorySupport, IAsyncDisposable
 {
+    private readonly List<RabbitMqStreamProducer> _producers = [];
+    private readonly List<RabbitMqStreamConsumer> _consumers = [];
     private StreamSystem? _system;
+    private bool _disposed;
 
     /// <summary>Gets or sets the broker user name. Defaults to <c>guest</c>.</summary>
     public string UserName { get; set; } = "guest";
@@ -39,30 +42,27 @@ public class RabbitMqStreamGateway : Gateway<RabbitMqStreamPublication, RabbitMq
     /// <summary>Gets or sets an optional callback to further configure the <see cref="StreamSystemConfig"/> before connecting.</summary>
     public Action<StreamSystemConfig>? Configuration { get; set; }
 
-    internal ValueTask<StreamSystem> GetOrCreateStreamSystem()
+    internal async ValueTask<StreamSystem> GetOrCreateStreamSystem()
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         if (_system != null)
         {
-            return new ValueTask<StreamSystem>(_system);
-        }
-
-        return new ValueTask<StreamSystem>(CreateStreamSystem());
-
-        async Task<StreamSystem> CreateStreamSystem()
-        {
-            var config = new StreamSystemConfig
-            {
-                UserName = UserName,
-                Password = Password,
-                VirtualHost = VirtualHost,
-                Endpoints = EndPoints
-            };
-
-            Configuration?.Invoke(config);
-
-            _system = await StreamSystem.Create(config, LoggerFactory?.CreateLogger<StreamSystem>());
             return _system;
         }
+
+        var config = new StreamSystemConfig
+        {
+            UserName = UserName,
+            Password = Password,
+            VirtualHost = VirtualHost,
+            Endpoints = EndPoints
+        };
+
+        Configuration?.Invoke(config);
+
+        _system = await StreamSystem.Create(config, LoggerFactory?.CreateLogger<StreamSystem>());
+        return _system;
     }
 
     /// <inheritdoc/>
@@ -82,7 +82,9 @@ public class RabbitMqStreamGateway : Gateway<RabbitMqStreamPublication, RabbitMq
             publication.Configure?.Invoke(config);
 
             var producer = Producer.Create(config).GetAwaiter().GetResult();
-            producers.Add(publication.RoutingKey, new RabbitMqStreamProducer(producer));
+            var rabbitMqProducer = new RabbitMqStreamProducer(producer);
+            _producers.Add(rabbitMqProducer);
+            producers.Add(publication.RoutingKey, rabbitMqProducer);
         }
 
         return producers;
@@ -103,14 +105,52 @@ public class RabbitMqStreamGateway : Gateway<RabbitMqStreamPublication, RabbitMq
 
         var config = new ConsumerConfig(streamSystem, rmqStreamSubscription.Stream)
         {
-            InitialCredits = (ushort)Math.Min(ushort.MaxValue, rmqStreamSubscription.BufferSize)
+            InitialCredits = (ushort)Math.Min(ushort.MaxValue, rmqStreamSubscription.BufferSize),
+            // Offset tracking (ack) requires a reference name; defaults to the subscription name.
+            Reference = rmqStreamSubscription.Name
         };
 
         rmqStreamSubscription.Configuration?.Invoke(config);
 
-        var consumer = new RabbitMqStreamConsumer(config, rmqStreamSubscription, 
+        var consumer = new RabbitMqStreamConsumer(config, rmqStreamSubscription,
             LoggerFactory?.CreateLogger<RabbitMqStreamConsumer>() ?? new NullLogger<RabbitMqStreamConsumer>());
         consumer.InitAsync().GetAwaiter().GetResult();
+        _consumers.Add(consumer);
         return consumer;
+    }
+
+    /// <summary>
+    /// Disposes the producers and consumers created by this gateway and closes the underlying
+    /// <see cref="StreamSystem"/>.
+    /// </summary>
+    /// <returns>A <see cref="ValueTask"/> that completes when the gateway has been disposed.</returns>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        foreach (var consumer in _consumers)
+        {
+            await consumer.DisposeAsync();
+        }
+
+        _consumers.Clear();
+
+        foreach (var producer in _producers)
+        {
+            await producer.DisposeAsync();
+        }
+
+        _producers.Clear();
+
+        if (_system != null)
+        {
+            await _system.Close();
+            _system = null;
+        }
     }
 }

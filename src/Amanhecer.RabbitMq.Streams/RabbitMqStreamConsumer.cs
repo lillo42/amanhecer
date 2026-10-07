@@ -17,7 +17,10 @@ using Message = Amanhecer.Abstractions.Messaging.Message;
 
 namespace Amanhecer.RabbitMq.Streams;
 
-/// <summary>RabbitMQ Streams implementation of <see cref="IConsumer"/> that reads from a stream via a <see cref="ConsumerConfig"/>.</summary>
+/// <summary>RabbitMQ Streams implementation of <see cref="IConsumer"/> that reads messages from a stream through a reliable <see cref="Consumer"/>.</summary>
+/// <param name="config">The configuration the underlying reliable consumer is created from.</param>
+/// <param name="subscription">The subscription this consumer consumes for.</param>
+/// <param name="logger">An optional logger for settle-operation warnings.</param>
 public partial class RabbitMqStreamConsumer(
     ConsumerConfig config,
     RabbitMqStreamSubscription subscription,

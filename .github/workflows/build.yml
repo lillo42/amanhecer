@@ -43,9 +43,6 @@ jobs:
       - name: Test Polly
         run: dotnet test tests/Amanhecer.Polly.Tests/Amanhecer.Polly.Tests.csproj --configuration Release
 
-      - name: Test RabbitMQ Streams (broker-independent unit tests)
-        run: dotnet test tests/Amanhecer.RabbitMq.Streams.Tests/Amanhecer.RabbitMq.Streams.Tests.csproj --configuration Release
-
       - name: Test IntegrationTests
         run: dotnet test tests/Amanhecer.IntegrationTests/Amanhecer.IntegrationTests.csproj --configuration Release
 
@@ -107,6 +104,9 @@ jobs:
 
       - name: "Test RabbitMQ (requires the broker service; TUnit timeout: 10 minutes)"
         run: dotnet test tests/Amanhecer.RabbitMq.Tests/Amanhecer.RabbitMq.Tests.csproj --configuration Release
+
+      - name: "Test RabbitMQ Streams (requires the broker service with the stream plugin; TUnit timeout: 10 minutes)"
+        run: dotnet test tests/Amanhecer.RabbitMq.Streams.Tests/Amanhecer.RabbitMq.Streams.Tests.csproj --configuration Release
 
   kafka:
     needs: build

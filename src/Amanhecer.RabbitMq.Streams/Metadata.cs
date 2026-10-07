@@ -3,10 +3,14 @@ namespace Amanhecer.RabbitMq.Streams;
 /// <summary>
 /// Well-known keys for <see cref="Amanhecer.Abstractions.Messaging.Message.Metadata"/> entries set by the RabbitMQ Streams transport.
 /// </summary>
-public class Metadata
+public static class Metadata
 {
     /// <summary>
     /// Key for the AMQP <c>AbsoluteExpiryTime</c> property stored as a <see cref="System.DateTime"/>.
+    /// Read from <see cref="Amanhecer.Abstractions.Messaging.Message.Metadata"/> when republishing a
+    /// consumed message, or set on the pipeline context metadata to apply an expiration at publish
+    /// time (a <see cref="System.DateTime"/>, <see cref="System.DateTimeOffset"/>
+    /// or <see cref="System.TimeSpan"/> from now).
     /// </summary>
     public const string Expiration = "Amanhecer.RabbitMq.Streams.Expiration";
 

@@ -15,8 +15,9 @@ namespace Amanhecer.RabbitMq.Streams;
 
 /// <summary>RabbitMQ Streams implementation of <see cref="IProducer"/> that publishes messages via a <see cref="Producer"/>.</summary>
 /// <param name="producer">The underlying reliable producer used to send messages.</param>
-public class RabbitMqStreamProducer(Producer producer) : IProducer
+public class RabbitMqStreamProducer(Producer producer) : IProducer, IAsyncDisposable
 {
+    private bool _disposed;
     /// <summary>Counts messages published successfully.</summary>
     private static readonly Counter<int> SuccessCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
         "amanhecer.message.publish.success",
@@ -100,6 +101,19 @@ public class RabbitMqStreamProducer(Producer producer) : IProducer
         }
     }
 
+    /// <summary>Closes the underlying <see cref="Producer"/>.</summary>
+    /// <returns>A <see cref="ValueTask"/> that completes when the producer has been closed.</returns>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        await producer.Close();
+    }
+
     private static RabbitMQ.Stream.Client.Message ToRabbitMqMessage(Message message,
         RabbitMqStreamPublication publication,
         AmanhecerContext context)
@@ -128,7 +142,11 @@ public class RabbitMqStreamProducer(Producer producer) : IProducer
             rmqMessage.Properties.UserId = encoding.GetBytes(publication.UserId);
         }
 
-        var expireAt = context.GetMetadata<object?>(Metadata.Expiration);
+        // The expiration set on the message itself (for example one carried over from a
+        // consumed message) wins; the pipeline context metadata acts as the publish-time fallback.
+        var expireAt = message.Metadata.TryGetValue(Metadata.Expiration, out var messageExpiration)
+            ? messageExpiration
+            : context.GetMetadata<object?>(Metadata.Expiration);
         rmqMessage.Properties.AbsoluteExpiryTime = expireAt switch
         {
             DateTime expireAtTime => expireAtTime,

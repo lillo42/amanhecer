@@ -25,17 +25,26 @@ jobs:
       - name: "Test InMemory (TUnit timeout: 5 minutes)"
         run: dotnet test tests/Amanhecer.InMemory.Tests/Amanhecer.InMemory.Tests.csproj --configuration Release
 
-      - name: Build and test (other projects with no external dependencies)
-        run: |
-          set -e
-          for project in tests/*/*.csproj; do
-            case "$project" in
-              # Shared contract-test library (not runnable) and the RabbitMQ/Kafka
-              # tests, which need a broker and run in their own jobs.
-              *Messaging.Base.Tests*|*InMemory.Tests*|*RabbitMq.Tests*|*ConfluentKafka.Tests*|*Dekaf.Tests*) continue ;;
-            esac
-            dotnet test "$project" --configuration Release
-          done
+      - name: Test Abstractions
+        run: dotnet test tests/Amanhecer.Abstractions.Tests/Amanhecer.Abstractions.Tests.csproj --configuration Release
+
+      - name: Test core Amanhecer
+        run: dotnet test tests/Amanhecer.Tests/Amanhecer.Tests.csproj --configuration Release
+
+      - name: Test Extensions.Hosting
+        run: dotnet test tests/Amanhecer.Extensions.Hosting.Tests/Amanhecer.Extensions.Hosting.Tests.csproj --configuration Release
+
+      - name: Test Extensions.Resilience
+        run: dotnet test tests/Amanhecer.Extensions.Resilience.Tests/Amanhecer.Extensions.Resilience.Tests.csproj --configuration Release
+
+      - name: Test OpenTelemetry
+        run: dotnet test tests/Amanhecer.OpenTelemetry.Tests/Amanhecer.OpenTelemetry.Tests.csproj --configuration Release
+
+      - name: Test Polly
+        run: dotnet test tests/Amanhecer.Polly.Tests/Amanhecer.Polly.Tests.csproj --configuration Release
+
+      - name: Test IntegrationTests
+        run: dotnet test tests/Amanhecer.IntegrationTests/Amanhecer.IntegrationTests.csproj --configuration Release
 
       - name: Collect TUnit HTML report
         if: always()
@@ -60,6 +69,7 @@ jobs:
         image: rabbitmq:4-management
         ports:
           - 5672:5672
+          - 5552:5552
         options: >-
           --health-cmd "rabbitmq-diagnostics -q ping"
           --health-interval 10s
@@ -78,8 +88,25 @@ jobs:
       - name: Restore
         run: dotnet restore Amanhecer.slnx
 
+      - name: Enable RabbitMQ Stream plugin
+        run: |
+          docker exec $(docker ps -q --filter "publish=5672") \
+            rabbitmq-plugins enable rabbitmq_stream rabbitmq_stream_management
+          # Wait for the stream port to accept connections
+          for i in $(seq 1 30); do
+            if nc -z localhost 5552 2>/dev/null; then
+              echo "Stream port ready after ${i} attempts"
+              break
+            fi
+            sleep 2
+          done
+          nc -z localhost 5552 || { echo "Stream port 5552 never became available"; exit 1; }
+
       - name: "Test RabbitMQ (requires the broker service; TUnit timeout: 10 minutes)"
         run: dotnet test tests/Amanhecer.RabbitMq.Tests/Amanhecer.RabbitMq.Tests.csproj --configuration Release
+
+      - name: "Test RabbitMQ Streams (requires the broker service with the stream plugin; TUnit timeout: 10 minutes)"
+        run: dotnet test tests/Amanhecer.RabbitMq.Streams.Tests/Amanhecer.RabbitMq.Streams.Tests.csproj --configuration Release
 
   kafka:
     needs: build

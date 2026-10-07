@@ -145,6 +145,7 @@ services.AddAmanhecer(a => a
 - `tests/Amanhecer.IntegrationTests` — end-to-end tests through the real DI container and pipelines.
 - `tests/Amanhecer.InMemory.Tests` — in-memory transport tests (no broker required).
 - `tests/Amanhecer.RabbitMq.Tests` — transport tests against a real broker (see `docker-compose-rabbitmq.yaml`).
+- `tests/Amanhecer.RabbitMq.Streams.Tests` — RabbitMQ Streams transport tests; the broker-backed ones need the broker's stream plugin enabled (the compose file enables it).
 - `tests/Amanhecer.ConfluentKafka.Tests`, `tests/Amanhecer.Dekaf.Tests` — Kafka transport tests against a real cluster (see `docker-compose-kafka.yaml`).
 - `tests/Amanhecer.Polly.Tests`, `tests/Amanhecer.Extensions.Resilience.Tests`, `tests/Amanhecer.OpenTelemetry.Tests`, `tests/Amanhecer.Extensions.Hosting.Tests` — tests for the extension packages.
 - `tests/Amanhecer.Messaging.Base.Tests` — transport-agnostic messaging gateway contract tests; new transports inherit them.

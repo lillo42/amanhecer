@@ -20,6 +20,8 @@ public abstract class MessagingGatewayTests<TGateway>
 
     protected virtual bool SupportsPostingWithoutBrokerFailureTest => true;
 
+    protected virtual bool SupportsDeferRedeliveryTest => true;
+
     protected virtual bool SupportsDeadLetterAfterTooManyRequeuesTest => false;
 
     protected virtual int DeadLetterAfterTooManyRequeuesCount => 3;
@@ -342,6 +344,11 @@ public abstract class MessagingGatewayTests<TGateway>
     [Test]
     public async Task When_Deferring_A_Message_Should_Be_Redelivered()
     {
+        if (!SupportsDeferRedeliveryTest)
+        {
+            Skip.Test($"{typeof(TGateway).Name} does not support redelivering deferred messages.");
+        }
+
         Gateway.Publications = [CreatePublication()];
         Gateway.Subscriptions = [CreateSubscription()];
 
@@ -455,11 +462,15 @@ public abstract class MessagingGatewayTests<TGateway>
 
         Gateway.Publications = [CreatePublication()];
 
-        var producer = CreateProducer();
-        var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
-
+        // Producer creation happens inside the assertion: transports that fail fast
+        // (for example RabbitMQ Streams) already throw when creating a producer for
+        // a destination that was never provisioned, while others only fail on send.
         await Assert.That(async () =>
-                await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext()))
+            {
+                var producer = CreateProducer();
+                var message = CreateMessage(x => x.SetPayload(Uuid.NewGuid().ToString()));
+                await producer.ProduceAsync(message, Gateway.Publications.First(), new AmanhecerContext());
+            })
             .Throws<Exception>();
     }
 

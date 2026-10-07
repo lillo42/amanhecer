@@ -58,6 +58,24 @@ is exposed on <http://localhost:15672> (guest/guest).
 dotnet run --project tests/Amanhecer.RabbitMq.Tests -f net10.0
 ```
 
+## RabbitMQ Streams tests
+
+`tests/Amanhecer.RabbitMq.Streams.Tests` follows the same split: broker-free unit tests
+(configurator validation, producer/consumer mapping, provisioner type guards) and
+broker-backed tests (the messaging gateway contract, offset tracking and the expiration
+round-trip) that run against the same broker, with the
+`rabbitmq_stream` plugin enabled — the compose file enables it through
+`rabbitmq-enabled-plugins`. In CI the project runs in the `rabbitmq` job, after the AMQP
+tests.
+
+The tests connect to `localhost:5552` by default; set the
+`AMANHECER_RABBITMQ_STREAM_ENDPOINT` environment variable (in `host[:port]` form) to point at
+a different broker.
+
+```bash
+dotnet run --project tests/Amanhecer.RabbitMq.Streams.Tests -f net10.0
+```
+
 ## Kafka tests
 
 `tests/Amanhecer.ConfluentKafka.Tests` and `tests/Amanhecer.Dekaf.Tests` follow the same

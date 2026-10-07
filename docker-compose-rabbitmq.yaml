@@ -5,10 +5,15 @@ services:
     hostname: rabbitmq-server
     ports:
       - "5672:5672"
+      - "5552:5552"   # RabbitMQ Streams protocol
       - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      # Enables rabbitmq_stream and rabbitmq_stream_management in addition to the
+      # management plugins that come pre-enabled in the management image.
+      - ./rabbitmq-enabled-plugins:/etc/rabbitmq/enabled_plugins:ro
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s

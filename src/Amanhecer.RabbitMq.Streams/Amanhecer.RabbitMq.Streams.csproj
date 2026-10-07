@@ -3,6 +3,8 @@
     <PropertyGroup>
         <TargetFrameworks>$(AmanhecerCoreTargetFrameworks)</TargetFrameworks>
         <IsPackable>true</IsPackable>
+        <Description>RabbitMQ Streams transport for Amanhecer: publish messages to streams and consume them through the messaging gateway, with CloudEvents mapping and pluggable stream provisioning.</Description>
+        <PackageTags>mediator;cqrs;messaging;dispatcher;rabbitmq;rabbitmq-streams;amqp;stream;cloudevents;middleware;pipeline</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>

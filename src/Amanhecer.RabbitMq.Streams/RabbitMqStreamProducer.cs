@@ -109,7 +109,7 @@ public class RabbitMqStreamProducer(Producer producer) : IProducer
         var data = new Data(new ReadOnlySequence<byte>(message.Payload));
         var rmqMessage = new RabbitMQ.Stream.Client.Message(data)
         {
-            Properties =
+            Properties = new Properties
             {
                 ContentEncoding = message.ContentEncoding,
                 ContentType = message.ContentType.ToString(),
@@ -120,6 +120,7 @@ public class RabbitMqStreamProducer(Producer producer) : IProducer
                 ReplyTo = message.ReplyTo,
                 MessageId = message.Id,
             },
+            ApplicationProperties = new ApplicationProperties(),
         };
 
         if (!string.IsNullOrEmpty(publication.UserId))

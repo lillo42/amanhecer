@@ -31,6 +31,7 @@
     <Project Path="tests/Amanhecer.Extensions.Resilience.Tests/Amanhecer.Extensions.Resilience.Tests.csproj" />
     <Project Path="tests/Amanhecer.Polly.Tests/Amanhecer.Polly.Tests.csproj" />
     <Project Path="tests/Amanhecer.RabbitMq.Tests/Amanhecer.RabbitMq.Tests.csproj" />
+    <Project Path="tests/Amanhecer.RabbitMq.Streams.Tests/Amanhecer.RabbitMq.Streams.Tests.csproj" />
     <Project Path="tests/Amanhecer.IntegrationTests/Amanhecer.IntegrationTests.csproj" />
     <Project Path="tests/Amanhecer.OpenTelemetry.Tests/Amanhecer.OpenTelemetry.Tests.csproj" />
     <Project Path="tests/Amanhecer.Tests/Amanhecer.Tests.csproj" />

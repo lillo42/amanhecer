@@ -39,7 +39,7 @@ public class RabbitMqStreamGateway : Gateway<RabbitMqStreamPublication, RabbitMq
     /// <summary>Gets or sets an optional callback to further configure the <see cref="StreamSystemConfig"/> before connecting.</summary>
     public Action<StreamSystemConfig>? Configuration { get; set; }
 
-    private ValueTask<StreamSystem> GetOrCreateStreamSystem()
+    internal ValueTask<StreamSystem> GetOrCreateStreamSystem()
     {
         if (_system != null)
         {

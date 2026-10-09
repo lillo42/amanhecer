@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>$(AmanhecerCoreAndStandardTargetFrameworks)</TargetFrameworks>
+        <IsPackable>true</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Amanhecer\Amanhecer.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="NATS.Net"/>
+    </ItemGroup>
+</Project>

@@ -54,7 +54,7 @@ public abstract class Publication : IPublication
     public IPublicationProvisioner? Provisioner { get; set; }
 
     /// <inheritdoc cref="IPublication.CloudEventType"/>
-    public CloudEventType CloudEventType { get; set; } = CloudEventType.Binary;
+    public virtual CloudEventType CloudEventType { get; set; } = CloudEventType.Binary;
 
     /// <inheritdoc cref="IPublication.Transformers"/>
     public IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; set; } = [];

@@ -12,7 +12,10 @@ using IProducer = Amanhecer.Abstractions.Messaging.IProducer;
 
 namespace Amanhecer.RabbitMq.Streams;
 
-/// <summary>Gateway that connects to a RabbitMQ Streams broker and creates producers and consumers for declared publications and subscriptions.</summary>
+/// <summary>
+/// Gateway that connects to a RabbitMQ Streams broker and creates producers and consumers for
+/// declared publications and subscriptions.
+/// </summary>
 public class RabbitMqStreamGateway : Gateway<RabbitMqStreamPublication, RabbitMqStreamSubscription>,
     ILoggerFactorySupport, IAsyncDisposable
 {
@@ -21,25 +24,41 @@ public class RabbitMqStreamGateway : Gateway<RabbitMqStreamPublication, RabbitMq
     private StreamSystem? _system;
     private bool _disposed;
 
-    /// <summary>Gets or sets the broker user name. Defaults to <c>guest</c>.</summary>
+    /// <summary>
+    /// Gets or sets the broker username.
+    /// Defaults to <c>guest</c>.
+    /// </summary>
     public string UserName { get; set; } = "guest";
 
-    /// <summary>Gets or sets the broker password. Defaults to <c>guest</c>.</summary>
+    /// <summary>
+    /// Gets or sets the broker password.
+    /// Defaults to <c>guest</c>.
+    /// </summary>
     public string Password { get; set; } = "guest";
 
-    /// <summary>Gets or sets the virtual host. Defaults to <c>/</c>.</summary>
+    /// <summary>
+    /// Gets or sets the virtual host.
+    /// Defaults to <c>/</c>.
+    /// </summary>
     public string VirtualHost { get; set; } = "/";
 
-    /// <summary>Gets or sets the broker endpoints. Defaults to <c>localhost:5552</c>.</summary>
+    /// <summary>
+    /// Gets or sets the broker endpoints.
+    /// Defaults to <c>localhost:5552</c>.
+    /// </summary>
     public IList<EndPoint> EndPoints { get; set; } = [new IPEndPoint(IPAddress.Loopback, 5552)];
 
-    /// <summary>Gets or sets the user id stamped on published messages.</summary>
+    /// <summary>
+    /// Gets or sets the user id stamped on published messages.
+    /// </summary>
     public string? UserId { get; set; }
 
     /// <inheritdoc/>
     public ILoggerFactory? LoggerFactory { get; set; }
 
-    /// <summary>Gets or sets an optional callback to further configure the <see cref="StreamSystemConfig"/> before connecting.</summary>
+    /// <summary>
+    /// Gets or sets an optional callback to further configure the <see cref="StreamSystemConfig"/> before connecting.
+    /// </summary>
     public Action<StreamSystemConfig>? Configuration { get; set; }
 
     internal async ValueTask<StreamSystem> GetOrCreateStreamSystem()
@@ -79,6 +98,11 @@ public class RabbitMqStreamGateway : Gateway<RabbitMqStreamPublication, RabbitMq
             publication.UserId ??= UserId;
 
             var config = new ProducerConfig(streamSystem, publication.Stream);
+            if (publication is RabbitMqSuperStreamPublication superStreamPublication)
+            {
+                config.SuperStreamConfig = superStreamPublication.SuperStreamConfig;
+            }
+
             publication.Configure?.Invoke(config);
 
             var producer = Producer.Create(config).GetAwaiter().GetResult();
@@ -105,6 +129,7 @@ public class RabbitMqStreamGateway : Gateway<RabbitMqStreamPublication, RabbitMq
 
         var config = new ConsumerConfig(streamSystem, rmqStreamSubscription.Stream)
         {
+            IsSuperStream = rmqStreamSubscription is RabbitMqSuperStreamSubscription,
             InitialCredits = (ushort)Math.Min(ushort.MaxValue, rmqStreamSubscription.BufferSize),
             // Offset tracking (ack) requires a reference name; defaults to the subscription name.
             Reference = rmqStreamSubscription.Name

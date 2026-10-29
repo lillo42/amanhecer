@@ -11,16 +11,24 @@ namespace Amanhecer.RabbitMq.Streams.Provisioners;
 /// </summary>
 public class CreateStream : IPublicationProvisioner, ISubscriptionProvisioner
 {
-    /// <summary>Gets or sets the maximum age of messages in the stream before they are deleted.</summary>
+    /// <summary>
+    /// Gets or sets the maximum age of messages in the stream before they are deleted.
+    /// </summary>
     public TimeSpan? MaxAge { get; set; }
 
-    /// <summary>Gets or sets the maximum total size in bytes of the stream before old segments are deleted.</summary>
+    /// <summary>
+    /// Gets or sets the maximum total size in bytes of the stream before old segments are deleted.
+    /// </summary>
     public ulong? MaxLengthBytes { get; set; }
 
-    /// <summary>Gets or sets the maximum size in bytes of each stream segment file.</summary>
+    /// <summary>
+    /// Gets or sets the maximum size in bytes of each stream segment file.
+    /// </summary>
     public int? MaxSegmentSizeBytes { get; set; }
 
-    /// <summary>Gets or sets the leader-locator strategy used when creating the stream.</summary>
+    /// <summary>
+    /// Gets or sets the leader-locator strategy used when creating the stream.
+    /// </summary>
     public LeaderLocator? LeaderLocator { get; set; }
 
     /// <inheritdoc/>

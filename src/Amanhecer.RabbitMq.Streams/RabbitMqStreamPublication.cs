@@ -5,7 +5,8 @@ using RabbitMQ.Stream.Client.Reliable;
 
 namespace Amanhecer.RabbitMq.Streams;
 
-/// <summary>RabbitMQ Streams publication options, extending <see cref="Publication"/> with stream-specific settings.</summary>
+/// <summary>
+/// RabbitMQ Streams publication options, extending <see cref="Publication"/> with stream-specific settings.</summary>
 public class RabbitMqStreamPublication(string stream) : Publication
 {
     /// <summary>
@@ -13,12 +14,37 @@ public class RabbitMqStreamPublication(string stream) : Publication
     /// </summary>
     public string? UserId { get; set; }
 
-    /// <summary>Gets or sets the stream name to publish to.</summary>
+    /// <summary>
+    /// Gets or sets the stream name to publish to.
+    /// </summary>
     public string Stream { get; set; } = stream;
 
-    /// <summary>Gets or sets an optional callback to further configure the <see cref="ProducerConfig"/> before the producer is created.</summary>
+    /// <summary>
+    /// Gets or sets an optional callback to further configure the <see cref="ProducerConfig"/>
+    /// before the producer is created.
+    /// </summary>
     public Action<ProducerConfig>? Configure { get; set; }
 
-    /// <summary>Gets or sets the encoding used to serialize string values such as <see cref="UserId"/>. Defaults to UTF-8.</summary>
+    /// <summary>
+    /// Gets or sets the encoding used to serialize string values such as <see cref="UserId"/>.
+    /// Defaults to UTF-8.
+    /// </summary>
     public Encoding Encoding { get; set; } = Encoding.UTF8;
+}
+
+/// <summary>
+/// A RabbitMQ Streams publication that publishes to a super stream: messages are routed to the
+/// super stream partitions according to <see cref="SuperStreamConfig"/>.
+/// </summary>
+/// <param name="stream">The name of the super stream to publish to.</param>
+/// <param name="superStreamConfig">The configuration used to route messages to the super stream partitions.</param>
+public class RabbitMqSuperStreamPublication(string stream, SuperStreamConfig superStreamConfig)
+    : RabbitMqStreamPublication(stream)
+{
+    /// <summary>
+    /// Gets or sets the configuration used to route messages to the super stream partitions,
+    /// including the routing function extracting the routing key from each message and the
+    /// routing strategy (hash or key) applied to it.
+    /// </summary>
+    public SuperStreamConfig SuperStreamConfig { get; set; } = superStreamConfig;
 }

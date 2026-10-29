@@ -83,6 +83,27 @@ internal static class RabbitMqStreamMessagingGatewayFixture
     }
 
     /// <summary>
+    /// Deletes a super stream, tolerating a super stream that is already gone.
+    /// </summary>
+    /// <param name="superStreamName">The super stream to delete.</param>
+    public static async Task DeleteSuperStreamAsync(string superStreamName)
+    {
+        var system = await CreateStreamSystemAsync();
+        try
+        {
+            await system.DeleteSuperStream(superStreamName);
+        }
+        catch
+        {
+            // The super stream is already gone or was never created: nothing to clean up.
+        }
+        finally
+        {
+            await system.Close();
+        }
+    }
+
+    /// <summary>
     /// Creates the message produced by the tests: a message with a unique id and payload.
     /// </summary>
     /// <returns>A new message.</returns>

@@ -58,4 +58,7 @@ public abstract class Publication : IPublication
 
     /// <inheritdoc cref="IPublication.Transformers"/>
     public IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; set; } = [];
+
+    /// <inheritdoc cref="IPublication.Outbox"/>
+    public IOutbox? Outbox { get; set; }
 }

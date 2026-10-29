@@ -97,5 +97,10 @@ public interface IPublication
     /// Gets the encode transformers applied to messages published through this publication,
     /// on top of any globally registered transformers.
     /// </summary>
-    IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; }
+    IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; set; }
+    
+    /// <summary>
+    /// 
+    /// </summary>
+    IOutbox? Outbox { get; set; }
 }

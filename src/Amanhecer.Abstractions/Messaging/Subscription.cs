@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Mime;
 using Amanhecer.Abstractions.Exceptions;
+using Amanhecer.Abstractions.Messaging.Inboxes;
 
 namespace Amanhecer.Abstractions.Messaging;
 
@@ -96,5 +97,8 @@ public abstract class Subscription(string toRoutingKey) : ISubscription
     public TimeSpan MessageProcessingTimeout { get; set; }
 
     /// <inheritdoc cref="ISubscription.BatchProcessingStrategy"/>
-    public IBatchProcessingStrategy? BatchProcessingStrategy { get; set; } 
+    public IBatchProcessingStrategy? BatchProcessingStrategy { get; set; }
+
+    /// <inheritdoc cref="ISubscription.Inbox"/>
+    public IInbox? Inbox { get; set; }
 }

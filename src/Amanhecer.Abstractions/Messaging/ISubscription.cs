@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Mime;
+using Amanhecer.Abstractions.Messaging.Inboxes;
 
 namespace Amanhecer.Abstractions.Messaging;
 
@@ -14,56 +15,56 @@ public interface ISubscription
     /// <summary>
     /// Gets the routing key messages are consumed from.
     /// </summary>
-    string ToRoutingKey { get; }
+    string ToRoutingKey { get; set; }
 
     /// <summary>
     /// Gets the content type (the CloudEvents <c>datacontenttype</c> attribute) expected on
     /// consumed messages.
     /// </summary>
-    ContentType DefaultContentType { get; }
+    ContentType DefaultContentType { get; set;  }
 
     /// <summary>
     /// Gets the schema (the CloudEvents <c>dataschema</c> attribute) expected on consumed
     /// message payloads, if any.
     /// </summary>
-    Uri? DefaultDataSchema { get; }
+    Uri? DefaultDataSchema { get; set; }
 
     /// <summary>
     /// Gets the address replies should be sent to, expected on consumed messages, if any.
     /// </summary>
-    string? DefaultReplyTo { get; }
+    string? DefaultReplyTo { get; set;  }
 
     /// <summary>
     /// Gets the source (the CloudEvents <c>source</c> attribute) expected on consumed messages.
     /// </summary>
-    Uri DefaultSource { get; }
+    Uri DefaultSource { get; set;  }
 
     /// <summary>
     /// Gets the CloudEvents spec version expected on consumed messages.
     /// </summary>
-    string DefaultSpecVersion { get; }
+    string DefaultSpecVersion { get; set; }
 
     /// <summary>
     /// Gets the subject (the CloudEvents <c>subject</c> attribute) expected on consumed
     /// messages, if any.
     /// </summary>
-    string? DefaultSubject { get; }
+    string? DefaultSubject { get; set; }
 
     /// <summary>
     /// Gets the type (the CloudEvents <c>type</c> attribute) expected on consumed messages.
     /// </summary>
-    string DefaultType { get; }
+    string DefaultType { get; set; }
 
     /// <summary>
     /// Gets the CloudEvents content mode expected on consumed messages: binary (attributes
     /// in transport headers) or structured JSON envelope.
     /// </summary>
-    CloudEventType CloudEventType { get; }
+    CloudEventType CloudEventType { get; set; }
 
     /// <summary>
     /// Gets the name of the subscription.
     /// </summary>
-    string Name { get; }
+    string Name { get; set; }
 
     /// <summary>
     /// Gets the name of the messaging system messages are consumed from, following the
@@ -76,28 +77,28 @@ public interface ISubscription
     /// <summary>
     /// Gets the number of consumers reading from the subscription.
     /// </summary>
-    int NumberOfConsumers { get; }
+    int NumberOfConsumers { get; set; }
 
     /// <summary>
     /// Gets the size of the buffer used to hold messages prefetched from the transport.
     /// </summary>
-    int BufferSize { get; }
+    int BufferSize { get; set; }
 
     /// <summary>
     /// Gets the delay the consumer waits before polling again when no message was received.
     /// </summary>
-    TimeSpan NoMessageDelay { get; }
+    TimeSpan NoMessageDelay { get; set; }
 
     /// <summary>
     /// Gets the delay the consumer waits before polling again when receiving or processing
     /// messages fails.
     /// </summary>
-    TimeSpan FailureDelay { get; }
+    TimeSpan FailureDelay { get; set; }
 
     /// <summary>
     /// Gets the maximum time the consumer waits for messages on each poll.
     /// </summary>
-    TimeSpan ReceiveMessageTimeout { get; }
+    TimeSpan ReceiveMessageTimeout { get; set; }
 
     /// <summary>
     /// Gets or sets the <see cref="IMessageMapper"/> implementation used to map between the
@@ -110,50 +111,55 @@ public interface ISubscription
     /// Gets the provisioner that creates the transport resources this subscription
     /// needs, if any.
     /// </summary>
-    ISubscriptionProvisioner? Provisioner { get; }
+    ISubscriptionProvisioner? Provisioner { get; set; }
 
     /// <summary>
     /// Gets the routing key messages are reposted to when they are moved to the
     /// dead-letter queue, if configured.
     /// </summary>
-    string? DeadLetterQueueRoutingKey { get; }
+    string? DeadLetterQueueRoutingKey { get; set; }
 
     /// <summary>
     /// Gets the routing key messages are reposted to when they are moved to the
     /// invalid-message destination, if configured.
     /// </summary>
-    string? InvalidMessageRoutingKey { get; }
+    string? InvalidMessageRoutingKey { get; set; }
 
     /// <summary>
     /// Gets a value indicating whether awaits while processing the consumed messages should
     /// continue on the captured synchronization context.
     /// </summary>
-    bool ContinueOnCapturedContext { get; }
+    bool ContinueOnCapturedContext { get; set; }
 
     /// <summary>
     /// Gets the function that maps an exception thrown while handling a consumed message
     /// to the <see cref="IConsumerAction"/> used to settle it.
     /// </summary>
-    Func<Message, Exception, IConsumerAction> OnError { get; }
+    Func<Message, Exception, IConsumerAction> OnError { get; set; }
 
     /// <summary>
     /// Gets the decode transformers applied to messages consumed through this subscription,
     /// on top of any globally registered transformers.
     /// </summary>
-    IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; }
+    IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; set; }
 
     /// <summary>
     /// Gets the maximum time allowed to process a batch of consumed messages.
     /// </summary>
-    TimeSpan BatchProcessingTimeout { get; }
+    TimeSpan BatchProcessingTimeout { get; set; }
 
     /// <summary>
     /// Gets the maximum time allowed to process a single consumed message.
     /// </summary>
-    TimeSpan MessageProcessingTimeout { get; }
+    TimeSpan MessageProcessingTimeout { get; set; }
     
     /// <summary>
     /// Gets the strategy used to process batches of consumed messages.
     /// </summary>
-    IBatchProcessingStrategy? BatchProcessingStrategy { get; }
+    IBatchProcessingStrategy? BatchProcessingStrategy { get; set; }
+    
+    /// <summary>
+    /// 
+    /// </summary>
+    IInbox? Inbox { get; set; }
 }

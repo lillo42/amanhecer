@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Amanhecer.Abstractions.Messaging.Inboxes;
 
 namespace Amanhecer.Abstractions.Messaging;
 
@@ -29,6 +30,15 @@ public abstract class Gateway<TPublication, TSubscription> : IGateway
     /// </summary>
     public List<TSubscription> Subscriptions { get; set; } = [];
 
+    /// <summary>
+    /// 
+    /// </summary>
+    public IInbox? Inbox { get; set; }
+    
+    /// <summary>
+    /// 
+    /// </summary>
+    public IOutbox? Outbox { get; set; }
 
     IEnumerable<IPublication> IGateway.Publications
     {

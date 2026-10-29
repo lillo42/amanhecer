@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Amanhecer.Abstractions.Messaging.Inboxes;
 
 namespace Amanhecer.Abstractions.Messaging;
 
@@ -23,6 +24,16 @@ public interface IGateway
     /// Gets the subscriptions declared on this gateway.
     /// </summary>
     IEnumerable<ISubscription> Subscriptions { get; set; }
+    
+    /// <summary>
+    /// 
+    /// </summary>
+    IInbox? Inbox { get; set; }
+    
+    /// <summary>
+    /// 
+    /// </summary>
+    IOutbox? Outbox { get; set; }
 
     /// <summary>
     /// Executes the provisioner of every publication and subscription that declares one,

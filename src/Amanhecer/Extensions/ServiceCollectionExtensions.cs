@@ -124,6 +124,19 @@ public static class ServiceCollectionExtensions
                 subscription.Transformers);
         }
 
+        foreach (var gateway in cfg.Gateways)
+        {
+            foreach (var publication in gateway.Publications)
+            {
+                publication.Outbox ??= gateway.Outbox;
+            }
+
+            foreach (var subscription in gateway.Subscriptions)
+            {
+                subscription.Inbox ??= gateway.Inbox;
+            }
+        }
+
         // Explicitly named pipelines that belong to no publication or subscription still
         // get the global transformers.
         if (globalTransformers.Count > 0)

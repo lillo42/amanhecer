@@ -112,8 +112,8 @@ public class CreateSuperStream : IPublicationProvisioner, ISubscriptionProvision
             spec.LeaderLocator = LeaderLocator.Value;
         }
 
-        // CreateSuperStream was skipped when the super stream already exists; a
-        // CreateSuperStreamException signals any other broker-side error.
+        // The super stream is only created when it does not exist yet (see the check above);
+        // any broker-side failure surfaces as an exception from the client.
         await system.CreateSuperStream(spec);
     }
 }

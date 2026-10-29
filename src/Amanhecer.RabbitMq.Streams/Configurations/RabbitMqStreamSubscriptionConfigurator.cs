@@ -55,7 +55,9 @@ public class RabbitMqStreamSubscriptionConfigurator
     private string? _stream;
 
     /// <summary>
-    /// Sets the name of the RabbitMQ stream messages are consumed from.
+    /// Sets the name of the RabbitMQ stream messages are consumed from. When the subscription
+    /// is configured as a super stream through <see cref="SuperStream"/>, this is the name of
+    /// the super stream.
     /// </summary>
     /// <param name="stream">The stream name.</param>
     /// <returns>The configurator instance for method chaining.</returns>
@@ -67,6 +69,20 @@ public class RabbitMqStreamSubscriptionConfigurator
         }
 
         _stream = stream;
+        return this;
+    }
+
+    private bool _superStream;
+
+    /// <summary>
+    /// Configures the subscription to consume from a super stream instead of a classic stream:
+    /// all partitions of the super stream are consumed through single-active consumers and
+    /// offsets are tracked per partition.
+    /// </summary>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqStreamSubscriptionConfigurator SuperStream()
+    {
+        _superStream = true;
         return this;
     }
 
@@ -393,6 +409,32 @@ public class RabbitMqStreamSubscriptionConfigurator
         return this;
     }
 
+    /// <summary>
+    /// Creates the super stream on the broker when it does not already exist. The subscription
+    /// must be configured as a super stream through <see cref="SuperStream"/>.
+    /// </summary>
+    /// <param name="configure">A delegate that configures how the super stream is created.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqStreamSubscriptionConfigurator CreateSuperStreamIfNotExists(Action<CreateSuperStreamConfigurator> configure)
+    {
+        var cfg = new CreateSuperStreamConfigurator();
+        configure.Invoke(cfg);
+        _provisioner = cfg.ToProvisioner();
+        return this;
+    }
+
+    /// <summary>
+    /// Creates the super stream on the broker when it does not already exist, using default
+    /// settings (a single partition). The subscription must be configured as a super stream
+    /// through <see cref="SuperStream"/>.
+    /// </summary>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqStreamSubscriptionConfigurator CreateSuperStreamIfNotExists()
+    {
+        _provisioner = new CreateSuperStream();
+        return this;
+    }
+
     internal RabbitMqStreamSubscription ToSubscription()
     {
         if (string.IsNullOrEmpty(_toRoutingKey))
@@ -407,22 +449,30 @@ public class RabbitMqStreamSubscriptionConfigurator
                 "A stream name is required for a subscription. Call Stream to configure it.");
         }
 
-        var subscription = new RabbitMqStreamSubscription(_toRoutingKey!, _stream!)
+        if (_superStream && _provisioner is CreateStream)
         {
-            Name = _name ?? Uuid.NewGuid().ToString(),
-            MessageMapperType = _messageMapperType,
-            CloudEventType = _cloudEventType,
-            Transformers = [.. _transformers],
-            NumberOfConsumers = _numberOfConsumers,
-            BufferSize = _bufferSize,
-            DefaultSpecVersion = _defaultSpecVersion,
-            DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute),
-            DefaultType = _defaultType ?? "default",
-            Provisioner = _provisioner,
-            DeadLetterQueueRoutingKey = _deadLetterQueueRoutingKey,
-            InvalidMessageRoutingKey = _invalidMessageRoutingKey,
-            Configuration = _configure
-        };
+            throw new InvalidOperationException(
+                "A super stream subscription cannot be provisioned with CreateStream; " +
+                "call CreateSuperStreamIfNotExists or provision it with CreateSuperStream.");
+        }
+
+        var subscription = _superStream
+            ? new RabbitMqSuperStreamSubscription(_toRoutingKey!, _stream!)
+            : new RabbitMqStreamSubscription(_toRoutingKey!, _stream!);
+
+        subscription.Name = _name ?? Uuid.NewGuid().ToString();
+        subscription.MessageMapperType = _messageMapperType;
+        subscription.CloudEventType = _cloudEventType;
+        subscription.Transformers = [.. _transformers];
+        subscription.NumberOfConsumers = _numberOfConsumers;
+        subscription.BufferSize = _bufferSize;
+        subscription.DefaultSpecVersion = _defaultSpecVersion;
+        subscription.DefaultSource = _defaultSource ?? new Uri("amanhecer", UriKind.RelativeOrAbsolute);
+        subscription.DefaultType = _defaultType ?? "default";
+        subscription.Provisioner = _provisioner;
+        subscription.DeadLetterQueueRoutingKey = _deadLetterQueueRoutingKey;
+        subscription.InvalidMessageRoutingKey = _invalidMessageRoutingKey;
+        subscription.Configuration = _configure;
 
         if (_onError is not null)
         {

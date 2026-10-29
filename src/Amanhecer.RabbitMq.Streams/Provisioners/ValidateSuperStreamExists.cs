@@ -4,6 +4,10 @@ using Amanhecer.Abstractions.Messaging;
 
 namespace Amanhecer.RabbitMq.Streams.Provisioners;
 
+/// <summary>
+/// A provisioner that validates the super stream of a publication or subscription exists on
+/// the broker, failing if it does not.
+/// </summary>
 public class ValidateSuperStreamExists : IPublicationProvisioner, ISubscriptionProvisioner
 {
     /// <inheritdoc/>

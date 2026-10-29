@@ -31,8 +31,6 @@ public class CreateStream : IPublicationProvisioner, ISubscriptionProvisioner
     /// </summary>
     public LeaderLocator? LeaderLocator { get; set; }
 
-    public SuperStreamSpec? Partition { get; set; }
-
     /// <inheritdoc/>
     public Task ExecuteAsync(IGateway gateway, IPublication publication)
     {

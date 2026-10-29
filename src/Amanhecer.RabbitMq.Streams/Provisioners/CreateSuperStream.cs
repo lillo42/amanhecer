@@ -5,7 +5,13 @@ using RabbitMQ.Stream.Client;
 
 namespace Amanhecer.RabbitMq.Streams.Provisioners;
 
-
+/// <summary>
+/// A provisioner that creates the super stream of a publication or subscription if it does not
+/// exist yet. The super stream shape is selected through <see cref="StreamType"/>: a number of
+/// hash-routed partitions (<see cref="PartitionSuperStream"/>) or a set of binding keys with
+/// key-based routing (<see cref="BindingSuperStream"/>). A super stream that already exists is
+/// left untouched.
+/// </summary>
 public class CreateSuperStream : IPublicationProvisioner, ISubscriptionProvisioner
 {
     /// <summary>
@@ -28,6 +34,11 @@ public class CreateSuperStream : IPublicationProvisioner, ISubscriptionProvision
     /// </summary>
     public LeaderLocator? LeaderLocator { get; set; }
 
+    /// <summary>
+    /// Gets or sets the shape of the super stream to create: a number of partitions through
+    /// <see cref="PartitionSuperStream"/> or a set of binding keys through
+    /// <see cref="BindingSuperStream"/>. Defaults to a single partition.
+    /// </summary>
     public SuperStreamType StreamType { get; set; } = PartitionSuperStream.Instance;
 
     /// <inheritdoc/>
@@ -66,12 +77,20 @@ public class CreateSuperStream : IPublicationProvisioner, ISubscriptionProvision
         }
 
         var system = await streamGateway.GetOrCreateStreamSystem();
-        SuperStreamSpec spec =  StreamType switch 
+
+        // CreateSuperStream is not idempotent on the broker (it fails when the super stream
+        // already exists), so skip creation when it is already there.
+        if (await system.SuperStreamExists(streamName))
+        {
+            return;
+        }
+
+        var spec = (SuperStreamSpec)(StreamType switch
         {
             PartitionSuperStream partition => new PartitionsSuperStreamSpec(streamName, partition.Partition),
             BindingSuperStream binding => new BindingsSuperStreamSpec(streamName, binding.BindingKey),
             _ => throw new NotImplementedException()
-        };
+        });
 
         if (MaxAge.HasValue)
         {
@@ -93,8 +112,8 @@ public class CreateSuperStream : IPublicationProvisioner, ISubscriptionProvision
             spec.LeaderLocator = LeaderLocator.Value;
         }
 
-        // StreamSystem.CreateStream returns normally when the stream already exists;
-        // CreateStreamException is only thrown for other errors.
+        // CreateSuperStream was skipped when the super stream already exists; a
+        // CreateSuperStreamException signals any other broker-side error.
         await system.CreateSuperStream(spec);
     }
 }

@@ -32,7 +32,19 @@ public class RabbitMqStreamPublication(string stream) : Publication
     public Encoding Encoding { get; set; } = Encoding.UTF8;
 }
 
-public class RabbitMqSuperStreamPublication(string stream, SuperStreamConfig superStreamConfig) : RabbitMqStreamPublication(stream)
+/// <summary>
+/// A RabbitMQ Streams publication that publishes to a super stream: messages are routed to the
+/// super stream partitions according to <see cref="SuperStreamConfig"/>.
+/// </summary>
+/// <param name="stream">The name of the super stream to publish to.</param>
+/// <param name="superStreamConfig">The configuration used to route messages to the super stream partitions.</param>
+public class RabbitMqSuperStreamPublication(string stream, SuperStreamConfig superStreamConfig)
+    : RabbitMqStreamPublication(stream)
 {
+    /// <summary>
+    /// Gets or sets the configuration used to route messages to the super stream partitions,
+    /// including the routing function extracting the routing key from each message and the
+    /// routing strategy (hash or key) applied to it.
+    /// </summary>
     public SuperStreamConfig SuperStreamConfig { get; set; } = superStreamConfig;
 }

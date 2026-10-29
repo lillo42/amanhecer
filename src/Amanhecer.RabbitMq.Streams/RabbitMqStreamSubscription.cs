@@ -21,5 +21,11 @@ public class RabbitMqStreamSubscription(string toRoutingKey, string stream) : Su
     public Action<ConsumerConfig>? Configuration { get; set; }
 }
 
+/// <summary>
+/// A RabbitMQ Streams subscription that consumes from all partitions of a super stream: each
+/// partition is read through a single-active consumer and offsets are tracked per partition.
+/// </summary>
+/// <param name="toRoutingKey">The routing key consumed messages are dispatched to.</param>
+/// <param name="stream">The name of the super stream to consume from.</param>
 public class RabbitMqSuperStreamSubscription(string toRoutingKey, string stream)
     : RabbitMqStreamSubscription(toRoutingKey, stream);

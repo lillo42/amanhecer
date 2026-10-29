@@ -57,7 +57,9 @@ public class RabbitMqStreamPublicationConfigurator
     private string? _stream;
 
     /// <summary>
-    /// Sets the name of the RabbitMQ stream messages are published to.
+    /// Sets the name of the RabbitMQ stream messages are published to. When the publication is
+    /// configured as a super stream through <see cref="SuperStream"/>, this is the name of the
+    /// super stream.
     /// </summary>
     /// <param name="stream">The stream name.</param>
     /// <returns>The configurator instance for method chaining.</returns>
@@ -69,6 +71,28 @@ public class RabbitMqStreamPublicationConfigurator
         }
 
         _stream = stream;
+        return this;
+    }
+
+    private SuperStreamConfig? _superStreamConfig;
+
+    /// <summary>
+    /// Configures the publication to publish to a super stream instead of a classic stream.
+    /// Messages are routed to the super stream partitions according to
+    /// <paramref name="superStreamConfig"/>; when omitted, messages are routed by hashing the
+    /// AMQP <c>GroupId</c> property (mapped from <c>Message.PartitionKey</c>).
+    /// </summary>
+    /// <param name="superStreamConfig">An optional configuration for routing messages to the
+    /// super stream partitions. When <c>null</c>, a default hash-on-<c>GroupId</c> routing
+    /// configuration is used.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqStreamPublicationConfigurator SuperStream(SuperStreamConfig? superStreamConfig = null)
+    {
+        _superStreamConfig = superStreamConfig ?? new SuperStreamConfig
+        {
+            Routing = static message => message.Properties.GroupId ?? string.Empty
+        };
+
         return this;
     }
 
@@ -373,6 +397,32 @@ public class RabbitMqStreamPublicationConfigurator
         return this;
     }
 
+    /// <summary>
+    /// Creates the super stream on the broker when it does not already exist. The publication
+    /// must be configured as a super stream through <see cref="SuperStream"/>.
+    /// </summary>
+    /// <param name="configure">A delegate that configures how the super stream is created.</param>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqStreamPublicationConfigurator CreateSuperStreamIfNotExists(Action<CreateSuperStreamConfigurator> configure)
+    {
+        var cfg = new CreateSuperStreamConfigurator();
+        configure.Invoke(cfg);
+        _provisioner = cfg.ToProvisioner();
+        return this;
+    }
+
+    /// <summary>
+    /// Creates the super stream on the broker when it does not already exist, using default
+    /// settings (a single partition). The publication must be configured as a super stream
+    /// through <see cref="SuperStream"/>.
+    /// </summary>
+    /// <returns>The configurator instance for method chaining.</returns>
+    public RabbitMqStreamPublicationConfigurator CreateSuperStreamIfNotExists()
+    {
+        _provisioner = new CreateSuperStream();
+        return this;
+    }
+
     internal RabbitMqStreamPublication ToPublication()
     {
         if (string.IsNullOrEmpty(_routingKey))
@@ -387,24 +437,32 @@ public class RabbitMqStreamPublicationConfigurator
                 "A stream name is required for a publication. Call Stream to configure it.");
         }
 
-        return new RabbitMqStreamPublication(_stream!)
+        if (_superStreamConfig is not null && _provisioner is CreateStream)
         {
-            RoutingKey = _routingKey!,
-            Name = _name ?? Uuid.NewGuid().ToString(),
-            MessageMapperType = _messageMapperType,
-            Transformers = [.. _transformers],
-            UserId = _userId,
-            Encoding = _encoding ?? System.Text.Encoding.UTF8,
-            Configure = _configure,
-            DefaultContentType = _defaultContentType ?? new ContentType("text/plain"),
-            DefaultDataSchema = _defaultDataSchema,
-            DefaultSource = _defaultSource,
-            DefaultSubject = _defaultSubject,
-            DefaultType = _defaultType,
-            DefaultReplyTo = _defaultReplyTo,
-            DefaultHeaders = _defaultHeaders,
-            AdditionalCloudEvents = _additionalCloudEvents,
-            Provisioner = _provisioner
-        };
+            throw new InvalidOperationException(
+                "A super stream publication cannot be provisioned with CreateStream; " +
+                "call CreateSuperStreamIfNotExists or provision it with CreateSuperStream.");
+        }
+
+        var publication = _superStreamConfig is null
+            ? new RabbitMqStreamPublication(_stream!) { RoutingKey = _routingKey! }
+            : new RabbitMqSuperStreamPublication(_stream!, _superStreamConfig) { RoutingKey = _routingKey! };
+        publication.Name = _name ?? Uuid.NewGuid().ToString();
+        publication.MessageMapperType = _messageMapperType;
+        publication.Transformers = [.. _transformers];
+        publication.UserId = _userId;
+        publication.Encoding = _encoding ?? System.Text.Encoding.UTF8;
+        publication.Configure = _configure;
+        publication.DefaultContentType = _defaultContentType ?? new ContentType("text/plain");
+        publication.DefaultDataSchema = _defaultDataSchema;
+        publication.DefaultSource = _defaultSource;
+        publication.DefaultSubject = _defaultSubject;
+        publication.DefaultType = _defaultType;
+        publication.DefaultReplyTo = _defaultReplyTo;
+        publication.DefaultHeaders = _defaultHeaders;
+        publication.AdditionalCloudEvents = _additionalCloudEvents;
+        publication.Provisioner = _provisioner;
+
+        return publication;
     }
 }

@@ -13,24 +13,32 @@ using RabbitMQ.Stream.Client.Reliable;
 
 namespace Amanhecer.RabbitMq.Streams;
 
-/// <summary>RabbitMQ Streams implementation of <see cref="IProducer"/> that publishes messages via a <see cref="Producer"/>.</summary>
+/// <summary>
+/// RabbitMQ Streams implementation of <see cref="IProducer"/> that publishes messages via a <see cref="Producer"/>.
+/// </summary>
 /// <param name="producer">The underlying reliable producer used to send messages.</param>
 public class RabbitMqStreamProducer(Producer producer) : IProducer, IAsyncDisposable
 {
     private bool _disposed;
-    /// <summary>Counts messages published successfully.</summary>
+    /// <summary>
+    /// Counts messages published successfully.
+    /// </summary>
     private static readonly Counter<int> SuccessCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
         "amanhecer.message.publish.success",
         unit: "{message}",
         description: "Number of messages published successfully.");
 
-    /// <summary>Counts messages that failed to publish with an exception.</summary>
+    /// <summary>
+    /// Counts messages that failed to publish with an exception.
+    /// </summary>
     private static readonly Counter<int> FailedCounter = AmanhecerDiagnostics.Meter.CreateCounter<int>(
         "amanhecer.message.publish.failed",
         unit: "{message}",
         description: "Number of messages that failed to publish.");
 
-    /// <summary>Records how long publishing a message took, in seconds.</summary>
+    /// <summary>
+    /// Records how long publishing a message took, in seconds.
+    /// </summary>
     private static readonly Histogram<double> ProducerDuration =
         AmanhecerDiagnostics.Meter.CreateHistogram<double>(
             "amanhecer.message.publish.duration",

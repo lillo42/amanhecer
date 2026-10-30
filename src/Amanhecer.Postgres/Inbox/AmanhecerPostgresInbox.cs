@@ -76,13 +76,14 @@ public partial class AmanhecerPostgresInbox(AmanhecerRdsInboxConfiguration confi
 
     /// <summary>
     /// Determines whether the exception thrown by the insert represents a duplicate inbox
-    /// entry (a unique-constraint violation on the message id and subscription name).
+    /// entry: a PostgreSQL <see cref="PostgresException"/> with SQLSTATE 23505
+    /// (unique_violation) on the inbox table's unique constraint.
     /// </summary>
     /// <param name="ex">The exception thrown while inserting the inbox entry.</param>
     /// <returns><c>true</c> when the exception means the message was already processed.</returns>
     protected override bool IsDuplicated(Exception ex)
     {
-        throw new NotImplementedException();
+        return ex is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation };
     }
 
     private const string SimpleInsert =

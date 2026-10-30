@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Amanhecer.Abstractions.Messaging.Transactions;
@@ -30,6 +31,8 @@ public interface IInbox
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns><see cref="InboxStoreResponse.Inserted"/> when the message was not seen
     /// before; otherwise <see cref="InboxStoreResponse.AlreadyProcess"/>.</returns>
+    /// <exception cref="ArgumentException">Thrown when the transaction is not one begun
+    /// by the inbox's own <see cref="IInbox.TransactionManager"/>.</exception>
     ValueTask<InboxStoreResponse> StoreAsync(Message message, ITransaction transaction,
         CancellationToken cancellationToken = default);
 }

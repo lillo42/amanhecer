@@ -3,6 +3,8 @@
     <PropertyGroup>
         <TargetFrameworks>$(AmanhecerTargetFrameworks)</TargetFrameworks>
         <IsPackable>true</IsPackable>
+        <Description>PostgreSQL support for Amanhecer: a relational inbox providing at-most-once processing by recording consumed messages in a PostgreSQL table, with transactions over Npgsql connections.</Description>
+        <PackageTags>mediator;cqrs;messaging;dispatcher;postgres;npgsql;database;inbox;outbox;cloudevents;middleware;pipeline</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>
@@ -11,6 +13,10 @@
 
     <ItemGroup>
         <PackageReference Include="Npgsql"/>
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0' OR '$(TargetFramework)' == 'net462'">
+        <PackageReference Include="System.Text.Json"/>
     </ItemGroup>
 
 </Project>

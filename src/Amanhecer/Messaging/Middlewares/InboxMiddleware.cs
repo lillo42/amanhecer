@@ -50,16 +50,13 @@ public class InboxMiddleware(ITransactionAccessor accessor) : IMiddleware
             {
                 // TODO: Add debug log
                 await next(context).ConfigureAwait(context.ContinueOnCapturedContext);
+                await transaction.CommitAsync(context.CancellationToken)
+                    .ConfigureAwait(context.ContinueOnCapturedContext);
             }
             else
             {
                 // TODO: Add warn log
-                await transaction.RollbackAsync(context.CancellationToken)
-                    .ConfigureAwait(context.ContinueOnCapturedContext);
             }
-
-            await transaction.CommitAsync(context.CancellationToken)
-                .ConfigureAwait(context.ContinueOnCapturedContext);
         }
         finally
         {
@@ -175,7 +172,10 @@ public class InboxMiddleware(ITransactionAccessor accessor) : IMiddleware
         /// <returns>A <see cref="ValueTask"/> that completes when the rollback has run.</returns>
         public async ValueTask RollbackAsync(CancellationToken cancellationToken = default)
         {
-            await Inner.RollbackAsync(cancellationToken);
+            if(_shouldCommit)
+            {
+                await Inner.RollbackAsync(cancellationToken);
+            }
         }
     }
 }

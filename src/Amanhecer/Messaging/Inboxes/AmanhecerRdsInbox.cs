@@ -34,7 +34,11 @@ public abstract class AmanhecerRdsInbox(AmanhecerRdsInboxConfiguration configura
     {
         if (transaction is not AmanhecerRdsTransaction rdsTransaction)
         {
-            throw new NotImplementedException();
+            throw new ArgumentException(
+                $"The transaction must be an '{nameof(AmanhecerRdsTransaction)}', but got " +
+                $"'{transaction.GetType().Name}'. Ensure the inbox is used with a transaction " +
+                "begun by its transaction manager.",
+                nameof(transaction));
         }
 
         try
@@ -59,7 +63,11 @@ public abstract class AmanhecerRdsInbox(AmanhecerRdsInboxConfiguration configura
     {
         if (transaction is not AmanhecerRdsTransaction rdsTransaction)
         {
-            throw new NotImplementedException();
+            throw new ArgumentException(
+                $"The transaction must be an '{nameof(AmanhecerRdsTransaction)}', but got " +
+                $"'{transaction.GetType().Name}'. Ensure the inbox is used with a transaction " +
+                "begun by its transaction manager.",
+                nameof(transaction));
         }
 
         try

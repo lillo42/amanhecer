@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Amanhecer.Abstractions;
 using Amanhecer.Abstractions.Messaging;
+using Amanhecer.Abstractions.Messaging.Transactions;
 using Amanhecer.Configurator;
 using Amanhecer.ExecutingStrategies;
 using Amanhecer.Messaging;
@@ -54,7 +55,8 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<IMessagePumpFactory, AmanhecerMessagePumpFactory>();
         services.TryAddTransient<EncodeMiddleware>();
         services.TryAddTransient<DecodeMiddleware>();
-        services.TryAddTransient<JsonMessageMapper>();
+        services.TryAddSingleton<JsonMessageMapper>();
+        services.TryAddSingleton<ITransactionAccessor, AmanhecerTransactionAccessor>();
 
         var cfg = new AmanhecerConfigurator(services);
         configure?.Invoke(cfg);

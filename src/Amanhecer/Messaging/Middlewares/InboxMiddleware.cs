@@ -70,32 +70,46 @@ public class InboxMiddleware(ITransactionAccessor accessor) : IMiddleware
 
     private ValueTask<InnerTransaction> GetOrCreateTransactionAsync(AmanhecerContext context, IInbox inbox)
     {
+        var autoCommitTransaction = inbox.Configuration.AutoCommitTransaction;
+
         var transaction = accessor.Transaction;
         if (transaction != null)
         {
-            return new ValueTask<InnerTransaction>(new InnerTransaction(transaction, inbox.AutoCommit, false));
+            return new ValueTask<InnerTransaction>(new InnerTransaction(transaction, autoCommitTransaction, false));
         }
 
         var metadata = context.GetMetadata<TransactionMetadata>();
         if (metadata != null)
         {
-            return new ValueTask<InnerTransaction>(new InnerTransaction(metadata.Transaction, inbox.AutoCommit, false));
+            return new ValueTask<InnerTransaction>(new InnerTransaction(metadata.Transaction, autoCommitTransaction, false));
         }
 
         return new ValueTask<InnerTransaction>(CreateTransaction(inbox.TransactionManager, context.CancellationToken));
 
-        static async Task<InnerTransaction> CreateTransaction(ITransactionManager transactionManager, CancellationToken cancellationToken)
+        static async Task<InnerTransaction> CreateTransaction(ITransactionManager transactionManager,
+            CancellationToken cancellationToken)
         {
             var transaction = await transactionManager.BeginAsync(cancellationToken);
             return new InnerTransaction(transaction, true, true);
         }
     }
 
+    /// <summary>
+    /// Wraps the transaction used by the inbox pipeline, tracking whether the middleware
+    /// owns the transaction (and therefore should commit and dispose it) or borrowed it
+    /// from an outer scope.
+    /// </summary>
     private class InnerTransaction : ITransaction, IAsyncDisposable, IDisposable
     {
         private readonly bool _shouldCommit;
         private readonly bool _shouldDispose;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="InnerTransaction"/> class.
+        /// </summary>
+        /// <param name="inner">The underlying transaction to wrap.</param>
+        /// <param name="shouldCommit">Whether the middleware should commit the transaction.</param>
+        /// <param name="shouldDispose">Whether the middleware owns the transaction and should dispose it.</param>
         public InnerTransaction(ITransaction inner, bool shouldCommit, bool shouldDispose)
         {
             _shouldCommit = shouldCommit;
@@ -103,8 +117,12 @@ public class InboxMiddleware(ITransactionAccessor accessor) : IMiddleware
             Inner = inner;
         }
 
+        /// <summary>
+        /// Gets the underlying transaction wrapped by this instance.
+        /// </summary>
         public ITransaction Inner { get; }
-        
+
+        /// <inheritdoc cref="IDisposable.Dispose"/>
         public void Dispose()
         {
             var dispose = DisposeAsync();
@@ -115,6 +133,10 @@ public class InboxMiddleware(ITransactionAccessor accessor) : IMiddleware
             }
         }
 
+        /// <summary>
+        /// Disposes the underlying transaction when the middleware owns it.
+        /// </summary>
+        /// <returns>A <see cref="ValueTask"/> that completes when disposal has run.</returns>
         public async ValueTask DisposeAsync()
         {
             if (!_shouldDispose)
@@ -132,6 +154,12 @@ public class InboxMiddleware(ITransactionAccessor accessor) : IMiddleware
             }
         }
 
+        /// <summary>
+        /// Commits the underlying transaction when the middleware owns it; otherwise does
+        /// nothing and leaves the commit to the outer scope.
+        /// </summary>
+        /// <param name="cancellationToken">A token to cancel the operation.</param>
+        /// <returns>A <see cref="ValueTask"/> that completes when the commit has run.</returns>
         public async ValueTask CommitAsync(CancellationToken cancellationToken = default)
         {
             if (_shouldCommit)
@@ -140,6 +168,11 @@ public class InboxMiddleware(ITransactionAccessor accessor) : IMiddleware
             }
         }
 
+        /// <summary>
+        /// Rolls back the underlying transaction.
+        /// </summary>
+        /// <param name="cancellationToken">A token to cancel the operation.</param>
+        /// <returns>A <see cref="ValueTask"/> that completes when the rollback has run.</returns>
         public async ValueTask RollbackAsync(CancellationToken cancellationToken = default)
         {
             await Inner.RollbackAsync(cancellationToken);

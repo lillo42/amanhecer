@@ -14,13 +14,13 @@ public interface IInbox
     /// Gets the transaction manager used to begin a transaction when none is ambient,
     /// so the inbox entry and the message handling share the same commit.
     /// </summary>
-    ITransactionManager TransactionManager { get; }
+    ITransactionManager TransactionManager { get; set; }
 
     /// <summary>
-    /// Gets or sets a value indicating whether the transaction should be committed by the
-    /// inbox pipeline even when it was created by an outer scope.
+    /// Gets the configuration of the inbox, such as the transaction commit behaviour and
+    /// the deduplication mode.
     /// </summary>
-    bool AutoCommit { get; set; }
+    InboxConfiguration Configuration { get; }
 
     /// <summary>
     /// Records the message in the inbox within the given transaction.

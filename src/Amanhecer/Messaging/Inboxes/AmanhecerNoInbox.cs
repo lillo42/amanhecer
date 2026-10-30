@@ -11,12 +11,17 @@ namespace Amanhecer.Messaging.Inboxes;
 /// A no-op inbox that records nothing and always reports a message as inserted, so the
 /// pipeline runs the handler once per delivery without deduplication.
 /// </summary>
-public class NoInbox : IInbox
+public class AmanhecerNoInbox : IInbox
 {
     /// <summary>
     /// Gets the transaction manager that begins no-op transactions.
     /// </summary>
-    public ITransactionManager TransactionManager { get; } = new NoTransactionManager();
+    public ITransactionManager TransactionManager { get; set; } = new AmanhecerNoTransactionManager();
+
+    /// <summary>
+    /// Gets the inbox configuration, left at its defaults since nothing is recorded.
+    /// </summary>
+    public InboxConfiguration Configuration { get; } = new InboxConfiguration();
 
     /// <summary>
     /// Gets or sets a value indicating whether transactions should be committed by the

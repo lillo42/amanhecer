@@ -1,31 +1,31 @@
+#if NETSTANDARD || NETFRAMEWORK
 using System.Threading;
 using System.Threading.Tasks;
-using Amanhecer.Abstractions.Messaging.Transactions;
 
 namespace Amanhecer.Messaging.Transactions;
 
-/// <summary>
-/// A no-op transaction that performs nothing on commit or rollback.
-/// </summary>
-public class NoTransaction : ITransaction
+public partial class AmanhecerRdsTransaction
 {
     /// <summary>
-    /// Does nothing; there is no underlying transaction to commit.
+    /// Commits the underlying database transaction when one exists.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>A completed <see cref="ValueTask"/>.</returns>
+    /// <returns>A <see cref="ValueTask"/> that completes when the commit has run.</returns>
     public ValueTask CommitAsync(CancellationToken cancellationToken = default)
     {
+        transaction?.Commit();
         return new ValueTask();
     }
 
     /// <summary>
-    /// Does nothing; there is no underlying transaction to roll back.
+    /// Rolls back the underlying database transaction when one exists.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>A completed <see cref="ValueTask"/>.</returns>
+    /// <returns>A <see cref="ValueTask"/> that completes when the rollback has run.</returns>
     public ValueTask RollbackAsync(CancellationToken cancellationToken = default)
     {
+        transaction?.Rollback();
         return new ValueTask();
     }
 }
+#endif

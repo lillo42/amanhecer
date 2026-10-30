@@ -100,7 +100,8 @@ public interface IPublication
     IReadOnlyList<AmanhecerTransformerOptions> Transformers { get; set; }
     
     /// <summary>
-    /// 
+    /// Gets or sets the outbox used to record messages published through this
+    /// publication within the current transaction.
     /// </summary>
     IOutbox? Outbox { get; set; }
 }

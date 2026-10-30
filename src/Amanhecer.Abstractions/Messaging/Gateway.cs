@@ -31,12 +31,14 @@ public abstract class Gateway<TPublication, TSubscription> : IGateway
     public List<TSubscription> Subscriptions { get; set; } = [];
 
     /// <summary>
-    /// 
+    /// Gets or sets the inbox applied by default to every subscription declared on this
+    /// gateway that does not declare its own.
     /// </summary>
     public IInbox? Inbox { get; set; }
-    
+
     /// <summary>
-    /// 
+    /// Gets or sets the outbox applied by default to every publication declared on this
+    /// gateway that does not declare its own.
     /// </summary>
     public IOutbox? Outbox { get; set; }
 

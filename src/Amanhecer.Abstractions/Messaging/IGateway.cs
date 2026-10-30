@@ -26,12 +26,14 @@ public interface IGateway
     IEnumerable<ISubscription> Subscriptions { get; set; }
     
     /// <summary>
-    /// 
+    /// Gets or sets the inbox applied by default to every subscription declared on this
+    /// gateway that does not declare its own.
     /// </summary>
     IInbox? Inbox { get; set; }
-    
+
     /// <summary>
-    /// 
+    /// Gets or sets the outbox applied by default to every publication declared on this
+    /// gateway that does not declare its own.
     /// </summary>
     IOutbox? Outbox { get; set; }
 

@@ -159,7 +159,8 @@ public interface ISubscription
     IBatchProcessingStrategy? BatchProcessingStrategy { get; set; }
     
     /// <summary>
-    /// 
+    /// Gets or sets the inbox used to deduplicate messages consumed through this
+    /// subscription, providing at-most-once processing.
     /// </summary>
     IInbox? Inbox { get; set; }
 }
